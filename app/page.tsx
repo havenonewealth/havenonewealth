@@ -1,65 +1,147 @@
-import Image from "next/image";
+'use client'
 
-export default function Home() {
+import Image from 'next/image'
+import { useEffect, useState } from 'react'
+import { supabase } from '@/lib/supabaseClient'
+
+export default function Dashboard() {
+  const [sources, setSources] = useState<any[]>([])
+  const [newSource, setNewSource] = useState({
+    source_name: '',
+    source_type: '',
+    frequency: '',
+    expected_amount: ''
+  })
+  const [message, setMessage] = useState('')
+
+  useEffect(() => {
+    fetchSources()
+  }, [])
+
+  const fetchSources = async () => {
+    const { data, error } = await supabase.from('income_sources').select('*')
+    if (error) setMessage('Error loading data: ' + error.message)
+    else setSources(data)
+  }
+
+  const addSource = async (e: any) => {
+    e.preventDefault()
+    const { error } = await supabase.from('income_sources').insert([newSource])
+    if (error) setMessage('Error adding source: ' + error.message)
+    else {
+      setMessage('✅ Source added successfully!')
+      setNewSource({ source_name: '', source_type: '', frequency: '', expected_amount: '' })
+      fetchSources()
+    }
+  }
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
+    <main style={{ padding: '2rem', fontFamily: 'Lato, sans-serif', color: '#0A1E2D' }}>
+      {/* LOGO */}
+      <Image
+        src="/HOW2Logo.png"
+        alt="Haven One Wealth Logo"
+        width={160}
+        height={60}
+        style={{ marginBottom: '1rem' }}
+      />
+
+      <h1 style={{ color: '#0A1E2D', marginBottom: '0.5rem' }}>Haven One Wealth Dashboard</h1>
+      <p style={{ marginBottom: '2rem', color: '#444' }}>
+        Track your royalties, residuals, and income sources.
+      </p>
+
+      {/* FORM SECTION */}
+      <form
+        onSubmit={addSource}
+        style={{
+          display: 'flex',
+          flexDirection: 'column',
+          maxWidth: 400,
+          gap: '0.75rem',
+          marginBottom: '2rem'
+        }}
+      >
+        <input
+          type="text"
+          placeholder="Source Name (e.g. Spotify)"
+          value={newSource.source_name}
+          onChange={(e) => setNewSource({ ...newSource, source_name: e.target.value })}
+          required
+          style={{
+            padding: '10px',
+            borderRadius: '6px',
+            border: '1px solid #ccc',
+            fontSize: '14px'
+          }}
         />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
-    </div>
-  );
+
+        <input
+          type="text"
+          placeholder="Type (Royalty / Residual)"
+          value={newSource.source_type}
+          onChange={(e) => setNewSource({ ...newSource, source_type: e.target.value })}
+          style={{
+            padding: '10px',
+            borderRadius: '6px',
+            border: '1px solid #ccc',
+            fontSize: '14px'
+          }}
+        />
+
+        <input
+          type="text"
+          placeholder="Frequency (Monthly / Quarterly)"
+          value={newSource.frequency}
+          onChange={(e) => setNewSource({ ...newSource, frequency: e.target.value })}
+          style={{
+            padding: '10px',
+            borderRadius: '6px',
+            border: '1px solid #ccc',
+            fontSize: '14px'
+          }}
+        />
+
+        <input
+          type="number"
+          placeholder="Expected Amount"
+          value={newSource.expected_amount}
+          onChange={(e) => setNewSource({ ...newSource, expected_amount: e.target.value })}
+          style={{
+            padding: '10px',
+            borderRadius: '6px',
+            border: '1px solid #ccc',
+            fontSize: '14px'
+          }}
+        />
+
+        <button
+          type="submit"
+          style={{
+            backgroundColor: '#C6A664',
+            color: '#0A1E2D',
+            border: 'none',
+            borderRadius: '8px',
+            padding: '12px 20px',
+            cursor: 'pointer',
+            fontWeight: 600
+          }}
+        >
+          Add Source
+        </button>
+      </form>
+
+      {message && <p>{message}</p>}
+
+      {/* INCOME SOURCE LIST */}
+      <h2>Your Income Sources</h2>
+      <ul>
+        {sources.map((src) => (
+          <li key={src.id}>
+            <strong>{src.source_name}</strong> — {src.source_type} — {src.frequency} — ${src.expected_amount}
+          </li>
+        ))}
+      </ul>
+    </main>
+  )
 }
