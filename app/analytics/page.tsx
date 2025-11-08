@@ -25,6 +25,7 @@ export default function AnalyticsPage() {
   const [summary, setSummary] = useState<any[]>([])
   const [forecast, setForecast] = useState<any[]>([])
   const [insights, setInsights] = useState<any[]>([])
+  const [expectedVsActual, setExpectedVsActual] = useState<any[]>([])
   const [message, setMessage] = useState('')
   const [loading, setLoading] = useState(true)
 
@@ -43,15 +44,22 @@ export default function AnalyticsPage() {
     if (!user) return
 
     try {
-      const [{ data: summaryData }, { data: forecastData }, { data: insightData }] = await Promise.all([
+      const [
+        { data: summaryData },
+        { data: forecastData },
+        { data: insightData },
+        { data: expectedData }
+      ] = await Promise.all([
         supabase.from('v_user_payout_summary').select('*').eq('user_id', user.id),
         supabase.rpc('get_monthly_forecast', { user_uuid: user.id }),
-        supabase.from('v_user_insights').select('*').eq('user_id', user.id)
+        supabase.from('v_user_insights').select('*').eq('user_id', user.id),
+        supabase.from('v_user_expected_vs_actual').select('*').eq('user_id', user.id)
       ])
 
       setSummary(summaryData || [])
       setForecast(forecastData || [])
       setInsights(insightData || [])
+      setExpectedVsActual(expectedData || [])
     } catch (err: any) {
       setMessage('Error loading analytics: ' + err.message)
     } finally {
@@ -76,7 +84,7 @@ export default function AnalyticsPage() {
       <div className="max-w-6xl mx-auto bg-white p-10 rounded-2xl shadow-md border border-gray-100">
         {/* Header */}
         <div className="flex justify-between items-center mb-4">
-          <Image src="/HOW2Logo.png" alt="Haven One Wealth Logo" width={160} height={60} />
+          <Image src="/HOW2Logo.png" alt="Haven One Wealth Logo" width={160} height={60} priority />
           <div className="flex gap-3">
             <button
               onClick={() => router.push('/dashboard')}
@@ -100,15 +108,26 @@ export default function AnalyticsPage() {
         </div>
 
         <h1 className="text-3xl font-semibold mb-2 text-[#0A1E2D]">Advanced Analytics</h1>
-        <p className="text-gray-600 mb-8 text-[15px]">Comprehensive insights into your royalties and residual performance.</p>
+        <p className="text-gray-600 mb-8 text-[15px]">
+          Gain deeper insights into your royalties, residuals, and performance trends.
+        </p>
 
         {message && <p className="text-sm mb-4 text-red-600">{message}</p>}
 
         {loading ? (
           <div className="flex flex-col items-center justify-center py-20 text-gray-600">
-            <svg className="animate-spin h-8 w-8 text-[#C6A664] mb-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4l3-3-3-3v4a8 8 0 00-8 8z"></path>
+            <svg
+              className="animate-spin h-8 w-8 text-[#C6A664] mb-3"
+              xmlns="http://www.w3.org/2000/svg"
+              fill="none"
+              viewBox="0 0 24 24"
+            >
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+              <path
+                className="opacity-75"
+                fill="currentColor"
+                d="M4 12a8 8 0 018-8v4l3-3-3-3v4a8 8 0 00-8 8z"
+              />
             </svg>
             <p>Loading analytics...</p>
           </div>
@@ -116,7 +135,9 @@ export default function AnalyticsPage() {
           <div className="flex flex-col items-center justify-center py-20 text-center text-gray-600">
             <Image src="/HOW2Logo.png" alt="Haven One Wealth Logo" width={120} height={120} className="mb-6" />
             <h2 className="text-2xl font-semibold text-[#0A1E2D] mb-2">No Payout Data Yet</h2>
-            <p className="max-w-md mb-6">Once you start recording royalties and residuals, your analytics will appear here.</p>
+            <p className="max-w-md mb-6">
+              Once you start recording royalties and residuals, your analytics will appear here.
+            </p>
             <button
               onClick={() => router.push('/dashboard')}
               className="bg-[#C6A664] text-[#0A1E2D] px-5 py-2 rounded-md font-semibold hover:bg-[#b59655] transition"
@@ -126,7 +147,7 @@ export default function AnalyticsPage() {
           </div>
         ) : (
           <>
-            {/* KPI Summary Row */}
+            {/* KPI Cards */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
               <div className="bg-[#fafafa] p-5 rounded-lg shadow-sm text-center">
                 <p className="text-sm text-gray-500">Total Earnings</p>
@@ -146,7 +167,7 @@ export default function AnalyticsPage() {
               </div>
             </div>
 
-            {/* Charts */}
+            {/* Charts Section */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
               <div className="bg-[#fafafa] p-6 rounded-lg shadow-sm">
                 <h2 className="font-semibold mb-4 text-[#0A1E2D]">Earnings by Source</h2>
@@ -166,7 +187,9 @@ export default function AnalyticsPage() {
                 <ResponsiveContainer width="100%" height={250}>
                   <PieChart>
                     <Pie data={summary} dataKey="total_amount" nameKey="source_name" outerRadius={100} label>
-                      {summary.map((_, i) => <Cell key={i} fill="#C6A664" />)}
+                      {summary.map((_, i) => (
+                        <Cell key={i} fill="#C6A664" />
+                      ))}
                     </Pie>
                     <Tooltip />
                     <Legend />
@@ -175,7 +198,23 @@ export default function AnalyticsPage() {
               </div>
             </div>
 
-            {/* Forecast Line Chart */}
+            {/* Expected vs Actual */}
+            <div className="bg-[#fafafa] p-6 rounded-lg shadow-sm mb-8">
+              <h2 className="font-semibold mb-4 text-[#0A1E2D]">Expected vs Actual Earnings</h2>
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart data={expectedVsActual}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="source_name" />
+                  <YAxis />
+                  <Tooltip />
+                  <Legend />
+                  <Bar dataKey="expected_amount" fill="#E0C878" name="Expected" />
+                  <Bar dataKey="actual_earned" fill="#C6A664" name="Actual" />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+
+            {/* Forecast Line */}
             <div className="bg-[#fafafa] p-6 rounded-lg shadow-sm mb-8">
               <h2 className="font-semibold mb-4 text-[#0A1E2D]">Actual vs Forecast Trend</h2>
               <ResponsiveContainer width="100%" height={300}>
