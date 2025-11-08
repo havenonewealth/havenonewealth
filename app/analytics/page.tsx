@@ -76,7 +76,7 @@ export default function AnalyticsPage() {
       <div className="max-w-6xl mx-auto bg-white p-10 rounded-2xl shadow-md border border-gray-100">
         {/* Header */}
         <div className="flex justify-between items-center mb-4">
-          <Image src="/HOW2logo.png" alt="Haven One Wealth Logo" width={160} height={60} />
+          <Image src="/HOW2Logo.png" alt="Haven One Wealth Logo" width={160} height={60} />
           <div className="flex gap-3">
             <button
               onClick={() => router.push('/dashboard')}
@@ -114,7 +114,7 @@ export default function AnalyticsPage() {
           </div>
         ) : summary.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 text-center text-gray-600">
-            <Image src="/how2logo.png" alt="Haven One Wealth Logo" width={120} height={120} className="mb-6" />
+            <Image src="/HOW2Logo.png" alt="Haven One Wealth Logo" width={120} height={120} className="mb-6" />
             <h2 className="text-2xl font-semibold text-[#0A1E2D] mb-2">No Payout Data Yet</h2>
             <p className="max-w-md mb-6">Once you start recording royalties and residuals, your analytics will appear here.</p>
             <button
