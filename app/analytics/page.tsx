@@ -47,7 +47,7 @@ export default function AnalyticsPage() {
       return
     }
 
-    // Fetch payout summary view
+    // Fetch payout summary
     const { data: summaryData, error: summaryError } = await supabase
       .from('v_user_payout_summary')
       .select('*')
@@ -198,7 +198,14 @@ export default function AnalyticsPage() {
                   <XAxis dataKey="month" />
                   <YAxis />
                   <Tooltip />
-                  <Line type="monotone" dataKey="total" stroke="#C6A664" strokeWidth={2} dot />
+                  <Line
+                    type="monotone"
+                    dataKey="total"
+                    stroke="#C6A664"
+                    strokeWidth={2}
+                    dot={{ r: 5, stroke: '#C6A664', strokeWidth: 2, fill: 'white' }}
+                    label={{ position: 'top', fill: '#0A1E2D', fontSize: 12 }}
+                  />
                 </LineChart>
               </ResponsiveContainer>
             </div>
