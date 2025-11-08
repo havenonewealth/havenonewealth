@@ -76,7 +76,7 @@ export default function AnalyticsPage() {
       <div className="max-w-6xl mx-auto bg-white p-10 rounded-2xl shadow-md border border-gray-100">
         {/* Header */}
         <div className="flex justify-between items-center mb-4">
-          <Image src="/how2logo.png" alt="Haven One Wealth Logo" width={160} height={60} />
+          <Image src="/HOW2logo.png" alt="Haven One Wealth Logo" width={160} height={60} />
           <div className="flex gap-3">
             <button
               onClick={() => router.push('/dashboard')}
