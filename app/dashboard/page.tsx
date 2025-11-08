@@ -77,13 +77,20 @@ export default function Dashboard() {
       <div className="max-w-5xl mx-auto bg-white p-10 rounded-2xl shadow-md border border-gray-100">
 
         {/* Logo & Header Row */}
-        <div className="flex justify-between items-center mb-4">
-          <Image
-            src="/HOW2Logo.png"
-            alt="Haven One Wealth Logo"
-            width={160}
-            height={60}
-          />
+       <div className="flex justify-between items-center mb-4">
+        <Image
+          src="/HOW2Logo.png"
+          alt="Haven One Wealth Logo"
+          width={160}
+          height={60}
+        />
+        <div className="flex gap-3">
+          <button
+            onClick={() => router.push('/payouts')}
+            className="bg-[#C6A664] text-[#0A1E2D] px-4 py-2 rounded-md font-semibold hover:bg-[#b59655] transition"
+          >
+            Payouts
+          </button>
           <button
             onClick={handleLogout}
             className="bg-[#0A1E2D] text-white px-4 py-2 rounded-md hover:bg-[#C6A664] transition"
@@ -91,6 +98,7 @@ export default function Dashboard() {
             Logout
           </button>
         </div>
+      </div>
 
         <h1 className="text-3xl font-semibold mb-2 text-[#0A1E2D]">Haven One Wealth Dashboard</h1>
         <p className="text-gray-600 mb-8 text-[15px]">
