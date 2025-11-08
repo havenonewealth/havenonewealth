@@ -53,17 +53,24 @@ export default function AnalyticsPage() {
       .select('*')
       .eq('user_id', user.id)
 
-    if (summaryError) setMessage('Error loading analytics: ' + summaryError.message)
-    else setSummary(summaryData || [])
+    if (summaryError) {
+      setMessage('Error loading analytics: ' + summaryError.message)
+    } else {
+      setSummary(summaryData || [])
+    }
 
-    // Fetch monthly payout trend
-    const { data: monthlyData } = await supabase
-      .from('v_user_monthly_payouts')
-      .select('*')
-      .eq('user_id', user.id)
-      .order('month', { ascending: true })
+    // Fetch monthly payout trend via RPC
+    const { data: monthlyData, error: monthlyError } = await supabase.rpc('get_monthly_payouts', {
+      user_uuid: user.id
+    })
 
-    setMonthly(monthlyData || [])
+    if (monthlyError) {
+      console.error('Monthly trend error:', monthlyError)
+      setMessage('Error loading monthly payouts: ' + monthlyError.message)
+    } else {
+      setMonthly(monthlyData || [])
+    }
+
     setLoading(false)
   }
 
