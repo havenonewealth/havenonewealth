@@ -230,18 +230,38 @@ export default function AnalyticsPage() {
             </div>
 
             {/* Smart Insights */}
+            {/* Smart Insights */}
             <div className="bg-[#fafafa] p-6 rounded-lg shadow-sm">
-              <h2 className="font-semibold mb-4 text-[#0A1E2D]">Smart Insights</h2>
-              <ul className="list-disc ml-5 space-y-2 text-gray-700">
-                {insights.slice(0, 3).map((i, idx) => (
-                  <li key={idx}>
-                    <span className="font-semibold">{i.source_name}</span> earned{' '}
-                    <span className="text-[#C6A664] font-semibold">${i.total_earned.toFixed(2)}</span>{' '}
-                    across {i.payout_count} payouts since {i.first_payment}.
-                  </li>
-                ))}
-              </ul>
+            <h2 className="font-semibold mb-4 text-[#0A1E2D]">Smart Insights</h2>
+            {expectedVsActual.length === 0 ? (
+                <p className="text-gray-500">Not enough data yet for performance insights.</p>
+            ) : (
+                <ul className="list-disc ml-5 space-y-3 text-gray-700">
+                {expectedVsActual.map((item, idx) => {
+                    const { source_name, actual_earned, expected_amount } = item
+                    const variance = expected_amount
+                    ? ((actual_earned - expected_amount) / expected_amount) * 100
+                    : 0
+                    let insight = ''
+                    if (variance > 10) {
+                    insight = `${source_name} outperformed expectations by ${variance.toFixed(
+                        1
+                    )}%, earning $${actual_earned.toFixed(2)} against a projected $${expected_amount.toFixed(2)}.`
+                    } else if (variance < -10) {
+                    insight = `${source_name} underperformed by ${Math.abs(variance).toFixed(
+                        1
+                    )}%, earning $${actual_earned.toFixed(2)} out of an expected $${expected_amount.toFixed(2)}.`
+                    } else {
+                    insight = `${source_name} met expectations, with $${actual_earned.toFixed(
+                        2
+                    )} earned vs $${expected_amount.toFixed(2)} projected.`
+                    }
+                    return <li key={idx}>{insight}</li>
+                })}
+                </ul>
+            )}
             </div>
+
           </>
         )}
       </div>
