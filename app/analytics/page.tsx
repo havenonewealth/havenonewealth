@@ -269,37 +269,60 @@ export default function AnalyticsPage() {
                     )
                 })()}
 
-                {/* Individual Source Insights */}
-                <ul className="list-disc ml-5 space-y-3 text-gray-700">
+                {/* Individual Source Insights with Performance Badges */}
+                <ul className="space-y-4">
                     {expectedVsActual.map((item, idx) => {
                     const { source_name, actual_earned, expected_amount } = item
                     const variance = expected_amount
                         ? ((actual_earned - expected_amount) / expected_amount) * 100
                         : 0
+
                     let insight = ''
+                    let badgeText = ''
+                    let badgeColor = ''
+
                     if (variance > 10) {
                         insight = `${source_name} outperformed expectations by ${variance.toFixed(
                         1
                         )}%, earning $${actual_earned.toFixed(
                         2
                         )} against a projected $${expected_amount.toFixed(2)}.`
+                        badgeText = 'Top Performer'
+                        badgeColor = 'bg-[#C6A664] text-[#0A1E2D]'
                     } else if (variance < -10) {
                         insight = `${source_name} underperformed by ${Math.abs(
                         variance
                         ).toFixed(1)}%, earning $${actual_earned.toFixed(
                         2
                         )} out of an expected $${expected_amount.toFixed(2)}.`
+                        badgeText = 'At Risk'
+                        badgeColor = 'bg-[#8B0000] text-white'
                     } else {
                         insight = `${source_name} met expectations, with $${actual_earned.toFixed(
                         2
                         )} earned vs $${expected_amount.toFixed(2)} projected.`
+                        badgeText = 'On Target'
+                        badgeColor = 'bg-[#0A1E2D] text-[#C6A664]'
                     }
-                    return <li key={idx}>{insight}</li>
+
+                    return (
+                        <li key={idx} className="text-gray-700">
+                        <div className="flex flex-wrap items-center gap-2">
+                            <span>{insight}</span>
+                            <span
+                            className={`text-xs font-semibold px-3 py-1 rounded-full ${badgeColor}`}
+                            >
+                            {badgeText}
+                            </span>
+                        </div>
+                        </li>
+                    )
                     })}
                 </ul>
                 </>
             )}
             </div>
+
           </>
         )}
       </div>
