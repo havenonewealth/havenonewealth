@@ -87,22 +87,29 @@ export default function PayoutsPage() {
 
         {/* Header Row */}
         <div className="flex justify-between items-center mb-4">
-          <Image src="/HOW2Logo.png" alt="Haven One Wealth Logo" width={160} height={60} />
-          <div className="flex gap-3">
+        <Image src="/HOW2Logo.png" alt="Haven One Wealth Logo" width={160} height={60} />
+        <div className="flex gap-3">
             <button
-              onClick={() => router.push('/dashboard')}
-              className="bg-[#C6A664] text-[#0A1E2D] px-4 py-2 rounded-md font-semibold hover:bg-[#b59655] transition"
+            onClick={() => router.push('/dashboard')}
+            className="bg-[#C6A664] text-[#0A1E2D] px-4 py-2 rounded-md font-semibold hover:bg-[#b59655] transition"
             >
-              Dashboard
+            Dashboard
             </button>
             <button
-              onClick={handleLogout}
-              className="bg-[#0A1E2D] text-white px-4 py-2 rounded-md hover:bg-[#C6A664] transition"
+            onClick={() => router.push('/analytics')}
+            className="bg-[#C6A664] text-[#0A1E2D] px-4 py-2 rounded-md font-semibold hover:bg-[#b59655] transition"
             >
-              Logout
+            Analytics
             </button>
-          </div>
+            <button
+            onClick={handleLogout}
+            className="bg-[#0A1E2D] text-white px-4 py-2 rounded-md hover:bg-[#C6A664] transition"
+            >
+            Logout
+            </button>
         </div>
+        </div>
+
 
         <h1 className="text-3xl font-semibold mb-2 text-[#0A1E2D]">Payouts</h1>
         <p className="text-gray-600 mb-8 text-[15px]">

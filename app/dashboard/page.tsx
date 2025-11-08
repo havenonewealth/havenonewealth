@@ -92,6 +92,12 @@ export default function Dashboard() {
             Payouts
           </button>
           <button
+            onClick={() => router.push('/analytics')}
+            className="bg-[#C6A664] text-[#0A1E2D] px-4 py-2 rounded-md font-semibold hover:bg-[#b59655] transition"
+          >
+            Analytics
+          </button>
+          <button
             onClick={handleLogout}
             className="bg-[#0A1E2D] text-white px-4 py-2 rounded-md hover:bg-[#C6A664] transition"
           >
