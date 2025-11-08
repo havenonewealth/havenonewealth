@@ -216,12 +216,21 @@ export default function AnalyticsPage() {
             <div className="bg-[#fafafa] p-6 rounded-lg shadow-sm mb-10">
               <h2 className="font-semibold mb-4 text-[#0A1E2D]">Actual vs Forecast Trend</h2>
               <ResponsiveContainer width="100%" height={300}>
-                <LineChart data={monthly}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="month" />
-                  <YAxis />
-                  <Tooltip />
-                  <Line type="monotone" dataKey="total" stroke="#C6A664" strokeWidth={2} dot />
+                {/* Forecast Logic + Line Chart */}
+                <LineChart
+                data={monthly.map((m, i) => {
+                    const prev = i > 0 ? monthly[i - 1].total : 0
+                    const forecast = prev > 0 ? prev * 1.1 : m.total * 1.05 // 10% growth projection
+                    return { ...m, forecast }
+                })}
+                >
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="month" />
+                <YAxis />
+                <Tooltip />
+                <Legend />
+                <Line type="monotone" dataKey="total" stroke="#C6A664" strokeWidth={2} dot name="Actual" />
+                <Line type="monotone" dataKey="forecast" stroke="#0A1E2D" strokeDasharray="4 4" name="Forecast" />
                 </LineChart>
               </ResponsiveContainer>
             </div>
