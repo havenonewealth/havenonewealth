@@ -269,56 +269,89 @@ export default function AnalyticsPage() {
                     )
                 })()}
 
-                {/* Individual Source Insights with Performance Badges */}
-                <ul className="space-y-4">
-                    {expectedVsActual.map((item, idx) => {
+                {/* Individual Source Insights with Performance Badges + Animated Heatmap + Tooltips */}
+                <ul className="space-y-6">
+                {expectedVsActual.map((item, idx) => {
                     const { source_name, actual_earned, expected_amount } = item
                     const variance = expected_amount
-                        ? ((actual_earned - expected_amount) / expected_amount) * 100
-                        : 0
+                    ? ((actual_earned - expected_amount) / expected_amount) * 100
+                    : 0
 
                     let insight = ''
                     let badgeText = ''
                     let badgeColor = ''
+                    let barColor = ''
 
                     if (variance > 10) {
-                        insight = `${source_name} outperformed expectations by ${variance.toFixed(
+                    insight = `${source_name} outperformed expectations by ${variance.toFixed(
                         1
-                        )}%, earning $${actual_earned.toFixed(
+                    )}%, earning $${actual_earned.toFixed(
                         2
-                        )} against a projected $${expected_amount.toFixed(2)}.`
-                        badgeText = 'Top Performer'
-                        badgeColor = 'bg-[#C6A664] text-[#0A1E2D]'
+                    )} against a projected $${expected_amount.toFixed(2)}.`
+                    badgeText = 'Top Performer'
+                    badgeColor = 'bg-[#C6A664] text-[#0A1E2D]'
+                    barColor = '#C6A664'
                     } else if (variance < -10) {
-                        insight = `${source_name} underperformed by ${Math.abs(
+                    insight = `${source_name} underperformed by ${Math.abs(
                         variance
-                        ).toFixed(1)}%, earning $${actual_earned.toFixed(
+                    ).toFixed(1)}%, earning $${actual_earned.toFixed(
                         2
-                        )} out of an expected $${expected_amount.toFixed(2)}.`
-                        badgeText = 'At Risk'
-                        badgeColor = 'bg-[#8B0000] text-white'
+                    )} out of an expected $${expected_amount.toFixed(2)}.`
+                    badgeText = 'At Risk'
+                    badgeColor = 'bg-[#8B0000] text-white'
+                    barColor = '#8B0000'
                     } else {
-                        insight = `${source_name} met expectations, with $${actual_earned.toFixed(
+                    insight = `${source_name} met expectations, with $${actual_earned.toFixed(
                         2
-                        )} earned vs $${expected_amount.toFixed(2)} projected.`
-                        badgeText = 'On Target'
-                        badgeColor = 'bg-[#0A1E2D] text-[#C6A664]'
+                    )} earned vs $${expected_amount.toFixed(2)} projected.`
+                    badgeText = 'On Target'
+                    badgeColor = 'bg-[#0A1E2D] text-[#C6A664]'
+                    barColor = '#0A1E2D'
                     }
 
+                    const [barWidth, setBarWidth] = useState(0)
+                    const targetWidth = Math.min(Math.abs(variance), 100)
+
+                    useEffect(() => {
+                    const timer = setTimeout(() => setBarWidth(targetWidth), 200 * (idx + 1))
+                    return () => clearTimeout(timer)
+                    }, [targetWidth])
+
                     return (
-                        <li key={idx} className="text-gray-700">
-                        <div className="flex flex-wrap items-center gap-2">
-                            <span>{insight}</span>
-                            <span
+                    <li key={idx} className="text-gray-700 relative group">
+                        <div className="flex flex-wrap items-center gap-2 mb-2">
+                        <span>{insight}</span>
+                        <span
                             className={`text-xs font-semibold px-3 py-1 rounded-full ${badgeColor}`}
-                            >
+                        >
                             {badgeText}
-                            </span>
+                        </span>
                         </div>
-                        </li>
+
+                        {/* Animated Performance Bar with Tooltip */}
+                        <div className="w-full bg-gray-200 rounded-full h-2 mt-2 overflow-hidden relative">
+                        <div
+                            style={{
+                            width: `${barWidth}%`,
+                            backgroundColor: barColor,
+                            height: '100%',
+                            borderRadius: '9999px',
+                            transition: 'width 1s ease-in-out',
+                            }}
+                        ></div>
+
+                        {/* Tooltip on Hover */}
+                        <div className="absolute left-1/2 -translate-x-1/2 bottom-5 opacity-0 group-hover:opacity-100 bg-[#0A1E2D] text-[#C6A664] text-xs px-3 py-1 rounded-md shadow-md transition-opacity duration-300">
+                            {variance >= 0
+                            ? `+${variance.toFixed(1)}% (${actual_earned.toFixed(2)} / ${expected_amount.toFixed(2)})`
+                            : `${variance.toFixed(1)}% (${actual_earned.toFixed(2)} / ${expected_amount.toFixed(2)})`}
+                        </div>
+                        </div>
+                    </li>
                     )
-                    })}
+                })}
                 </ul>
+
                 </>
             )}
             </div>
