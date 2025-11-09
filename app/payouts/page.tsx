@@ -20,6 +20,9 @@ export default function PayoutsPage() {
   const [message, setMessage] = useState('')
   const [loading, setLoading] = useState(true)
   const [uploading, setUploading] = useState(false)
+  const [fileName, setFileName] = useState('')
+  const [uploadProgress, setUploadProgress] = useState(0)
+  const [filePreview, setFilePreview] = useState<string | null>(null)
 
   // Redirect unauthenticated users
   useEffect(() => {
@@ -35,7 +38,7 @@ export default function PayoutsPage() {
     checkUser()
   }, [router])
 
-  // Fetch income sources and payouts for the logged-in user
+  // Fetch income sources and payouts
   const fetchData = async () => {
     setLoading(true)
     try {
@@ -45,57 +48,53 @@ export default function PayoutsPage() {
         return
       }
 
-      let sourcesData: any[] = []
-      let payoutsData: any[] = []
+      const { data: sourcesData } = await supabase
+        .from('income_sources')
+        .select('id, source_name')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
 
-      // Fetch income sources
-      try {
-        const { data, error } = await supabase
-          .from('income_sources')
-          .select('id, source_name')
-          .eq('user_id', user.id)
-          .order('created_at', { ascending: false })
-        if (error) throw error
-        sourcesData = data || []
-      } catch (err) {
-        await logError('payouts-fetch-sources', err)
-      }
+      const { data: payoutsData } = await supabase
+        .from('payouts')
+        .select('id, amount, payment_date, status, attachment_url, source_id, user_id')
+        .eq('user_id', user.id)
+        .order('payment_date', { ascending: false })
 
-      // Fetch payouts
-      try {
-        const { data, error } = await supabase
-          .from('payouts')
-          .select('id, amount, payment_date, status, attachment_url, source_id, user_id')
-          .eq('user_id', user.id)
-          .order('payment_date', { ascending: false })
-        if (error) throw error
-        payoutsData = data || []
-      } catch (err) {
-        await logError('payouts-fetch-payouts', err)
-      }
-
-      setSources(sourcesData)
-      setPayouts(payoutsData)
-      setLoading(false)
+      setSources(sourcesData || [])
+      setPayouts(payoutsData || [])
     } catch (err) {
-      setMessage('Error loading payouts data.')
       await logError('payouts-fetch-data', err)
+      setMessage('Error loading payouts data.')
+    } finally {
       setLoading(false)
     }
   }
 
-  // Upload attachment to Supabase Storage
+  // Handle file upload
   const handleFileUpload = async (file: File) => {
     try {
+      if (!file) return null
+      const allowed = ['application/pdf', 'image/png', 'image/jpeg']
+      if (!allowed.includes(file.type)) {
+        setMessage('Invalid file type. Upload PDF or image only.')
+        return null
+      }
+
       setUploading(true)
+      setFileName(file.name)
+      setUploadProgress(0)
+
       const { data: { user } } = await supabase.auth.getUser()
-      if (!user || !file) return null
+      if (!user) return null
 
       const filePath = `${user.id}/${Date.now()}-${file.name}`
 
       const { error: uploadError } = await supabase.storage
         .from('payout-attachments')
-        .upload(filePath, file, { upsert: false })
+        .upload(filePath, file, {
+          cacheControl: '3600',
+          upsert: false
+        })
 
       if (uploadError) throw uploadError
 
@@ -103,18 +102,27 @@ export default function PayoutsPage() {
         .from('payout-attachments')
         .getPublicUrl(filePath)
 
-      setMessage('✅ File uploaded successfully!')
+      // Display preview if image
+      if (file.type.startsWith('image/')) {
+        const reader = new FileReader()
+        reader.onloadend = () => setFilePreview(reader.result as string)
+        reader.readAsDataURL(file)
+      } else {
+        setFilePreview(null)
+      }
+
+      setUploadProgress(100)
       return publicUrl.publicUrl
     } catch (err) {
-      setMessage('Error uploading file.')
       await logError('payouts-file-upload', err)
+      setMessage('Error uploading file.')
       return null
     } finally {
       setUploading(false)
     }
   }
 
-  // Add a new payout
+  // Add payout record
   const addPayout = async (e: any) => {
     e.preventDefault()
     try {
@@ -135,14 +143,42 @@ export default function PayoutsPage() {
 
       setMessage('✅ Payout added successfully!')
       setNewPayout({ source_id: '', amount: '', payment_date: '', status: '', attachment_url: '' })
+      setFileName('')
+      setFilePreview(null)
+      setUploadProgress(0)
       await fetchData()
     } catch (err) {
-      setMessage('Error adding payout.')
       await logError('payouts-insert', err)
+      setMessage('Error adding payout.')
     }
   }
 
-  // Logout handler
+  // Delete payout and cleanup storage
+  const deletePayout = async (id: string, attachmentUrl?: string) => {
+    try {
+      if (!confirm('Are you sure you want to delete this payout?')) return
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+
+      // Remove file from storage if exists
+      if (attachmentUrl) {
+        const path = attachmentUrl.split('/payout-attachments/')[1]
+        if (path) {
+          await supabase.storage.from('payout-attachments').remove([path])
+        }
+      }
+
+      const { error } = await supabase.from('payouts').delete().eq('id', id).eq('user_id', user.id)
+      if (error) throw error
+
+      setMessage('Payout deleted successfully.')
+      await fetchData()
+    } catch (err) {
+      await logError('payouts-delete', err)
+      setMessage('Error deleting payout.')
+    }
+  }
+
   const handleLogout = async () => {
     try {
       await supabase.auth.signOut()
@@ -227,7 +263,6 @@ export default function PayoutsPage() {
 
           {/* File Upload */}
           <div className="flex flex-col gap-2">
-            <label className="text-sm text-gray-700 font-medium">Attach File (optional)</label>
             <input
               type="file"
               accept=".pdf,.png,.jpg,.jpeg"
@@ -237,9 +272,24 @@ export default function PayoutsPage() {
                 const url = await handleFileUpload(file)
                 if (url) setNewPayout({ ...newPayout, attachment_url: url })
               }}
-              className="p-2 border border-gray-300 rounded-md cursor-pointer bg-[#fafafa]"
+              className="p-2 border border-gray-300 rounded-md"
             />
-            {uploading && <span className="text-sm text-gray-500">Uploading...</span>}
+            {fileName && <p className="text-sm text-gray-600">File: {fileName}</p>}
+            {filePreview && (
+              <img
+                src={filePreview}
+                alt="Preview"
+                className="w-32 h-32 object-cover rounded-md border border-gray-200"
+              />
+            )}
+            {uploading && (
+              <div className="w-full bg-gray-200 rounded-full h-2 mt-1">
+                <div
+                  className="bg-[#C6A664] h-2 rounded-full transition-all duration-300"
+                  style={{ width: `${uploadProgress}%` }}
+                ></div>
+              </div>
+            )}
           </div>
 
           <button
@@ -256,25 +306,9 @@ export default function PayoutsPage() {
         {/* Payouts List */}
         {loading ? (
           <div className="flex flex-col items-center justify-center py-20 text-gray-600">
-            <svg
-              className="animate-spin h-8 w-8 text-[#C6A664] mb-3"
-              xmlns="http://www.w3.org/2000/svg"
-              fill="none"
-              viewBox="0 0 24 24"
-            >
-              <circle
-                className="opacity-25"
-                cx="12"
-                cy="12"
-                r="10"
-                stroke="currentColor"
-                strokeWidth="4"
-              ></circle>
-              <path
-                className="opacity-75"
-                fill="currentColor"
-                d="M4 12a8 8 0 018-8v4l3-3-3-3v4a8 8 0 00-8 8z"
-              ></path>
+            <svg className="animate-spin h-8 w-8 text-[#C6A664] mb-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4l3-3-3-3v4a8 8 0 00-8 8z"></path>
             </svg>
             <p>Loading payouts...</p>
           </div>
@@ -286,22 +320,23 @@ export default function PayoutsPage() {
               const src = sources.find((s) => s.id === p.source_id)
               return (
                 <li key={p.id} className="border border-gray-200 p-4 rounded-lg shadow-sm hover:shadow-md transition">
-                  <p className="text-lg font-semibold">
-                    {src ? src.source_name : 'Unknown Source'}
-                  </p>
-                  <p className="text-sm text-gray-600">
-                    ${p.amount} • {p.status} • {p.payment_date}
-                  </p>
-                  {p.attachment_url && (
-                    <a
-                      href={p.attachment_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-sm text-blue-600 underline"
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <p className="text-lg font-semibold">{src ? src.source_name : 'Unknown Source'}</p>
+                      <p className="text-sm text-gray-600">${p.amount} • {p.status} • {p.payment_date}</p>
+                      {p.attachment_url && (
+                        <a href={p.attachment_url} target="_blank" rel="noopener noreferrer" className="text-sm text-blue-600 underline">
+                          View Attachment
+                        </a>
+                      )}
+                    </div>
+                    <button
+                      onClick={() => deletePayout(p.id, p.attachment_url)}
+                      className="text-red-600 text-sm hover:underline"
                     >
-                      View Attachment
-                    </a>
-                  )}
+                      Delete
+                    </button>
+                  </div>
                 </li>
               )
             })}
