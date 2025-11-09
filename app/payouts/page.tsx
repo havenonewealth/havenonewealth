@@ -19,6 +19,7 @@ export default function PayoutsPage() {
   })
   const [message, setMessage] = useState('')
   const [loading, setLoading] = useState(true)
+  const [uploading, setUploading] = useState(false)
 
   // Redirect unauthenticated users
   useEffect(() => {
@@ -80,6 +81,35 @@ export default function PayoutsPage() {
       setMessage('Error loading payouts data.')
       await logError('payouts-fetch-data', err)
       setLoading(false)
+    }
+  }
+
+  // Upload attachment to Supabase Storage
+  const handleFileUpload = async (file: File) => {
+    try {
+      setUploading(true)
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user || !file) return null
+
+      const filePath = `${user.id}/${Date.now()}-${file.name}`
+
+      const { error: uploadError } = await supabase.storage
+        .from('payout-attachments')
+        .upload(filePath, file, { upsert: false })
+
+      if (uploadError) throw uploadError
+
+      const { data: publicUrl } = supabase.storage
+        .from('payout-attachments')
+        .getPublicUrl(filePath)
+
+      return publicUrl.publicUrl
+    } catch (err) {
+      setMessage('Error uploading file.')
+      await logError('payouts-file-upload', err)
+      return null
+    } finally {
+      setUploading(false)
     }
   }
 
@@ -194,19 +224,28 @@ export default function PayoutsPage() {
             className="p-2 border border-gray-300 rounded-md"
           />
 
-          <input
-            type="url"
-            placeholder="Attachment URL (optional)"
-            value={newPayout.attachment_url}
-            onChange={(e) => setNewPayout({ ...newPayout, attachment_url: e.target.value })}
-            className="p-2 border border-gray-300 rounded-md"
-          />
+          {/* File Upload */}
+          <div className="flex items-center gap-2">
+            <input
+              type="file"
+              accept=".pdf,.png,.jpg,.jpeg"
+              onChange={async (e) => {
+                const file = e.target.files?.[0]
+                if (!file) return
+                const url = await handleFileUpload(file)
+                if (url) setNewPayout({ ...newPayout, attachment_url: url })
+              }}
+              className="p-2 border border-gray-300 rounded-md flex-1"
+            />
+            {uploading && <span className="text-sm text-gray-500">Uploading...</span>}
+          </div>
 
           <button
             type="submit"
-            className="bg-[#C6A664] text-[#0A1E2D] font-semibold py-2 rounded-md hover:bg-[#b59655]"
+            className="bg-[#C6A664] text-[#0A1E2D] font-semibold py-2 rounded-md hover:bg-[#b59655] disabled:opacity-50"
+            disabled={uploading}
           >
-            Add Payout
+            {uploading ? 'Please wait...' : 'Add Payout'}
           </button>
         </form>
 
