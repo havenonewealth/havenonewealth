@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabaseClient'
 import Image from 'next/image'
+import { logError } from '@/app/utils/logger'
 
 export default function Dashboard() {
   const router = useRouter()
@@ -19,57 +20,74 @@ export default function Dashboard() {
   // Verify authentication before showing dashboard
   useEffect(() => {
     const checkUser = async () => {
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!session) router.push('/login')
+      try {
+        const { data: { session } } = await supabase.auth.getSession()
+        if (!session) router.push('/login')
+        else await fetchSources()
+      } catch (err) {
+        await logError('dashboard-auth-check', err)
+      }
     }
     checkUser()
   }, [router])
 
   // Fetch data only for the current logged-in user
   const fetchSources = async () => {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return
-    const { data, error } = await supabase
-      .from('income_sources')
-      .select('*')
-      .eq('user_id', user.id)
-      .order('created_at', { ascending: false })
-    if (error) setMessage('Error loading data: ' + error.message)
-    else setSources(data)
-  }
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
 
-  useEffect(() => {
-    fetchSources()
-  }, [])
+      const { data, error } = await supabase
+        .from('income_sources')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+
+      if (error) throw error
+      setSources(data || [])
+    } catch (err) {
+      setMessage('Error loading data.')
+      await logError('dashboard-fetch-sources', err)
+    }
+  }
 
   // Add new record tied to current user
   const addSource = async (e: any) => {
     e.preventDefault()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) {
-      setMessage('You must be logged in to add a source.')
-      return
-    }
 
-    const { error } = await supabase.from('income_sources').insert([
-      {
-        ...newSource,
-        user_id: user.id
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) {
+        setMessage('You must be logged in to add a source.')
+        return
       }
-    ])
 
-    if (error) setMessage('Error adding source: ' + error.message)
-    else {
+      const { error } = await supabase.from('income_sources').insert([
+        {
+          ...newSource,
+          user_id: user.id
+        }
+      ])
+
+      if (error) throw error
+
       setMessage('✅ Source added successfully!')
+      await fetchSources()
       setNewSource({ source_name: '', source_type: '', frequency: '', expected_amount: '' })
-      fetchSources()
+    } catch (err) {
+      setMessage('Error adding source.')
+      await logError('dashboard-insert-income-source', err)
     }
   }
 
   // Logout handler
   const handleLogout = async () => {
-    await supabase.auth.signOut()
-    router.push('/login')
+    try {
+      await supabase.auth.signOut()
+      router.push('/login')
+    } catch (err) {
+      await logError('dashboard-logout', err)
+    }
   }
 
   return (
@@ -77,34 +95,34 @@ export default function Dashboard() {
       <div className="max-w-5xl mx-auto bg-white p-10 rounded-2xl shadow-md border border-gray-100">
 
         {/* Logo & Header Row */}
-       <div className="flex justify-between items-center mb-4">
-        <Image
-          src="/HOW2Logo.png"
-          alt="Haven One Wealth Logo"
-          width={160}
-          height={60}
-        />
-        <div className="flex gap-3">
-          <button
-            onClick={() => router.push('/payouts')}
-            className="bg-[#C6A664] text-[#0A1E2D] px-4 py-2 rounded-md font-semibold hover:bg-[#b59655] transition"
-          >
-            Payouts
-          </button>
-          <button
-            onClick={() => router.push('/analytics')}
-            className="bg-[#C6A664] text-[#0A1E2D] px-4 py-2 rounded-md font-semibold hover:bg-[#b59655] transition"
-          >
-            Analytics
-          </button>
-          <button
-            onClick={handleLogout}
-            className="bg-[#0A1E2D] text-white px-4 py-2 rounded-md hover:bg-[#C6A664] transition"
-          >
-            Logout
-          </button>
+        <div className="flex justify-between items-center mb-4">
+          <Image
+            src="/HOW2Logo.png"
+            alt="Haven One Wealth Logo"
+            width={160}
+            height={60}
+          />
+          <div className="flex gap-3">
+            <button
+              onClick={() => router.push('/payouts')}
+              className="bg-[#C6A664] text-[#0A1E2D] px-4 py-2 rounded-md font-semibold hover:bg-[#b59655] transition"
+            >
+              Payouts
+            </button>
+            <button
+              onClick={() => router.push('/analytics')}
+              className="bg-[#C6A664] text-[#0A1E2D] px-4 py-2 rounded-md font-semibold hover:bg-[#b59655] transition"
+            >
+              Analytics
+            </button>
+            <button
+              onClick={handleLogout}
+              className="bg-[#0A1E2D] text-white px-4 py-2 rounded-md hover:bg-[#C6A664] transition"
+            >
+              Logout
+            </button>
+          </div>
         </div>
-      </div>
 
         <h1 className="text-3xl font-semibold mb-2 text-[#0A1E2D]">Haven One Wealth Dashboard</h1>
         <p className="text-gray-600 mb-8 text-[15px]">
@@ -144,7 +162,7 @@ export default function Dashboard() {
           />
           <button
             type="submit"
-            className="bg-[#C6A664] text-[#0A1E2D] font-semibold py-2 rounded-md hover:bg-[#b59655]"
+            className="bg-[#C6A664] text-[#0A1E2D] font-semibold py-2 rounded-md hover:bg-[#b59655] transition"
           >
             Add Source
           </button>

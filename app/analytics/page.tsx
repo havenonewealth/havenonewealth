@@ -17,8 +17,9 @@ import {
   Cell,
   Legend,
   LineChart,
-  Line,
+  Line
 } from 'recharts'
+import { logError } from '@/app/utils/logger'
 
 export default function AnalyticsPage() {
   const router = useRouter()
@@ -31,54 +32,95 @@ export default function AnalyticsPage() {
 
   useEffect(() => {
     const checkUser = async () => {
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!session) router.push('/login')
-      else fetchData()
+      try {
+        const { data: { session } } = await supabase.auth.getSession()
+        if (!session) router.push('/login')
+        else await fetchData()
+      } catch (err) {
+        await logError('analytics-auth-check', err)
+      }
     }
     checkUser()
   }, [router])
 
   const fetchData = async () => {
     setLoading(true)
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return setLoading(false)
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) {
+        setLoading(false)
+        return
+      }
 
-    const { data: summaryData } = await supabase
-      .from('v_user_payout_summary')
-      .select('*')
-      .eq('user_id', user.id)
+      // Fetch payout summary
+      let summaryData: any[] = []
+      let monthlyData: any[] = []
+      let expectedData: any[] = []
 
-    const { data: monthlyData } = await supabase
-      .from('v_user_monthly_payouts')
-      .select('*')
-      .eq('user_id', user.id)
-      .order('month', { ascending: true })
+      try {
+        const { data, error } = await supabase
+          .from('v_user_payout_summary')
+          .select('*')
+          .eq('user_id', user.id)
+        if (error) throw error
+        summaryData = data || []
+      } catch (err) {
+        await logError('analytics-summary-fetch', err)
+      }
 
-    const { data: expectedData } = await supabase
-      .from('v_user_expected_vs_actual')
-      .select('*')
-      .eq('user_id', user.id)
+      // Fetch monthly payout trend
+      try {
+        const { data, error } = await supabase
+          .from('v_user_monthly_payouts')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('month', { ascending: true })
+        if (error) throw error
+        monthlyData = data || []
+      } catch (err) {
+        await logError('analytics-monthly-fetch', err)
+      }
 
-    setSummary(summaryData || [])
-    console.log('Monthly data:', monthlyData) 
-    setMonthly(monthlyData || [])
-    setExpectedVsActual(expectedData || [])
-    setLoading(false)
+      // Fetch expected vs actual
+      try {
+        const { data, error } = await supabase
+          .from('v_user_expected_vs_actual')
+          .select('*')
+          .eq('user_id', user.id)
+        if (error) throw error
+        expectedData = data || []
+      } catch (err) {
+        await logError('analytics-expected-vs-actual', err)
+      }
 
-    if (expectedData) {
-      const widths = expectedData.map((item) => {
-        const variance = item.expected_amount
-          ? ((item.actual_earned - item.expected_amount) / item.expected_amount) * 100
-          : 0
-        return Math.min(Math.abs(variance), 100)
-      })
-      setTimeout(() => setAnimatedWidths(widths), 300)
+      setSummary(summaryData)
+      setMonthly(monthlyData)
+      setExpectedVsActual(expectedData)
+      setLoading(false)
+
+      if (expectedData.length > 0) {
+        const widths = expectedData.map((item) => {
+          const variance = item.expected_amount
+            ? ((item.actual_earned - item.expected_amount) / item.expected_amount) * 100
+            : 0
+          return Math.min(Math.abs(variance), 100)
+        })
+        setTimeout(() => setAnimatedWidths(widths), 300)
+      }
+    } catch (err) {
+      setMessage('Error loading analytics data.')
+      await logError('analytics-fetch-data', err)
+      setLoading(false)
     }
   }
 
   const handleLogout = async () => {
-    await supabase.auth.signOut()
-    router.push('/login')
+    try {
+      await supabase.auth.signOut()
+      router.push('/login')
+    } catch (err) {
+      await logError('analytics-logout', err)
+    }
   }
 
   const totalEarnings = summary.reduce((sum, s) => sum + (s.total_amount || 0), 0)
@@ -114,7 +156,6 @@ export default function AnalyticsPage() {
           </div>
         </div>
 
-        {/* Title */}
         <h1 className="text-3xl font-semibold mb-2 text-[#0A1E2D]">Advanced Analytics</h1>
         <p className="text-gray-600 mb-8 text-[15px]">
           Gain deeper insights into your royalties, residuals, and performance trends.
@@ -130,7 +171,14 @@ export default function AnalyticsPage() {
               fill="none"
               viewBox="0 0 24 24"
             >
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+              <circle
+                className="opacity-25"
+                cx="12"
+                cy="12"
+                r="10"
+                stroke="currentColor"
+                strokeWidth="4"
+              ></circle>
               <path
                 className="opacity-75"
                 fill="currentColor"
@@ -143,7 +191,9 @@ export default function AnalyticsPage() {
           <div className="flex flex-col items-center justify-center py-20 text-center text-gray-600">
             <Image src="/HOW2Logo.png" alt="Haven One Wealth Logo" width={120} height={120} className="mb-6" />
             <h2 className="text-2xl font-semibold text-[#0A1E2D] mb-2">No Payout Data Yet</h2>
-            <p className="max-w-md mb-6">Once you start recording royalties and residuals, your insights will appear here.</p>
+            <p className="max-w-md mb-6">
+              Once you start recording royalties and residuals, your insights will appear here.
+            </p>
             <button
               onClick={() => router.push('/dashboard')}
               className="bg-[#C6A664] text-[#0A1E2D] px-5 py-2 rounded-md font-semibold hover:bg-[#b59655] transition"
@@ -168,7 +218,7 @@ export default function AnalyticsPage() {
               ))}
             </div>
 
-            {/* Charts */}
+            {/* Earnings Charts */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
               <div className="bg-[#fafafa] p-6 rounded-lg shadow-sm">
                 <h2 className="font-semibold mb-4 text-[#0A1E2D]">Earnings by Source</h2>
@@ -187,8 +237,17 @@ export default function AnalyticsPage() {
                 <h2 className="font-semibold mb-4 text-[#0A1E2D]">Source Distribution</h2>
                 <ResponsiveContainer width="100%" height={250}>
                   <PieChart>
-                    <Pie data={summary} dataKey="total_amount" nameKey="source_name" outerRadius={100} fill="#C6A664" label>
-                      {summary.map((_, i) => <Cell key={i} fill="#C6A664" />)}
+                    <Pie
+                      data={summary}
+                      dataKey="total_amount"
+                      nameKey="source_name"
+                      outerRadius={100}
+                      fill="#C6A664"
+                      label
+                    >
+                      {summary.map((_, i) => (
+                        <Cell key={i} fill="#C6A664" />
+                      ))}
                     </Pie>
                     <Tooltip />
                     <Legend />
@@ -213,42 +272,32 @@ export default function AnalyticsPage() {
               </ResponsiveContainer>
             </div>
 
-            {/* Forecast Line */}
+            {/* Actual vs Forecast Trend */}
             <div className="bg-[#fafafa] p-6 rounded-lg shadow-sm mb-10">
               <h2 className="font-semibold mb-4 text-[#0A1E2D]">Actual vs Forecast Trend</h2>
               <ResponsiveContainer width="100%" height={300}>
-
                 <LineChart
-                data={monthly.map((m, i) => {
+                  data={monthly.map((m, i) => {
                     const prev = i > 0 ? monthly[i - 1].total : m.total
-                    // Simple projection: if last month was higher, increase slightly; if lower, smooth the curve
                     const forecast = prev > 0 ? prev * 1.08 : m.total * 1.05
                     return { ...m, forecast }
-                })}
+                  })}
                 >
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="month" />
-                <YAxis />
-                <Tooltip />
-                <Legend />
-                <Line
-                    type="monotone"
-                    dataKey="total"
-                    stroke="#C6A664"
-                    strokeWidth={2}
-                    dot
-                    name="Actual"
-                />
-                <Line
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="month" />
+                  <YAxis />
+                  <Tooltip />
+                  <Legend />
+                  <Line type="monotone" dataKey="total" stroke="#C6A664" strokeWidth={2} dot name="Actual" />
+                  <Line
                     type="monotone"
                     dataKey="forecast"
                     stroke="#0A1E2D"
                     strokeDasharray="5 4"
                     strokeWidth={2}
                     name="Forecast"
-                />
+                  />
                 </LineChart>
-
               </ResponsiveContainer>
             </div>
 
@@ -288,14 +337,9 @@ export default function AnalyticsPage() {
                             backgroundColor: barColor,
                             height: '100%',
                             borderRadius: '9999px',
-                            transition: 'width 1.2s ease-in-out',
+                            transition: 'width 1.2s ease-in-out'
                           }}
                         ></div>
-                        <div className="absolute left-1/2 -translate-x-1/2 bottom-5 opacity-0 group-hover:opacity-100 bg-[#0A1E2D] text-[#C6A664] text-xs px-3 py-1 rounded-md shadow-md transition-opacity duration-300">
-                          {variance >= 0
-                            ? `+${variance.toFixed(1)}% ($${item.actual_earned.toFixed(2)} / $${item.expected_amount.toFixed(2)})`
-                            : `${variance.toFixed(1)}% ($${item.actual_earned.toFixed(2)} / $${item.expected_amount.toFixed(2)})`}
-                        </div>
                       </div>
                     </li>
                   )

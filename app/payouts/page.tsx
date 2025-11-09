@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabaseClient'
 import Image from 'next/image'
+import { logError } from '@/app/utils/logger'
 
 export default function PayoutsPage() {
   const router = useRouter()
@@ -17,99 +18,136 @@ export default function PayoutsPage() {
     attachment_url: ''
   })
   const [message, setMessage] = useState('')
+  const [loading, setLoading] = useState(true)
 
   // Redirect unauthenticated users
   useEffect(() => {
     const checkUser = async () => {
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!session) router.push('/login')
+      try {
+        const { data: { session } } = await supabase.auth.getSession()
+        if (!session) router.push('/login')
+        else await fetchData()
+      } catch (err) {
+        await logError('payouts-auth-check', err)
+      }
     }
     checkUser()
   }, [router])
 
-  // Fetch income sources for dropdown + existing payouts
+  // Fetch income sources and payouts for the logged-in user
   const fetchData = async () => {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return
+    setLoading(true)
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) {
+        setLoading(false)
+        return
+      }
 
-    const { data: sourcesData } = await supabase
-      .from('income_sources')
-      .select('id, source_name')
-      .eq('user_id', user.id)
-      .order('created_at', { ascending: false })
+      let sourcesData: any[] = []
+      let payoutsData: any[] = []
 
-    const { data: payoutsData } = await supabase
-      .from('payouts')
-      .select('id, amount, payment_date, status, attachment_url, source_id')
-      .order('payment_date', { ascending: false })
+      // Fetch income sources
+      try {
+        const { data, error } = await supabase
+          .from('income_sources')
+          .select('id, source_name')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false })
+        if (error) throw error
+        sourcesData = data || []
+      } catch (err) {
+        await logError('payouts-fetch-sources', err)
+      }
 
-    setSources(sourcesData || [])
-    setPayouts(payoutsData || [])
+      // Fetch payouts
+      try {
+        const { data, error } = await supabase
+          .from('payouts')
+          .select('id, amount, payment_date, status, attachment_url, source_id, user_id')
+          .eq('user_id', user.id)
+          .order('payment_date', { ascending: false })
+        if (error) throw error
+        payoutsData = data || []
+      } catch (err) {
+        await logError('payouts-fetch-payouts', err)
+      }
+
+      setSources(sourcesData)
+      setPayouts(payoutsData)
+      setLoading(false)
+    } catch (err) {
+      setMessage('Error loading payouts data.')
+      await logError('payouts-fetch-data', err)
+      setLoading(false)
+    }
   }
 
-  useEffect(() => {
-    fetchData()
-  }, [])
-
-  // Add new payout
+  // Add a new payout
   const addPayout = async (e: any) => {
     e.preventDefault()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) {
-      setMessage('You must be logged in to add a payout.')
-      return
-    }
-
-    const { error } = await supabase.from('payouts').insert([
-      {
-        ...newPayout,
-        amount: parseFloat(newPayout.amount),
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) {
+        setMessage('You must be logged in to add a payout.')
+        return
       }
-    ])
 
-    if (error) setMessage('Error adding payout: ' + error.message)
-    else {
+      const newEntry = {
+        ...newPayout,
+        user_id: user.id,
+        amount: parseFloat(newPayout.amount)
+      }
+
+      const { error } = await supabase.from('payouts').insert([newEntry])
+      if (error) throw error
+
       setMessage('✅ Payout added successfully!')
       setNewPayout({ source_id: '', amount: '', payment_date: '', status: '', attachment_url: '' })
-      fetchData()
+      await fetchData()
+    } catch (err) {
+      setMessage('Error adding payout.')
+      await logError('payouts-insert', err)
     }
   }
 
   // Logout handler
   const handleLogout = async () => {
-    await supabase.auth.signOut()
-    router.push('/login')
+    try {
+      await supabase.auth.signOut()
+      router.push('/login')
+    } catch (err) {
+      await logError('payouts-logout', err)
+    }
   }
 
   return (
     <main className="min-h-screen bg-[#f8f9fa] text-[#0A1E2D] px-6 py-10 font-[Lato]">
       <div className="max-w-5xl mx-auto bg-white p-10 rounded-2xl shadow-md border border-gray-100">
-
         {/* Header Row */}
         <div className="flex justify-between items-center mb-4">
-        <Image src="/HOW2Logo.png" alt="Haven One Wealth Logo" width={160} height={60} />
-        <div className="flex gap-3">
+          <Image src="/HOW2Logo.png" alt="Haven One Wealth Logo" width={160} height={60} />
+          <div className="flex gap-3">
             <button
-            onClick={() => router.push('/dashboard')}
-            className="bg-[#C6A664] text-[#0A1E2D] px-4 py-2 rounded-md font-semibold hover:bg-[#b59655] transition"
+              onClick={() => router.push('/dashboard')}
+              className="bg-[#C6A664] text-[#0A1E2D] px-4 py-2 rounded-md font-semibold hover:bg-[#b59655] transition"
             >
-            Dashboard
+              Dashboard
             </button>
             <button
-            onClick={() => router.push('/analytics')}
-            className="bg-[#C6A664] text-[#0A1E2D] px-4 py-2 rounded-md font-semibold hover:bg-[#b59655] transition"
+              onClick={() => router.push('/analytics')}
+              className="bg-[#C6A664] text-[#0A1E2D] px-4 py-2 rounded-md font-semibold hover:bg-[#b59655] transition"
             >
-            Analytics
+              Analytics
             </button>
             <button
-            onClick={handleLogout}
-            className="bg-[#0A1E2D] text-white px-4 py-2 rounded-md hover:bg-[#C6A664] transition"
+              onClick={handleLogout}
+              className="bg-[#0A1E2D] text-white px-4 py-2 rounded-md hover:bg-[#C6A664] transition"
             >
-            Logout
+              Logout
             </button>
+          </div>
         </div>
-        </div>
-
 
         <h1 className="text-3xl font-semibold mb-2 text-[#0A1E2D]">Payouts</h1>
         <p className="text-gray-600 mb-8 text-[15px]">
@@ -175,9 +213,31 @@ export default function PayoutsPage() {
         {message && <p className="mb-6 text-sm text-gray-700">{message}</p>}
 
         {/* Payouts List */}
-        <h2 className="text-xl font-semibold mb-3 text-[#0A1E2D]">Your Payouts</h2>
-
-        {payouts.length === 0 ? (
+        {loading ? (
+          <div className="flex flex-col items-center justify-center py-20 text-gray-600">
+            <svg
+              className="animate-spin h-8 w-8 text-[#C6A664] mb-3"
+              xmlns="http://www.w3.org/2000/svg"
+              fill="none"
+              viewBox="0 0 24 24"
+            >
+              <circle
+                className="opacity-25"
+                cx="12"
+                cy="12"
+                r="10"
+                stroke="currentColor"
+                strokeWidth="4"
+              ></circle>
+              <path
+                className="opacity-75"
+                fill="currentColor"
+                d="M4 12a8 8 0 018-8v4l3-3-3-3v4a8 8 0 00-8 8z"
+              ></path>
+            </svg>
+            <p>Loading payouts...</p>
+          </div>
+        ) : payouts.length === 0 ? (
           <p className="text-gray-500">No payouts recorded yet.</p>
         ) : (
           <ul className="space-y-3">
