@@ -1,30 +1,23 @@
-'use client'
-
-import type { Metadata } from "next"
-import { Geist, Geist_Mono } from "next/font/google"
-import "./globals.css"
-import PageWrapper from "./components/PageWrapper"
+import "./globals.css";
+import { Geist, Geist_Mono } from "next/font/google";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],
-})
+});
 
 const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
-})
+});
 
-export const metadata: Metadata = {
+// ✅ Fix: Remove Metadata type annotation; Turbopack infers this automatically
+export const metadata = {
   title: "Haven One Wealth",
   description: "Track your royalties, residuals, and income sources.",
-}
+};
 
-export default function RootLayout({
-  children,
-}: Readonly<{
-  children: React.ReactNode
-}>) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
       <body
@@ -37,8 +30,8 @@ export default function RootLayout({
           padding: 0,
         }}
       >
-        <PageWrapper>{children}</PageWrapper>
+        {children}
       </body>
     </html>
-  )
+  );
 }
