@@ -103,6 +103,7 @@ export default function PayoutsPage() {
         .from('payout-attachments')
         .getPublicUrl(filePath)
 
+      setMessage('✅ File uploaded successfully!')
       return publicUrl.publicUrl
     } catch (err) {
       setMessage('Error uploading file.')
@@ -225,7 +226,8 @@ export default function PayoutsPage() {
           />
 
           {/* File Upload */}
-          <div className="flex items-center gap-2">
+          <div className="flex flex-col gap-2">
+            <label className="text-sm text-gray-700 font-medium">Attach File (optional)</label>
             <input
               type="file"
               accept=".pdf,.png,.jpg,.jpeg"
@@ -235,7 +237,7 @@ export default function PayoutsPage() {
                 const url = await handleFileUpload(file)
                 if (url) setNewPayout({ ...newPayout, attachment_url: url })
               }}
-              className="p-2 border border-gray-300 rounded-md flex-1"
+              className="p-2 border border-gray-300 rounded-md cursor-pointer bg-[#fafafa]"
             />
             {uploading && <span className="text-sm text-gray-500">Uploading...</span>}
           </div>
