@@ -60,6 +60,7 @@ export default function AnalyticsPage() {
       .eq('user_id', user.id)
 
     setSummary(summaryData || [])
+    console.log('Monthly data:', monthlyData) 
     setMonthly(monthlyData || [])
     setExpectedVsActual(expectedData || [])
     setLoading(false)
