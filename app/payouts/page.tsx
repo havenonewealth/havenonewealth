@@ -23,6 +23,7 @@ export default function PayoutsPage() {
   const [fileName, setFileName] = useState('')
   const [uploadProgress, setUploadProgress] = useState(0)
   const [filePreview, setFilePreview] = useState<string | null>(null)
+  const [fileType, setFileType] = useState<string | null>(null)
 
   // Redirect unauthenticated users
   useEffect(() => {
@@ -70,7 +71,7 @@ export default function PayoutsPage() {
     }
   }
 
-  // Handle file upload
+  // Handle file upload with PDF/Image preview
   const handleFileUpload = async (file: File) => {
     try {
       if (!file) return null
@@ -83,6 +84,7 @@ export default function PayoutsPage() {
       setUploading(true)
       setFileName(file.name)
       setUploadProgress(0)
+      setFileType(file.type)
 
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return null
@@ -102,13 +104,14 @@ export default function PayoutsPage() {
         .from('payout-attachments')
         .getPublicUrl(filePath)
 
-      // Display preview if image
+      // Generate local preview
       if (file.type.startsWith('image/')) {
         const reader = new FileReader()
         reader.onloadend = () => setFilePreview(reader.result as string)
         reader.readAsDataURL(file)
-      } else {
-        setFilePreview(null)
+      } else if (file.type === 'application/pdf') {
+        const localUrl = URL.createObjectURL(file)
+        setFilePreview(localUrl)
       }
 
       setUploadProgress(100)
@@ -145,6 +148,7 @@ export default function PayoutsPage() {
       setNewPayout({ source_id: '', amount: '', payment_date: '', status: '', attachment_url: '' })
       setFileName('')
       setFilePreview(null)
+      setFileType(null)
       setUploadProgress(0)
       await fetchData()
     } catch (err) {
@@ -160,7 +164,6 @@ export default function PayoutsPage() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
 
-      // Remove file from storage if exists
       if (attachmentUrl) {
         const path = attachmentUrl.split('/payout-attachments/')[1]
         if (path) {
@@ -195,71 +198,29 @@ export default function PayoutsPage() {
         <div className="flex justify-between items-center mb-4">
           <Image src="/HOW2Logo.png" alt="Haven One Wealth Logo" width={160} height={60} />
           <div className="flex gap-3">
-            <button
-              onClick={() => router.push('/dashboard')}
-              className="bg-[#C6A664] text-[#0A1E2D] px-4 py-2 rounded-md font-semibold hover:bg-[#b59655] transition"
-            >
-              Dashboard
-            </button>
-            <button
-              onClick={() => router.push('/analytics')}
-              className="bg-[#C6A664] text-[#0A1E2D] px-4 py-2 rounded-md font-semibold hover:bg-[#b59655] transition"
-            >
-              Analytics
-            </button>
-            <button
-              onClick={handleLogout}
-              className="bg-[#0A1E2D] text-white px-4 py-2 rounded-md hover:bg-[#C6A664] transition"
-            >
-              Logout
-            </button>
+            <button onClick={() => router.push('/dashboard')} className="bg-[#C6A664] text-[#0A1E2D] px-4 py-2 rounded-md font-semibold hover:bg-[#b59655] transition">Dashboard</button>
+            <button onClick={() => router.push('/analytics')} className="bg-[#C6A664] text-[#0A1E2D] px-4 py-2 rounded-md font-semibold hover:bg-[#b59655] transition">Analytics</button>
+            <button onClick={handleLogout} className="bg-[#0A1E2D] text-white px-4 py-2 rounded-md hover:bg-[#C6A664] transition">Logout</button>
           </div>
         </div>
 
         <h1 className="text-3xl font-semibold mb-2 text-[#0A1E2D]">Payouts</h1>
-        <p className="text-gray-600 mb-8 text-[15px]">
-          Record and track all royalty and residual payouts tied to your income sources.
-        </p>
+        <p className="text-gray-600 mb-8 text-[15px]">Record and track all royalty and residual payouts tied to your income sources.</p>
 
         {/* Add Payout Form */}
         <form onSubmit={addPayout} className="flex flex-col gap-3 max-w-md mb-10">
-          <select
-            value={newPayout.source_id}
-            onChange={(e) => setNewPayout({ ...newPayout, source_id: e.target.value })}
-            required
-            className="p-2 border border-gray-300 rounded-md"
-          >
+          <select value={newPayout.source_id} onChange={(e) => setNewPayout({ ...newPayout, source_id: e.target.value })} required className="p-2 border border-gray-300 rounded-md">
             <option value="">Select Income Source</option>
             {sources.map((src) => (
               <option key={src.id} value={src.id}>{src.source_name}</option>
             ))}
           </select>
 
-          <input
-            type="number"
-            placeholder="Amount"
-            value={newPayout.amount}
-            onChange={(e) => setNewPayout({ ...newPayout, amount: e.target.value })}
-            required
-            className="p-2 border border-gray-300 rounded-md"
-          />
+          <input type="number" placeholder="Amount" value={newPayout.amount} onChange={(e) => setNewPayout({ ...newPayout, amount: e.target.value })} required className="p-2 border border-gray-300 rounded-md" />
 
-          <input
-            type="date"
-            placeholder="Payment Date"
-            value={newPayout.payment_date}
-            onChange={(e) => setNewPayout({ ...newPayout, payment_date: e.target.value })}
-            required
-            className="p-2 border border-gray-300 rounded-md"
-          />
+          <input type="date" placeholder="Payment Date" value={newPayout.payment_date} onChange={(e) => setNewPayout({ ...newPayout, payment_date: e.target.value })} required className="p-2 border border-gray-300 rounded-md" />
 
-          <input
-            type="text"
-            placeholder="Status (e.g. Paid / Pending)"
-            value={newPayout.status}
-            onChange={(e) => setNewPayout({ ...newPayout, status: e.target.value })}
-            className="p-2 border border-gray-300 rounded-md"
-          />
+          <input type="text" placeholder="Status (e.g. Paid / Pending)" value={newPayout.status} onChange={(e) => setNewPayout({ ...newPayout, status: e.target.value })} className="p-2 border border-gray-300 rounded-md" />
 
           {/* File Upload */}
           <div className="flex flex-col gap-2">
@@ -275,28 +236,26 @@ export default function PayoutsPage() {
               className="p-2 border border-gray-300 rounded-md"
             />
             {fileName && <p className="text-sm text-gray-600">File: {fileName}</p>}
+
+            {/* Preview Section */}
             {filePreview && (
-              <img
-                src={filePreview}
-                alt="Preview"
-                className="w-32 h-32 object-cover rounded-md border border-gray-200"
-              />
+              <div className="mt-2 border border-gray-200 rounded-md p-2 bg-gray-50">
+                {fileType === 'application/pdf' ? (
+                  <iframe src={filePreview} className="w-full h-64 border rounded-md" title="PDF Preview"></iframe>
+                ) : (
+                  <img src={filePreview} alt="Preview" className="w-40 h-40 object-cover rounded-md border border-gray-200" />
+                )}
+              </div>
             )}
+
             {uploading && (
               <div className="w-full bg-gray-200 rounded-full h-2 mt-1">
-                <div
-                  className="bg-[#C6A664] h-2 rounded-full transition-all duration-300"
-                  style={{ width: `${uploadProgress}%` }}
-                ></div>
+                <div className="bg-[#C6A664] h-2 rounded-full transition-all duration-300" style={{ width: `${uploadProgress}%` }}></div>
               </div>
             )}
           </div>
 
-          <button
-            type="submit"
-            className="bg-[#C6A664] text-[#0A1E2D] font-semibold py-2 rounded-md hover:bg-[#b59655] disabled:opacity-50"
-            disabled={uploading}
-          >
+          <button type="submit" className="bg-[#C6A664] text-[#0A1E2D] font-semibold py-2 rounded-md hover:bg-[#b59655] disabled:opacity-50" disabled={uploading}>
             {uploading ? 'Please wait...' : 'Add Payout'}
           </button>
         </form>
@@ -330,10 +289,7 @@ export default function PayoutsPage() {
                         </a>
                       )}
                     </div>
-                    <button
-                      onClick={() => deletePayout(p.id, p.attachment_url)}
-                      className="text-red-600 text-sm hover:underline"
-                    >
+                    <button onClick={() => deletePayout(p.id, p.attachment_url)} className="text-red-600 text-sm hover:underline">
                       Delete
                     </button>
                   </div>
