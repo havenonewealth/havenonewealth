@@ -52,7 +52,6 @@ export default function AnalyticsPage() {
         return
       }
 
-      // Fetch payout summary
       let summaryData: any[] = []
       let monthlyData: any[] = []
       let expectedData: any[] = []
@@ -68,7 +67,6 @@ export default function AnalyticsPage() {
         await logError('analytics-summary-fetch', err)
       }
 
-      // Fetch monthly payout trend
       try {
         const { data, error } = await supabase
           .from('v_user_monthly_payouts')
@@ -81,7 +79,6 @@ export default function AnalyticsPage() {
         await logError('analytics-monthly-fetch', err)
       }
 
-      // Fetch expected vs actual
       try {
         const { data, error } = await supabase
           .from('v_user_expected_vs_actual')
@@ -126,7 +123,7 @@ export default function AnalyticsPage() {
   const totalEarnings = summary.reduce((sum, s) => sum + (s.total_amount || 0), 0)
   const avgPayout = summary.length ? totalEarnings / summary.length : 0
   const forecastNextMonth =
-    monthly.length > 0 ? (monthly[monthly.length - 1].total || 0) / 2 : 0
+    monthly.length > 0 ? (monthly[monthly.length - 1].total || 0) * 1.05 : 0
 
   return (
     <main className="min-h-screen bg-[#f8f9fa] text-[#0A1E2D] px-6 py-10 font-[Lato]">
@@ -209,9 +206,12 @@ export default function AnalyticsPage() {
                 { label: 'Total Earnings', value: `$${totalEarnings.toFixed(2)}` },
                 { label: 'Avg Payout', value: `$${avgPayout.toFixed(2)}` },
                 { label: 'YTD Earnings', value: `$${totalEarnings.toFixed(2)}` },
-                { label: 'Forecast Next Month', value: `$${forecastNextMonth.toFixed(2)}` },
+                { label: 'Forecast Next Month', value: `$${forecastNextMonth.toFixed(2)}` }
               ].map((kpi, i) => (
-                <div key={i} className="bg-[#fdfbf7] rounded-xl p-4 border border-gray-200 text-center">
+                <div
+                  key={i}
+                  className="bg-[#fdfbf7] rounded-xl p-4 border border-gray-200 text-center"
+                >
                   <p className="text-sm text-gray-500 mb-1">{kpi.label}</p>
                   <p className="text-xl font-bold text-[#0A1E2D]">{kpi.value}</p>
                 </div>
@@ -288,7 +288,14 @@ export default function AnalyticsPage() {
                   <YAxis />
                   <Tooltip />
                   <Legend />
-                  <Line type="monotone" dataKey="total" stroke="#C6A664" strokeWidth={2} dot name="Actual" />
+                  <Line
+                    type="monotone"
+                    dataKey="total"
+                    stroke="#C6A664"
+                    strokeWidth={2}
+                    dot
+                    name="Actual"
+                  />
                   <Line
                     type="monotone"
                     dataKey="forecast"
@@ -328,7 +335,11 @@ export default function AnalyticsPage() {
                     <li key={idx} className="text-gray-700 relative group">
                       <div className="flex flex-wrap items-center gap-2 mb-2">
                         <span>{insight}</span>
-                        <span className={`text-xs font-semibold px-3 py-1 rounded-full ${badgeColor}`}>{badgeText}</span>
+                        <span
+                          className={`text-xs font-semibold px-3 py-1 rounded-full ${badgeColor}`}
+                        >
+                          {badgeText}
+                        </span>
                       </div>
                       <div className="w-full bg-gray-200 rounded-full h-2 mt-2 overflow-hidden relative">
                         <div
