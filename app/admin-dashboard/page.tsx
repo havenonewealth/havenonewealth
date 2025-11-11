@@ -20,6 +20,7 @@ import {
 export default function AdminDashboard() {
   const router = useRouter()
   const pathname = usePathname()
+
   const [authorized, setAuthorized] = useState(false)
   const [userRole, setUserRole] = useState<string | null>(null)
   const [users, setUsers] = useState<any[]>([])
@@ -60,7 +61,7 @@ export default function AdminDashboard() {
     verifyAdmin()
   }, [router])
 
-  // Fetch all dashboard data
+  // Fetch dashboard data with auto-sync for missing income_sources
   const fetchData = async () => {
     try {
       setLoading(true)
@@ -74,12 +75,11 @@ export default function AdminDashboard() {
 
       const mergedPortfolio = await Promise.all(
         (portfolioData.data || []).map(async (item: any) => {
-          // Match admin-owned income_sources record
           let match = incomeData.data?.find(
             (s) => s.source_name === item.source_name && s.user_id === null
           )
 
-          // If no admin-level record exists, create it automatically
+          // Auto-create missing admin-level record
           if (!match) {
             const { data: inserted, error } = await supabase
               .from('income_sources')
@@ -92,7 +92,6 @@ export default function AdminDashboard() {
               ])
               .select()
               .single()
-
             if (!error && inserted) match = inserted
           }
 
@@ -100,18 +99,16 @@ export default function AdminDashboard() {
         })
       )
 
-    setUsers(usersData.data || [])
-    setPortfolioSummary(mergedPortfolio)
-    setMonthlyTrends(trendsData.data || [])
-    setPayoutSummary(payoutData.data || [])
-  } catch (err) {
-    console.error(err)
-    setMessage('Error loading admin data.')
-  } finally {
-    setLoading(false)
-  }
-}
-
+      setUsers(usersData.data || [])
+      setPortfolioSummary(mergedPortfolio)
+      setMonthlyTrends(trendsData.data || [])
+      setPayoutSummary(payoutData.data || [])
+    } catch (err) {
+      console.error(err)
+      setMessage('Error loading admin data.')
+    } finally {
+      setLoading(false)
+    }
   }
 
   const formatCurrency = (value: number) =>
@@ -132,10 +129,6 @@ export default function AdminDashboard() {
 
   // Edit income source
   const handleEdit = (item: any) => {
-    if (!item.id) {
-      alert('This record cannot be edited because it does not exist in income_sources.')
-      return
-    }
     setEditItem(item)
     setShowEditModal(true)
   }
@@ -145,12 +138,12 @@ export default function AdminDashboard() {
     const { id, source_name, total_payout } = editItem
     const { error } = await supabase
       .from('income_sources')
-      .update({ source_name, total_payout: Number(total_payout) })
+      .update({ source_name, total_payout })
       .eq('id', id)
 
     if (error) {
       console.error(error)
-      alert('Error updating record. Make sure this source exists in income_sources.')
+      alert('Error updating record.')
     } else {
       alert('Record updated successfully.')
       setShowEditModal(false)
@@ -166,7 +159,7 @@ export default function AdminDashboard() {
     }
     const { error } = await supabase
       .from('income_sources')
-      .insert([{ source_name: newSource.source_name, total_payout: Number(newSource.total_payout) }])
+      .insert([{ user_id: null, source_name: newSource.source_name, total_payout: Number(newSource.total_payout) }])
 
     if (error) {
       console.error(error)
@@ -222,24 +215,11 @@ export default function AdminDashboard() {
 
         <h1 className="text-3xl font-semibold mb-6 text-[#0A1E2D]">Admin Dashboard</h1>
 
-        {message && <p className="mb-4 text-sm text-gray-700">{message}</p>}
-
         {loading ? (
           <div className="flex justify-center items-center py-20 text-gray-500">
             <svg className="animate-spin h-6 w-6 mr-2 text-[#C6A664]" viewBox="0 0 24 24">
-              <circle
-                className="opacity-25"
-                cx="12"
-                cy="12"
-                r="10"
-                stroke="currentColor"
-                strokeWidth="4"
-              ></circle>
-              <path
-                className="opacity-75"
-                fill="currentColor"
-                d="M4 12a8 8 0 018-8v4l3-3-3-3v4a8 8 0 00-8 8z"
-              ></path>
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4l3-3-3-3v4a8 8 0 00-8 8z"></path>
             </svg>
             Loading data...
           </div>
@@ -320,20 +300,8 @@ export default function AdminDashboard() {
                     <YAxis />
                     <Tooltip />
                     <Legend />
-                    <Line
-                      type="monotone"
-                      dataKey="total_payout"
-                      stroke="#C6A664"
-                      strokeWidth={2}
-                      name="Total Payout"
-                    />
-                    <Line
-                      type="monotone"
-                      dataKey="avg_payout"
-                      stroke="#0A1E2D"
-                      strokeWidth={2}
-                      name="Average Payout"
-                    />
+                    <Line type="monotone" dataKey="total_payout" stroke="#C6A664" strokeWidth={2} name="Total Payout" />
+                    <Line type="monotone" dataKey="avg_payout" stroke="#0A1E2D" strokeWidth={2} name="Average Payout" />
                   </LineChart>
                 </ResponsiveContainer>
               )}
