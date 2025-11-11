@@ -47,11 +47,10 @@ export default function LoginPage() {
   useEffect(() => {
     const checkUserAndRedirect = async () => {
       const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
+      if (!user || !user.email) return
 
       setRedirecting(true)
 
-      // Use email instead of id for role lookup
       const { data: roleData, error } = await supabase
         .from('users')
         .select('role')
@@ -68,11 +67,16 @@ export default function LoginPage() {
       else router.push('/dashboard')
     }
 
-    checkUserAndRedirect()
+    // slight delay ensures Supabase session is hydrated after redirect
+    const timeout = setTimeout(() => checkUserAndRedirect(), 1000)
+
     supabase.auth.onAuthStateChange((event) => {
-      if (event === 'SIGNED_IN') checkUserAndRedirect()
+      if (event === 'SIGNED_IN') setTimeout(() => checkUserAndRedirect(), 500)
     })
+
+    return () => clearTimeout(timeout)
   }, [router])
+
 
   if (redirecting) {
     return (
