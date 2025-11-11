@@ -1,13 +1,14 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabaseClient'
 import Image from 'next/image'
 import { logError } from '@/app/utils/logger'
+import { useRouter, usePathname } from 'next/navigation'
 
 export default function Dashboard() {
   const router = useRouter()
+  const pathname = usePathname()
   const [sources, setSources] = useState<any[]>([])
   const [newSource, setNewSource] = useState({
     source_name: '',
@@ -16,16 +17,39 @@ export default function Dashboard() {
     expected_amount: ''
   })
   const [message, setMessage] = useState('')
+  const [userRole, setUserRole] = useState<string | null>(null)
+  const [loading, setLoading] = useState(true)
 
-  // Verify authentication before showing dashboard
+  // Verify authentication and fetch role + sources
   useEffect(() => {
     const checkUser = async () => {
       try {
         const { data: { session } } = await supabase.auth.getSession()
-        if (!session) router.push('/login')
-        else await fetchSources()
+        if (!session) {
+          router.push('/login')
+          return
+        }
+
+        const { data: { user } } = await supabase.auth.getUser()
+        if (!user) return
+
+        // Fetch role
+        const { data: roleData, error } = await supabase
+          .from('users')
+          .select('role')
+          .eq('id', user.id)
+          .single()
+
+        if (!error && roleData) {
+          setUserRole(roleData.role)
+        }
+
+        await fetchSources()
       } catch (err) {
         await logError('dashboard-auth-check', err)
+        setMessage('Error loading dashboard.')
+      } finally {
+        setLoading(false)
       }
     }
     checkUser()
@@ -90,6 +114,36 @@ export default function Dashboard() {
     }
   }
 
+  if (loading) {
+    return (
+      <main className="flex items-center justify-center min-h-screen bg-[#f8f9fa] text-[#0A1E2D]">
+        <div className="text-center">
+          <svg
+            className="animate-spin h-8 w-8 mx-auto mb-3 text-[#C6A664]"
+            xmlns="http://www.w3.org/2000/svg"
+            fill="none"
+            viewBox="0 0 24 24"
+          >
+            <circle
+              className="opacity-25"
+              cx="12"
+              cy="12"
+              r="10"
+              stroke="currentColor"
+              strokeWidth="4"
+            ></circle>
+            <path
+              className="opacity-75"
+              fill="currentColor"
+              d="M4 12a8 8 0 018-8v4l3-3-3-3v4a8 8 0 00-8 8z"
+            ></path>
+          </svg>
+          <p>Loading your dashboard...</p>
+        </div>
+      </main>
+    )
+  }
+
   return (
     <main className="min-h-screen bg-[#f8f9fa] text-[#0A1E2D] px-6 py-10 font-[Lato]">
       <div className="max-w-5xl mx-auto bg-white p-10 rounded-2xl shadow-md border border-gray-100">
@@ -115,15 +169,17 @@ export default function Dashboard() {
             >
               Analytics
             </button>
-            
-            <button
-              onClick={() =>
-                router.push(router.pathname === '/admin-dashboard' ? '/dashboard' : '/admin-dashboard')
-              }
-              className="bg-[#C6A664] text-[#0A1E2D] px-4 py-2 rounded-md font-semibold hover:bg-[#b59655] transition"
-            >
-              {router.pathname === '/admin-dashboard' ? 'Switch to User View' : 'Switch to Admin View'}
-            </button>
+
+            {userRole === 'admin' && (
+              <button
+                onClick={() =>
+                  router.push(pathname === '/dashboard' ? '/admin-dashboard' : '/dashboard')
+                }
+                className="bg-[#C6A664] text-[#0A1E2D] px-4 py-2 rounded-md font-semibold hover:bg-[#b59655] transition"
+              >
+                {pathname === '/dashboard' ? 'Switch to Admin View' : 'Switch to User View'}
+              </button>
+            )}
 
             <button
               onClick={handleLogout}
