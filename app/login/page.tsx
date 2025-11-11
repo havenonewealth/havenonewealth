@@ -43,39 +43,61 @@ export default function LoginPage() {
     }
   }
 
-  // Post-login role-based redirect
-  useEffect(() => {
-    const checkUserAndRedirect = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user || !user.email) return
+// Post-login role-based redirect (debug version)
+useEffect(() => {
+  const checkUserAndRedirect = async () => {
+    console.log('%c[DEBUG] Starting role check...', 'color: #C6A664; font-weight: bold;')
 
-      setRedirecting(true)
-
-      const { data: roleData, error } = await supabase
-        .from('users')
-        .select('role')
-        .eq('email', user.email)
-        .single()
-
-      if (error || !roleData) {
-        console.warn('User role not found, defaulting to dashboard')
-        router.push('/dashboard')
-        return
-      }
-
-      if (roleData.role === 'admin') router.push('/admin-dashboard')
-      else router.push('/dashboard')
+    const { data: { user }, error: userError } = await supabase.auth.getUser()
+    if (userError) console.error('[DEBUG] Error fetching user:', userError)
+    if (!user) {
+      console.warn('[DEBUG] No user session found yet. Retrying...')
+      return
     }
 
-    // slight delay ensures Supabase session is hydrated after redirect
-    const timeout = setTimeout(() => checkUserAndRedirect(), 1000)
+    console.log('[DEBUG] Supabase user:', user)
+    console.log('[DEBUG] Email:', user.email)
 
-    supabase.auth.onAuthStateChange((event) => {
-      if (event === 'SIGNED_IN') setTimeout(() => checkUserAndRedirect(), 500)
-    })
+    setRedirecting(true)
 
-    return () => clearTimeout(timeout)
-  }, [router])
+    const { data: roleData, error } = await supabase
+      .from('users')
+      .select('role')
+      .eq('email', user.email)
+      .single()
+
+    console.log('[DEBUG] Role query result:', roleData)
+    if (error) console.error('[DEBUG] Role lookup error:', error)
+
+    if (!roleData) {
+      console.warn('[DEBUG] No matching user found in public.users, defaulting to /dashboard')
+      router.push('/dashboard')
+      return
+    }
+
+    if (roleData.role === 'admin') {
+      console.log('%c[DEBUG] Redirecting to /admin-dashboard', 'color: #00b300; font-weight: bold;')
+      router.push('/admin-dashboard')
+    } else {
+      console.log('%c[DEBUG] Redirecting to /dashboard', 'color: #0099ff; font-weight: bold;')
+      router.push('/dashboard')
+    }
+  }
+
+  // Give Supabase time to hydrate session after magic link redirect
+  const timeout = setTimeout(() => checkUserAndRedirect(), 1200)
+
+  supabase.auth.onAuthStateChange((event) => {
+    console.log('[DEBUG] Auth state changed:', event)
+    if (event === 'SIGNED_IN') {
+      console.log('[DEBUG] Detected SIGNED_IN event, triggering role check...')
+      setTimeout(() => checkUserAndRedirect(), 500)
+    }
+  })
+
+  return () => clearTimeout(timeout)
+}, [router])
+
 
 
   if (redirecting) {
