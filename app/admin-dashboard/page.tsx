@@ -172,22 +172,28 @@ export default function AdminDashboard() {
 
             {/* Global Payout Distribution */}
             <section>
-              <h2 className="text-xl font-semibold mb-4 text-[#0A1E2D]">Global Payout Distribution</h2>
-              {portfolioSummary.length === 0 ? (
+            <h2 className="text-xl font-semibold mb-4 text-[#0A1E2D]">Global Payout Distribution</h2>
+            {portfolioSummary.length === 0 ? (
                 <p className="text-gray-500">No payout data available.</p>
-              ) : (
+            ) : (
                 <ResponsiveContainer width="100%" height={350}>
-                  <BarChart data={portfolioSummary}>
+                <BarChart
+                    data={portfolioSummary.map((item) => ({
+                    source_name: item.source_name,
+                    total_payout: Number(item.total_payout)
+                    }))}
+                >
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="source_name" />
                     <YAxis />
                     <Tooltip />
                     <Legend />
                     <Bar dataKey="total_payout" fill="#C6A664" name="Total Payout" />
-                  </BarChart>
+                </BarChart>
                 </ResponsiveContainer>
-              )}
+            )}
             </section>
+
 
             {/* Monthly Trends */}
             <section>
