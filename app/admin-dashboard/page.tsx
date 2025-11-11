@@ -60,7 +60,7 @@ export default function AdminDashboard() {
   const fetchData = async () => {
     try {
       setLoading(true)
-      const [usersData, payoutsData, trendsData, portfolioData] = await Promise.all([
+      const [usersData, portfolioData, trendsData, payoutData] = await Promise.all([
         supabase.from('users').select('id, email, role, created_at'),
         supabase.from('v_admin_portfolio_summary').select('*'),
         supabase.from('v_admin_monthly_trends').select('*'),
@@ -70,7 +70,9 @@ export default function AdminDashboard() {
       setUsers(usersData.data || [])
       setPortfolioSummary(portfolioData.data || [])
       setMonthlyTrends(trendsData.data || [])
-      setPayoutSummary(portfolioData.data || [])
+      setPayoutSummary(payoutData.data || [])
+      console.log('Portfolio Summary:', portfolioData.data)
+      console.log('Payout Summary:', payoutData.data)
     } catch (err) {
       console.error(err)
       setMessage('Error loading admin data.')
@@ -126,10 +128,7 @@ export default function AdminDashboard() {
 
         {loading ? (
           <div className="flex justify-center items-center py-20 text-gray-500">
-            <svg
-              className="animate-spin h-6 w-6 mr-2 text-[#C6A664]"
-              viewBox="0 0 24 24"
-            >
+            <svg className="animate-spin h-6 w-6 mr-2 text-[#C6A664]" viewBox="0 0 24 24">
               <circle
                 className="opacity-25"
                 cx="12"
@@ -150,45 +149,49 @@ export default function AdminDashboard() {
           <div className="space-y-10">
             {/* Portfolio Summary */}
             <section>
-            <h2 className="text-xl font-semibold mb-4 text-[#0A1E2D]">Portfolio Summary</h2>
-            {portfolioSummary.map((item, idx) => (
-                <div
-                    key={idx}
-                    className="bg-[#fdfbf7] p-5 rounded-xl border border-gray-200 text-center"
-                >
-                    <p className="text-sm text-gray-500 mb-1">{item.source_name}</p>
-                    <p className="text-2xl font-semibold text-[#0A1E2D]">
-                    {Number(item.total_payout).toLocaleString()}
-                    </p>
+              <h2 className="text-xl font-semibold mb-4 text-[#0A1E2D]">Portfolio Summary</h2>
+              {portfolioSummary.length === 0 ? (
+                <p className="text-gray-500">No data yet.</p>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  {portfolioSummary.map((item, idx) => (
+                    <div
+                      key={idx}
+                      className="bg-[#fdfbf7] p-5 rounded-xl border border-gray-200 text-center"
+                    >
+                      <p className="text-sm text-gray-500 mb-1">{item.source_name}</p>
+                      <p className="text-2xl font-semibold text-[#0A1E2D]">
+                        {Number(item.total_payout || 0).toLocaleString()}
+                      </p>
+                    </div>
+                  ))}
                 </div>
-                ))}
-
+              )}
             </section>
 
             {/* Global Payout Distribution */}
             <section>
-            <h2 className="text-xl font-semibold mb-4 text-[#0A1E2D]">Global Payout Distribution</h2>
-            {portfolioSummary.length === 0 ? (
+              <h2 className="text-xl font-semibold mb-4 text-[#0A1E2D]">Global Payout Distribution</h2>
+              {payoutSummary.length === 0 ? (
                 <p className="text-gray-500">No payout data available.</p>
-            ) : (
+              ) : (
                 <ResponsiveContainer width="100%" height={350}>
-                <BarChart
-                    data={portfolioSummary.map((item) => ({
-                    source_name: item.source_name,
-                    total_payout: Number(item.total_payout)
+                  <BarChart
+                    data={payoutSummary.map((item) => ({
+                      source_name: item.source_name,
+                      total_payout: Number(item.total_payout || 0)
                     }))}
-                >
+                  >
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="source_name" />
                     <YAxis />
-                    <Tooltip />
+                    <Tooltip formatter={(value: any) => `$${value}`} />
                     <Legend />
-                    <Bar dataKey="total_payout" fill="#C6A664" name="Total Payout" />
-                </BarChart>
+                    <Bar dataKey="total_payout" fill="#C6A664" name="Total Payout ($)" />
+                  </BarChart>
                 </ResponsiveContainer>
-            )}
+              )}
             </section>
-
 
             {/* Monthly Trends */}
             <section>
