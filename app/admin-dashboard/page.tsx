@@ -151,23 +151,18 @@ export default function AdminDashboard() {
             {/* Portfolio Summary */}
             <section>
             <h2 className="text-xl font-semibold mb-4 text-[#0A1E2D]">Portfolio Summary</h2>
-            {portfolioSummary.length === 0 ? (
-                <p className="text-gray-500">No data yet.</p>
-            ) : (
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {portfolioSummary.map((item, idx) => (
-                    <div
+            {portfolioSummary.map((item, idx) => (
+                <div
                     key={idx}
                     className="bg-[#fdfbf7] p-5 rounded-xl border border-gray-200 text-center"
-                    >
+                >
                     <p className="text-sm text-gray-500 mb-1">{item.source_name}</p>
                     <p className="text-2xl font-semibold text-[#0A1E2D]">
-                        {item.total_payout?.toLocaleString() ?? '0'}
+                    {Number(item.total_payout).toLocaleString()}
                     </p>
-                    </div>
-                ))}
                 </div>
-            )}
+                ))}
+
             </section>
 
             {/* Global Payout Distribution */}
