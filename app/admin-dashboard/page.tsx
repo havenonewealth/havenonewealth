@@ -61,7 +61,7 @@ export default function AdminDashboard() {
     verifyAdmin()
   }, [router])
 
-  // Fetch dashboard data with auto-sync for missing income_sources
+  // Fetch dashboard data
   const fetchData = async () => {
     try {
       setLoading(true)
@@ -79,7 +79,7 @@ export default function AdminDashboard() {
             (s) => s.source_name === item.source_name && s.user_id === null
           )
 
-          // Auto-create missing admin-level record
+          // Auto-create admin-level record if missing
           if (!match) {
             const { data: inserted, error } = await supabase
               .from('income_sources')
@@ -95,7 +95,11 @@ export default function AdminDashboard() {
             if (!error && inserted) match = inserted
           }
 
-          return { ...item, id: match?.id }
+          return {
+            ...item,
+            id: match?.id ?? null,
+            total_payout: match?.total_payout ?? item.total_payout
+          }
         })
       )
 
@@ -129,6 +133,7 @@ export default function AdminDashboard() {
 
   // Edit income source
   const handleEdit = (item: any) => {
+    console.log('Editing item:', item)
     setEditItem(item)
     setShowEditModal(true)
   }
@@ -136,15 +141,24 @@ export default function AdminDashboard() {
   const handleSaveEdit = async () => {
     if (!editItem) return
     const { id, source_name, total_payout } = editItem
-    const { error } = await supabase
+    console.log('Attempting update for:', id, source_name, total_payout)
+
+    if (!id) {
+      alert('This record has no valid ID and cannot be edited.')
+      return
+    }
+
+    const { data, error } = await supabase
       .from('income_sources')
-      .update({ source_name, total_payout })
+      .update({ source_name, total_payout: Number(total_payout) })
       .eq('id', id)
+      .select()
 
     if (error) {
-      console.error(error)
-      alert('Error updating record.')
+      console.error('Supabase update error:', error)
+      alert(`Error updating record: ${error.message}`)
     } else {
+      console.log('Update success:', data)
       alert('Record updated successfully.')
       setShowEditModal(false)
       fetchData()
