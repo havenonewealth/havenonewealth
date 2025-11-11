@@ -91,6 +91,9 @@ export default function AdminDashboard() {
     }
   }
 
+  const formatCurrency = (value: number) =>
+    value?.toLocaleString('en-US', { style: 'currency', currency: 'USD' })
+
   if (!authorized) return null
 
   return (
@@ -161,7 +164,7 @@ export default function AdminDashboard() {
                     >
                       <p className="text-sm text-gray-500 mb-1">{item.source_name}</p>
                       <p className="text-2xl font-semibold text-[#0A1E2D]">
-                        {Number(item.total_payout || 0).toLocaleString()}
+                        {formatCurrency(Number(item.total_payout || 0))}
                       </p>
                     </div>
                   ))}
@@ -172,19 +175,19 @@ export default function AdminDashboard() {
             {/* Global Payout Distribution */}
             <section>
               <h2 className="text-xl font-semibold mb-4 text-[#0A1E2D]">Global Payout Distribution</h2>
-              {payoutSummary.length === 0 ? (
+              {portfolioSummary.length === 0 ? (
                 <p className="text-gray-500">No payout data available.</p>
               ) : (
                 <ResponsiveContainer width="100%" height={350}>
                   <BarChart
-                    data={payoutSummary.map((item) => ({
+                    data={portfolioSummary.map((item) => ({
                       source_name: item.source_name,
                       total_payout: Number(item.total_payout || 0)
                     }))}
                   >
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="source_name" />
-                    <YAxis />
+                    <YAxis tickFormatter={(value) => `$${value}`} />
                     <Tooltip formatter={(value: any) => `$${value}`} />
                     <Legend />
                     <Bar dataKey="total_payout" fill="#C6A664" name="Total Payout ($)" />
