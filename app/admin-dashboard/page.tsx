@@ -69,25 +69,49 @@ export default function AdminDashboard() {
         supabase.from('v_admin_portfolio_summary').select('*'),
         supabase.from('v_admin_monthly_trends').select('*'),
         supabase.from('v_user_payout_summary').select('*'),
-        supabase.from('income_sources').select('id, source_name, total_payout')
+        supabase.from('income_sources').select('id, user_id, source_name, total_payout')
       ])
 
-      // Merge portfolio view data with actual income_sources IDs
-      const mergedPortfolio = (portfolioData.data || []).map((item: any) => {
-        const match = incomeData.data?.find((s) => s.source_name === item.source_name)
-        return match ? { ...item, id: match.id } : item
-      })
+      const mergedPortfolio = await Promise.all(
+        (portfolioData.data || []).map(async (item: any) => {
+          // Match admin-owned income_sources record
+          let match = incomeData.data?.find(
+            (s) => s.source_name === item.source_name && s.user_id === null
+          )
 
-      setUsers(usersData.data || [])
-      setPortfolioSummary(mergedPortfolio)
-      setMonthlyTrends(trendsData.data || [])
-      setPayoutSummary(payoutData.data || [])
-    } catch (err) {
-      console.error(err)
-      setMessage('Error loading admin data.')
-    } finally {
-      setLoading(false)
-    }
+          // If no admin-level record exists, create it automatically
+          if (!match) {
+            const { data: inserted, error } = await supabase
+              .from('income_sources')
+              .insert([
+                {
+                  user_id: null,
+                  source_name: item.source_name,
+                  total_payout: Number(item.total_payout || 0)
+                }
+              ])
+              .select()
+              .single()
+
+            if (!error && inserted) match = inserted
+          }
+
+          return { ...item, id: match?.id }
+        })
+      )
+
+    setUsers(usersData.data || [])
+    setPortfolioSummary(mergedPortfolio)
+    setMonthlyTrends(trendsData.data || [])
+    setPayoutSummary(payoutData.data || [])
+  } catch (err) {
+    console.error(err)
+    setMessage('Error loading admin data.')
+  } finally {
+    setLoading(false)
+  }
+}
+
   }
 
   const formatCurrency = (value: number) =>
