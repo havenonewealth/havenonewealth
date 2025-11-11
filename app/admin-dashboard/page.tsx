@@ -23,7 +23,7 @@ export default function AdminDashboard() {
   const [users, setUsers] = useState<any[]>([])
   const [payoutSummary, setPayoutSummary] = useState<any[]>([])
   const [monthlyTrends, setMonthlyTrends] = useState<any[]>([])
-  const [portfolioSummary, setPortfolioSummary] = useState<any[]>([])
+  const [portfolioSummary, setPortfolioSummary] = useState<any | null>(null)
   const [loading, setLoading] = useState(true)
   const [message, setMessage] = useState('')
 
@@ -55,14 +55,14 @@ export default function AdminDashboard() {
       setLoading(true)
       const [usersData, payoutsData, trendsData, portfolioData] = await Promise.all([
         supabase.from('users').select('id, email, role, created_at'),
-        supabase.from('v_admin_portfolio_summary').select('*'),
+        supabase.from('v_user_payout_summary').select('*'), // Changed to actual source
         supabase.from('v_admin_monthly_trends').select('*'),
-        supabase.from('v_admin_portfolio_summary').select('*')
+        supabase.from('v_admin_portfolio_summary').select('*').single()
       ])
       setUsers(usersData.data || [])
       setPayoutSummary(payoutsData.data || [])
       setMonthlyTrends(trendsData.data || [])
-      setPortfolioSummary(portfolioData.data || [])
+      setPortfolioSummary(portfolioData.data || null)
     } catch (err) {
       console.error(err)
       setMessage('Error loading admin data.')
@@ -91,15 +91,23 @@ export default function AdminDashboard() {
         {/* Header */}
         <div className="flex justify-between items-center mb-6">
           <Image src="/HOW2Logo.png" alt="Haven One Wealth Logo" width={160} height={60} />
-          <button
-            onClick={async () => {
-              await supabase.auth.signOut()
-              router.push('/login')
-            }}
-            className="bg-[#0A1E2D] text-white px-4 py-2 rounded-md hover:bg-[#C6A664]"
-          >
-            Logout
-          </button>
+          <div className="flex gap-3">
+            <button
+              onClick={() => router.push('/dashboard')}
+              className="bg-[#C6A664] text-[#0A1E2D] px-4 py-2 rounded-md font-semibold hover:bg-[#b59655] transition"
+            >
+              Switch to User View
+            </button>
+            <button
+              onClick={async () => {
+                await supabase.auth.signOut()
+                router.push('/login')
+              }}
+              className="bg-[#0A1E2D] text-white px-4 py-2 rounded-md hover:bg-[#C6A664]"
+            >
+              Logout
+            </button>
+          </div>
         </div>
 
         <h1 className="text-3xl font-semibold mb-6 text-[#0A1E2D]">Admin Dashboard</h1>
@@ -116,21 +124,31 @@ export default function AdminDashboard() {
           </div>
         ) : (
           <div className="space-y-10">
-            {/* Section 1: Key Metrics */}
+            {/* Section 1: Portfolio Summary */}
             <section>
               <h2 className="text-xl font-semibold mb-4 text-[#0A1E2D]">Portfolio Summary</h2>
-              {portfolioSummary.length === 0 ? (
+              {!portfolioSummary ? (
                 <p className="text-gray-500">No data yet.</p>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  {portfolioSummary.map((item, idx) => (
-                    <div key={idx} className="bg-[#fdfbf7] p-5 rounded-xl border border-gray-200">
-                      <p className="text-sm text-gray-500 mb-1">{item.metric_name}</p>
-                      <p className="text-2xl font-semibold text-[#0A1E2D]">
-                        {item.metric_value?.toLocaleString()}
-                      </p>
-                    </div>
-                  ))}
+                  <div className="bg-[#fdfbf7] p-5 rounded-xl border border-gray-200 text-center">
+                    <p className="text-sm text-gray-500 mb-1">Total Users</p>
+                    <p className="text-2xl font-semibold text-[#0A1E2D]">
+                      {portfolioSummary.total_users?.toLocaleString() ?? 0}
+                    </p>
+                  </div>
+                  <div className="bg-[#fdfbf7] p-5 rounded-xl border border-gray-200 text-center">
+                    <p className="text-sm text-gray-500 mb-1">Total Sources</p>
+                    <p className="text-2xl font-semibold text-[#0A1E2D]">
+                      {portfolioSummary.total_sources?.toLocaleString() ?? 0}
+                    </p>
+                  </div>
+                  <div className="bg-[#fdfbf7] p-5 rounded-xl border border-gray-200 text-center">
+                    <p className="text-sm text-gray-500 mb-1">Total Payouts</p>
+                    <p className="text-2xl font-semibold text-[#0A1E2D]">
+                      ${portfolioSummary.total_payouts?.toFixed(2) ?? '0.00'}
+                    </p>
+                  </div>
                 </div>
               )}
             </section>
@@ -148,7 +166,7 @@ export default function AdminDashboard() {
                     <YAxis />
                     <Tooltip />
                     <Legend />
-                    <Bar dataKey="total_payout" fill="#C6A664" name="Total Payout" />
+                    <Bar dataKey="total_amount" fill="#C6A664" name="Total Payout" />
                   </BarChart>
                 </ResponsiveContainer>
               )}
