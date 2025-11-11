@@ -9,6 +9,7 @@ export default function LoginPage() {
   const [email, setEmail] = useState('')
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState('')
+  const [redirecting, setRedirecting] = useState(false)
 
   // Send magic link and ensure user record exists
   const handleLogin = async (e: React.FormEvent) => {
@@ -48,6 +49,8 @@ export default function LoginPage() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
 
+      setRedirecting(true)
+
       const { data: roleData, error } = await supabase
         .from('users')
         .select('role')
@@ -69,6 +72,37 @@ export default function LoginPage() {
       if (event === 'SIGNED_IN') checkUserAndRedirect()
     })
   }, [router])
+
+  if (redirecting) {
+    return (
+      <main className="flex flex-col items-center justify-center min-h-screen bg-[#f8f9fa] text-[#0A1E2D]">
+        <div className="flex flex-col items-center">
+          <svg
+            className="animate-spin h-10 w-10 text-[#C6A664] mb-4"
+            xmlns="http://www.w3.org/2000/svg"
+            fill="none"
+            viewBox="0 0 24 24"
+          >
+            <circle
+              className="opacity-25"
+              cx="12"
+              cy="12"
+              r="10"
+              stroke="currentColor"
+              strokeWidth="4"
+            ></circle>
+            <path
+              className="opacity-75"
+              fill="currentColor"
+              d="M4 12a8 8 0 018-8v4l3-3-3-3v4a8 8 0 00-8 8z"
+            ></path>
+          </svg>
+          <p className="text-lg font-semibold">Signing you in…</p>
+          <p className="text-sm text-gray-500 mt-1">Please wait a moment</p>
+        </div>
+      </main>
+    )
+  }
 
   return (
     <main className="flex flex-col items-center justify-center min-h-screen bg-[#f8f9fa] text-[#0A1E2D]">
