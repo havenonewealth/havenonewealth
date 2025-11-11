@@ -60,19 +60,26 @@ export default function AdminDashboard() {
     verifyAdmin()
   }, [router])
 
-  // Fetch dashboard data
+  // Fetch all dashboard data
   const fetchData = async () => {
     try {
       setLoading(true)
-      const [usersData, portfolioData, trendsData, payoutData] = await Promise.all([
+      const [usersData, portfolioData, trendsData, payoutData, incomeData] = await Promise.all([
         supabase.from('users').select('id, email, role, created_at'),
         supabase.from('v_admin_portfolio_summary').select('*'),
         supabase.from('v_admin_monthly_trends').select('*'),
-        supabase.from('v_user_payout_summary').select('*')
+        supabase.from('v_user_payout_summary').select('*'),
+        supabase.from('income_sources').select('id, source_name, total_payout')
       ])
 
+      // Merge portfolio view data with actual income_sources IDs
+      const mergedPortfolio = (portfolioData.data || []).map((item: any) => {
+        const match = incomeData.data?.find((s) => s.source_name === item.source_name)
+        return match ? { ...item, id: match.id } : item
+      })
+
       setUsers(usersData.data || [])
-      setPortfolioSummary(portfolioData.data || [])
+      setPortfolioSummary(mergedPortfolio)
       setMonthlyTrends(trendsData.data || [])
       setPayoutSummary(payoutData.data || [])
     } catch (err) {
@@ -101,6 +108,10 @@ export default function AdminDashboard() {
 
   // Edit income source
   const handleEdit = (item: any) => {
+    if (!item.id) {
+      alert('This record cannot be edited because it does not exist in income_sources.')
+      return
+    }
     setEditItem(item)
     setShowEditModal(true)
   }
@@ -110,12 +121,12 @@ export default function AdminDashboard() {
     const { id, source_name, total_payout } = editItem
     const { error } = await supabase
       .from('income_sources')
-      .update({ source_name, total_payout })
+      .update({ source_name, total_payout: Number(total_payout) })
       .eq('id', id)
 
     if (error) {
       console.error(error)
-      alert('Error updating record.')
+      alert('Error updating record. Make sure this source exists in income_sources.')
     } else {
       alert('Record updated successfully.')
       setShowEditModal(false)
@@ -187,11 +198,24 @@ export default function AdminDashboard() {
 
         <h1 className="text-3xl font-semibold mb-6 text-[#0A1E2D]">Admin Dashboard</h1>
 
+        {message && <p className="mb-4 text-sm text-gray-700">{message}</p>}
+
         {loading ? (
           <div className="flex justify-center items-center py-20 text-gray-500">
             <svg className="animate-spin h-6 w-6 mr-2 text-[#C6A664]" viewBox="0 0 24 24">
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4l3-3-3-3v4a8 8 0 00-8 8z"></path>
+              <circle
+                className="opacity-25"
+                cx="12"
+                cy="12"
+                r="10"
+                stroke="currentColor"
+                strokeWidth="4"
+              ></circle>
+              <path
+                className="opacity-75"
+                fill="currentColor"
+                d="M4 12a8 8 0 018-8v4l3-3-3-3v4a8 8 0 00-8 8z"
+              ></path>
             </svg>
             Loading data...
           </div>
@@ -272,8 +296,20 @@ export default function AdminDashboard() {
                     <YAxis />
                     <Tooltip />
                     <Legend />
-                    <Line type="monotone" dataKey="total_payout" stroke="#C6A664" strokeWidth={2} name="Total Payout" />
-                    <Line type="monotone" dataKey="avg_payout" stroke="#0A1E2D" strokeWidth={2} name="Average Payout" />
+                    <Line
+                      type="monotone"
+                      dataKey="total_payout"
+                      stroke="#C6A664"
+                      strokeWidth={2}
+                      name="Total Payout"
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="avg_payout"
+                      stroke="#0A1E2D"
+                      strokeWidth={2}
+                      name="Average Payout"
+                    />
                   </LineChart>
                 </ResponsiveContainer>
               )}
