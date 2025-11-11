@@ -28,6 +28,8 @@ export default function AdminDashboard() {
   const [portfolioSummary, setPortfolioSummary] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [message, setMessage] = useState('')
+  const [editItem, setEditItem] = useState<any | null>(null)
+  const [showEditModal, setShowEditModal] = useState(false)
 
   // Verify admin access and set role
   useEffect(() => {
@@ -71,8 +73,6 @@ export default function AdminDashboard() {
       setPortfolioSummary(portfolioData.data || [])
       setMonthlyTrends(trendsData.data || [])
       setPayoutSummary(payoutData.data || [])
-      console.log('Portfolio Summary:', portfolioData.data)
-      console.log('Payout Summary:', payoutData.data)
     } catch (err) {
       console.error(err)
       setMessage('Error loading admin data.')
@@ -81,18 +81,45 @@ export default function AdminDashboard() {
     }
   }
 
-  // Change user role dynamically
-  const handleRoleChange = async (userId: string, newRole: string) => {
-    const { error } = await supabase.from('users').update({ role: newRole }).eq('id', userId)
-    if (error) setMessage('Error updating role.')
-    else {
-      setMessage('User role updated successfully.')
+  const formatCurrency = (value: number) =>
+    value?.toLocaleString('en-US', { style: 'currency', currency: 'USD' })
+
+  // Delete income source
+  const handleDelete = async (sourceName: string) => {
+    if (!confirm(`Are you sure you want to delete ${sourceName}?`)) return
+    const { error } = await supabase.from('user_sources').delete().eq('source_name', sourceName)
+    if (error) {
+      alert('Error deleting source.')
+      console.error(error)
+    } else {
+      alert(`${sourceName} deleted successfully.`)
       fetchData()
     }
   }
 
-  const formatCurrency = (value: number) =>
-    value?.toLocaleString('en-US', { style: 'currency', currency: 'USD' })
+  // Open edit modal
+  const handleEdit = (item: any) => {
+    setEditItem(item)
+    setShowEditModal(true)
+  }
+
+  // Save changes
+  const handleSaveEdit = async () => {
+    if (!editItem) return
+    const { source_name, total_payout } = editItem
+    const { error } = await supabase
+      .from('user_sources')
+      .update({ source_name, total_payout })
+      .eq('source_name', source_name)
+    if (error) {
+      alert('Error updating record.')
+      console.error(error)
+    } else {
+      alert('Record updated successfully.')
+      setShowEditModal(false)
+      fetchData()
+    }
+  }
 
   if (!authorized) return null
 
@@ -127,24 +154,11 @@ export default function AdminDashboard() {
 
         <h1 className="text-3xl font-semibold mb-6 text-[#0A1E2D]">Admin Dashboard</h1>
 
-        {message && <p className="mb-4 text-sm text-gray-700">{message}</p>}
-
         {loading ? (
           <div className="flex justify-center items-center py-20 text-gray-500">
             <svg className="animate-spin h-6 w-6 mr-2 text-[#C6A664]" viewBox="0 0 24 24">
-              <circle
-                className="opacity-25"
-                cx="12"
-                cy="12"
-                r="10"
-                stroke="currentColor"
-                strokeWidth="4"
-              ></circle>
-              <path
-                className="opacity-75"
-                fill="currentColor"
-                d="M4 12a8 8 0 018-8v4l3-3-3-3v4a8 8 0 00-8 8z"
-              ></path>
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4l3-3-3-3v4a8 8 0 00-8 8z"></path>
             </svg>
             Loading data...
           </div>
@@ -158,14 +172,23 @@ export default function AdminDashboard() {
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                   {portfolioSummary.map((item, idx) => (
-                    <div
-                      key={idx}
-                      className="bg-[#fdfbf7] p-5 rounded-xl border border-gray-200 text-center"
-                    >
+                    <div key={idx} className="bg-[#fdfbf7] p-5 rounded-xl border border-gray-200 text-center">
                       <p className="text-sm text-gray-500 mb-1">{item.source_name}</p>
-                      <p className="text-2xl font-semibold text-[#0A1E2D]">
-                        {formatCurrency(Number(item.total_payout || 0))}
-                      </p>
+                      <p className="text-2xl font-semibold text-[#0A1E2D]">{formatCurrency(Number(item.total_payout || 0))}</p>
+                      <div className="mt-2 flex justify-center gap-3">
+                        <button
+                          onClick={() => handleEdit(item)}
+                          className="text-sm text-blue-600 hover:underline"
+                        >
+                          Edit
+                        </button>
+                        <button
+                          onClick={() => handleDelete(item.source_name)}
+                          className="text-sm text-red-600 hover:underline"
+                        >
+                          Delete
+                        </button>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -195,82 +218,46 @@ export default function AdminDashboard() {
                 </ResponsiveContainer>
               )}
             </section>
-
-            {/* Monthly Trends */}
-            <section>
-              <h2 className="text-xl font-semibold mb-4 text-[#0A1E2D]">Monthly Trends</h2>
-              {monthlyTrends.length === 0 ? (
-                <p className="text-gray-500">No monthly data available.</p>
-              ) : (
-                <ResponsiveContainer width="100%" height={350}>
-                  <LineChart data={monthlyTrends}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="month" />
-                    <YAxis />
-                    <Tooltip />
-                    <Legend />
-                    <Line
-                      type="monotone"
-                      dataKey="total_payout"
-                      stroke="#C6A664"
-                      strokeWidth={2}
-                      name="Total Payout"
-                    />
-                    <Line
-                      type="monotone"
-                      dataKey="avg_payout"
-                      stroke="#0A1E2D"
-                      strokeWidth={2}
-                      name="Average Payout"
-                    />
-                  </LineChart>
-                </ResponsiveContainer>
-              )}
-            </section>
-
-            {/* User Management */}
-            <section>
-              <h2 className="text-xl font-semibold mb-4 text-[#0A1E2D]">User Management</h2>
-              <table className="w-full border border-gray-200 rounded-lg">
-                <thead className="bg-[#f9f7f3]">
-                  <tr className="text-left">
-                    <th className="p-3">Email</th>
-                    <th className="p-3">Role</th>
-                    <th className="p-3">Created</th>
-                    <th className="p-3 text-center">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {users.map((u) => (
-                    <tr key={u.id} className="border-t border-gray-100 hover:bg-[#fdfbf7]">
-                      <td className="p-3">{u.email}</td>
-                      <td className="p-3 capitalize">{u.role}</td>
-                      <td className="p-3">{new Date(u.created_at).toLocaleDateString()}</td>
-                      <td className="p-3 text-center">
-                        {u.role === 'admin' ? (
-                          <button
-                            onClick={() => handleRoleChange(u.id, 'user')}
-                            className="text-sm text-red-600 hover:underline"
-                          >
-                            Revoke Admin
-                          </button>
-                        ) : (
-                          <button
-                            onClick={() => handleRoleChange(u.id, 'admin')}
-                            className="text-sm text-blue-600 hover:underline"
-                          >
-                            Make Admin
-                          </button>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </section>
           </div>
         )}
       </div>
+
+      {/* Edit Modal */}
+      {showEditModal && editItem && (
+        <div className="fixed inset-0 bg-black bg-opacity-40 flex justify-center items-center">
+          <div className="bg-white p-6 rounded-lg w-[400px] shadow-lg">
+            <h3 className="text-xl font-semibold mb-4 text-[#0A1E2D]">Edit Income Source</h3>
+            <label className="block mb-2 text-sm text-gray-600">Source Name</label>
+            <input
+              type="text"
+              value={editItem.source_name}
+              onChange={(e) => setEditItem({ ...editItem, source_name: e.target.value })}
+              className="w-full border rounded-md p-2 mb-4"
+            />
+            <label className="block mb-2 text-sm text-gray-600">Total Payout</label>
+            <input
+              type="number"
+              value={editItem.total_payout}
+              onChange={(e) => setEditItem({ ...editItem, total_payout: e.target.value })}
+              className="w-full border rounded-md p-2 mb-6"
+            />
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => setShowEditModal(false)}
+                className="px-4 py-2 rounded-md bg-gray-200 hover:bg-gray-300"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSaveEdit}
+                className="px-4 py-2 rounded-md bg-[#C6A664] text-[#0A1E2D] hover:bg-[#b59655]"
+              >
+                Save Changes
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   )
 }
