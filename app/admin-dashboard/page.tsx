@@ -55,14 +55,16 @@ export default function AdminDashboard() {
       setLoading(true)
       const [usersData, payoutsData, trendsData, portfolioData] = await Promise.all([
         supabase.from('users').select('id, email, role, created_at'),
-        supabase.from('v_user_payout_summary').select('*'), // Changed to actual source
+        supabase.from('v_user_payout_summary').select('*'),
         supabase.from('v_admin_monthly_trends').select('*'),
-        supabase.from('v_admin_portfolio_summary').select('*').single()
-      ])
-      setUsers(usersData.data || [])
-      setPayoutSummary(payoutsData.data || [])
-      setMonthlyTrends(trendsData.data || [])
-      setPortfolioSummary(portfolioData.data || null)
+        supabase.from('v_admin_portfolio_summary').select('*')
+        ])
+
+        setUsers(usersData.data || [])
+        setPayoutSummary(payoutsData.data || [])
+        setMonthlyTrends(trendsData.data || [])
+        setPortfolioSummary(portfolioData.data && portfolioData.data.length > 0 ? portfolioData.data[0] : null)
+
     } catch (err) {
       console.error(err)
       setMessage('Error loading admin data.')
