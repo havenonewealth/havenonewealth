@@ -70,7 +70,7 @@ export default function AdminDashboard() {
       setUsers(usersData.data || [])
       setPortfolioSummary(portfolioData.data || [])
       setMonthlyTrends(trendsData.data || [])
-      setPayoutSummary(payoutsData.data || [])
+      setPayoutSummary(portfolioData.data || [])
     } catch (err) {
       console.error(err)
       setMessage('Error loading admin data.')
@@ -150,24 +150,24 @@ export default function AdminDashboard() {
           <div className="space-y-10">
             {/* Portfolio Summary */}
             <section>
-              <h2 className="text-xl font-semibold mb-4 text-[#0A1E2D]">Portfolio Summary</h2>
-              {payoutSummary.length === 0 ? (
+            <h2 className="text-xl font-semibold mb-4 text-[#0A1E2D]">Portfolio Summary</h2>
+            {portfolioSummary.length === 0 ? (
                 <p className="text-gray-500">No data yet.</p>
-              ) : (
+            ) : (
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  {payoutSummary.map((item, idx) => (
+                {portfolioSummary.map((item, idx) => (
                     <div
-                      key={idx}
-                      className="bg-[#fdfbf7] p-5 rounded-xl border border-gray-200 text-center"
+                    key={idx}
+                    className="bg-[#fdfbf7] p-5 rounded-xl border border-gray-200 text-center"
                     >
-                      <p className="text-sm text-gray-500 mb-1">{item.source_name}</p>
-                      <p className="text-2xl font-semibold text-[#0A1E2D]">
-                        {item.total_amount?.toLocaleString()}
-                      </p>
+                    <p className="text-sm text-gray-500 mb-1">{item.source_name}</p>
+                    <p className="text-2xl font-semibold text-[#0A1E2D]">
+                        {item.total_payout?.toLocaleString() ?? '0'}
+                    </p>
                     </div>
-                  ))}
+                ))}
                 </div>
-              )}
+            )}
             </section>
 
             {/* Global Payout Distribution */}
