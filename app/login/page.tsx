@@ -26,7 +26,7 @@ export default function LoginPage() {
       if (error) throw error
       setMessage('Check your email for a sign-in link!')
 
-      // Ensure user exists in the custom "users" table
+      // Ensure user exists in custom users table
       const { data: existingUser } = await supabase
         .from('users')
         .select('email')
@@ -51,10 +51,11 @@ export default function LoginPage() {
 
       setRedirecting(true)
 
+      // Use email instead of id for role lookup
       const { data: roleData, error } = await supabase
         .from('users')
         .select('role')
-        .eq('id', user.id)
+        .eq('email', user.email)
         .single()
 
       if (error || !roleData) {
