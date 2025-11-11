@@ -30,8 +30,10 @@ export default function AdminDashboard() {
   const [message, setMessage] = useState('')
   const [editItem, setEditItem] = useState<any | null>(null)
   const [showEditModal, setShowEditModal] = useState(false)
+  const [showAddModal, setShowAddModal] = useState(false)
+  const [newSource, setNewSource] = useState({ source_name: '', total_payout: '' })
 
-  // Verify admin access and set role
+  // Verify admin access
   useEffect(() => {
     const verifyAdmin = async () => {
       const { data: { user } } = await supabase.auth.getUser()
@@ -58,7 +60,7 @@ export default function AdminDashboard() {
     verifyAdmin()
   }, [router])
 
-  // Fetch all admin dashboard data
+  // Fetch all dashboard data
   const fetchData = async () => {
     try {
       setLoading(true)
@@ -87,7 +89,7 @@ export default function AdminDashboard() {
   // Delete income source
   const handleDelete = async (sourceName: string) => {
     if (!confirm(`Are you sure you want to delete ${sourceName}?`)) return
-    const { error } = await supabase.from('user_sources').delete().eq('source_name', sourceName)
+    const { error } = await supabase.from('income_sources').delete().eq('source_name', sourceName)
     if (error) {
       alert('Error deleting source.')
       console.error(error)
@@ -97,18 +99,17 @@ export default function AdminDashboard() {
     }
   }
 
-  // Open edit modal
+  // Edit
   const handleEdit = (item: any) => {
     setEditItem(item)
     setShowEditModal(true)
   }
 
-  // Save changes
   const handleSaveEdit = async () => {
     if (!editItem) return
     const { source_name, total_payout } = editItem
     const { error } = await supabase
-      .from('user_sources')
+      .from('income_sources')
       .update({ source_name, total_payout })
       .eq('source_name', source_name)
     if (error) {
@@ -117,6 +118,26 @@ export default function AdminDashboard() {
     } else {
       alert('Record updated successfully.')
       setShowEditModal(false)
+      fetchData()
+    }
+  }
+
+  // Add
+  const handleAddSource = async () => {
+    if (!newSource.source_name || !newSource.total_payout) {
+      alert('Please fill in all fields.')
+      return
+    }
+    const { error } = await supabase
+      .from('income_sources')
+      .insert([{ source_name: newSource.source_name, total_payout: Number(newSource.total_payout) }])
+    if (error) {
+      alert('Error adding new source.')
+      console.error(error)
+    } else {
+      alert('New source added successfully.')
+      setShowAddModal(false)
+      setNewSource({ source_name: '', total_payout: '' })
       fetchData()
     }
   }
@@ -166,7 +187,15 @@ export default function AdminDashboard() {
           <div className="space-y-10">
             {/* Portfolio Summary */}
             <section>
-              <h2 className="text-xl font-semibold mb-4 text-[#0A1E2D]">Portfolio Summary</h2>
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-xl font-semibold text-[#0A1E2D]">Portfolio Summary</h2>
+                <button
+                  onClick={() => setShowAddModal(true)}
+                  className="bg-[#C6A664] text-[#0A1E2D] px-4 py-2 rounded-md font-semibold hover:bg-[#b59655] transition"
+                >
+                  + Add New Source
+                </button>
+              </div>
               {portfolioSummary.length === 0 ? (
                 <p className="text-gray-500">No data yet.</p>
               ) : (
@@ -174,18 +203,14 @@ export default function AdminDashboard() {
                   {portfolioSummary.map((item, idx) => (
                     <div key={idx} className="bg-[#fdfbf7] p-5 rounded-xl border border-gray-200 text-center">
                       <p className="text-sm text-gray-500 mb-1">{item.source_name}</p>
-                      <p className="text-2xl font-semibold text-[#0A1E2D]">{formatCurrency(Number(item.total_payout || 0))}</p>
+                      <p className="text-2xl font-semibold text-[#0A1E2D]">
+                        {formatCurrency(Number(item.total_payout || 0))}
+                      </p>
                       <div className="mt-2 flex justify-center gap-3">
-                        <button
-                          onClick={() => handleEdit(item)}
-                          className="text-sm text-blue-600 hover:underline"
-                        >
+                        <button onClick={() => handleEdit(item)} className="text-sm text-blue-600 hover:underline">
                           Edit
                         </button>
-                        <button
-                          onClick={() => handleDelete(item.source_name)}
-                          className="text-sm text-red-600 hover:underline"
-                        >
+                        <button onClick={() => handleDelete(item.source_name)} className="text-sm text-red-600 hover:underline">
                           Delete
                         </button>
                       </div>
@@ -218,6 +243,57 @@ export default function AdminDashboard() {
                 </ResponsiveContainer>
               )}
             </section>
+
+            {/* Monthly Trends */}
+            <section>
+              <h2 className="text-xl font-semibold mb-4 text-[#0A1E2D]">Monthly Trends</h2>
+              {monthlyTrends.length === 0 ? (
+                <p className="text-gray-500">No monthly data available.</p>
+              ) : (
+                <ResponsiveContainer width="100%" height={350}>
+                  <LineChart data={monthlyTrends}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="month" />
+                    <YAxis />
+                    <Tooltip />
+                    <Legend />
+                    <Line type="monotone" dataKey="total_payout" stroke="#C6A664" strokeWidth={2} name="Total Payout" />
+                    <Line type="monotone" dataKey="avg_payout" stroke="#0A1E2D" strokeWidth={2} name="Average Payout" />
+                  </LineChart>
+                </ResponsiveContainer>
+              )}
+            </section>
+
+            {/* User Management */}
+            <section>
+              <h2 className="text-xl font-semibold mb-4 text-[#0A1E2D]">User Management</h2>
+              <table className="w-full border border-gray-200 rounded-lg">
+                <thead className="bg-[#f9f7f3]">
+                  <tr className="text-left">
+                    <th className="p-3">Email</th>
+                    <th className="p-3">Role</th>
+                    <th className="p-3">Created</th>
+                    <th className="p-3 text-center">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {users.map((u) => (
+                    <tr key={u.id} className="border-t border-gray-100 hover:bg-[#fdfbf7]">
+                      <td className="p-3">{u.email}</td>
+                      <td className="p-3 capitalize">{u.role}</td>
+                      <td className="p-3">{new Date(u.created_at).toLocaleDateString()}</td>
+                      <td className="p-3 text-center">
+                        {u.role === 'admin' ? (
+                          <button className="text-sm text-red-600 hover:underline">Revoke Admin</button>
+                        ) : (
+                          <button className="text-sm text-blue-600 hover:underline">Make Admin</button>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </section>
           </div>
         )}
       </div>
@@ -242,17 +318,42 @@ export default function AdminDashboard() {
               className="w-full border rounded-md p-2 mb-6"
             />
             <div className="flex justify-end gap-3">
-              <button
-                onClick={() => setShowEditModal(false)}
-                className="px-4 py-2 rounded-md bg-gray-200 hover:bg-gray-300"
-              >
+              <button onClick={() => setShowEditModal(false)} className="px-4 py-2 rounded-md bg-gray-200 hover:bg-gray-300">
                 Cancel
               </button>
-              <button
-                onClick={handleSaveEdit}
-                className="px-4 py-2 rounded-md bg-[#C6A664] text-[#0A1E2D] hover:bg-[#b59655]"
-              >
+              <button onClick={handleSaveEdit} className="px-4 py-2 rounded-md bg-[#C6A664] text-[#0A1E2D] hover:bg-[#b59655]">
                 Save Changes
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add Modal */}
+      {showAddModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-40 flex justify-center items-center">
+          <div className="bg-white p-6 rounded-lg w-[400px] shadow-lg">
+            <h3 className="text-xl font-semibold mb-4 text-[#0A1E2D]">Add New Income Source</h3>
+            <label className="block mb-2 text-sm text-gray-600">Source Name</label>
+            <input
+              type="text"
+              value={newSource.source_name}
+              onChange={(e) => setNewSource({ ...newSource, source_name: e.target.value })}
+              className="w-full border rounded-md p-2 mb-4"
+            />
+            <label className="block mb-2 text-sm text-gray-600">Total Payout</label>
+            <input
+              type="number"
+              value={newSource.total_payout}
+              onChange={(e) => setNewSource({ ...newSource, total_payout: e.target.value })}
+              className="w-full border rounded-md p-2 mb-6"
+            />
+            <div className="flex justify-end gap-3">
+              <button onClick={() => setShowAddModal(false)} className="px-4 py-2 rounded-md bg-gray-200 hover:bg-gray-300">
+                Cancel
+              </button>
+              <button onClick={handleAddSource} className="px-4 py-2 rounded-md bg-[#C6A664] text-[#0A1E2D] hover:bg-[#b59655]">
+                Add Source
               </button>
             </div>
           </div>
