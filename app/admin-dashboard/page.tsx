@@ -60,7 +60,7 @@ export default function AdminDashboard() {
     verifyAdmin()
   }, [router])
 
-  // Fetch all dashboard data
+  // Fetch dashboard data
   const fetchData = async () => {
     try {
       setLoading(true)
@@ -87,19 +87,19 @@ export default function AdminDashboard() {
     value?.toLocaleString('en-US', { style: 'currency', currency: 'USD' })
 
   // Delete income source
-  const handleDelete = async (sourceName: string) => {
+  const handleDelete = async (id: string, sourceName: string) => {
     if (!confirm(`Are you sure you want to delete ${sourceName}?`)) return
-    const { error } = await supabase.from('income_sources').delete().eq('source_name', sourceName)
+    const { error } = await supabase.from('income_sources').delete().eq('id', id)
     if (error) {
-      alert('Error deleting source.')
       console.error(error)
+      alert('Error deleting source.')
     } else {
       alert(`${sourceName} deleted successfully.`)
       fetchData()
     }
   }
 
-  // Edit
+  // Edit income source
   const handleEdit = (item: any) => {
     setEditItem(item)
     setShowEditModal(true)
@@ -107,14 +107,15 @@ export default function AdminDashboard() {
 
   const handleSaveEdit = async () => {
     if (!editItem) return
-    const { source_name, total_payout } = editItem
+    const { id, source_name, total_payout } = editItem
     const { error } = await supabase
       .from('income_sources')
       .update({ source_name, total_payout })
-      .eq('source_name', source_name)
+      .eq('id', id)
+
     if (error) {
-      alert('Error updating record.')
       console.error(error)
+      alert('Error updating record.')
     } else {
       alert('Record updated successfully.')
       setShowEditModal(false)
@@ -122,7 +123,7 @@ export default function AdminDashboard() {
     }
   }
 
-  // Add
+  // Add new income source
   const handleAddSource = async () => {
     if (!newSource.source_name || !newSource.total_payout) {
       alert('Please fill in all fields.')
@@ -131,13 +132,24 @@ export default function AdminDashboard() {
     const { error } = await supabase
       .from('income_sources')
       .insert([{ source_name: newSource.source_name, total_payout: Number(newSource.total_payout) }])
+
     if (error) {
-      alert('Error adding new source.')
       console.error(error)
+      alert('Error adding new source.')
     } else {
       alert('New source added successfully.')
       setShowAddModal(false)
       setNewSource({ source_name: '', total_payout: '' })
+      fetchData()
+    }
+  }
+
+  // Change user role dynamically
+  const handleRoleChange = async (userId: string, newRole: string) => {
+    const { error } = await supabase.from('users').update({ role: newRole }).eq('id', userId)
+    if (error) setMessage('Error updating role.')
+    else {
+      setMessage('User role updated successfully.')
       fetchData()
     }
   }
@@ -210,7 +222,10 @@ export default function AdminDashboard() {
                         <button onClick={() => handleEdit(item)} className="text-sm text-blue-600 hover:underline">
                           Edit
                         </button>
-                        <button onClick={() => handleDelete(item.source_name)} className="text-sm text-red-600 hover:underline">
+                        <button
+                          onClick={() => handleDelete(item.id, item.source_name)}
+                          className="text-sm text-red-600 hover:underline"
+                        >
                           Delete
                         </button>
                       </div>
@@ -284,9 +299,19 @@ export default function AdminDashboard() {
                       <td className="p-3">{new Date(u.created_at).toLocaleDateString()}</td>
                       <td className="p-3 text-center">
                         {u.role === 'admin' ? (
-                          <button className="text-sm text-red-600 hover:underline">Revoke Admin</button>
+                          <button
+                            onClick={() => handleRoleChange(u.id, 'user')}
+                            className="text-sm text-red-600 hover:underline"
+                          >
+                            Revoke Admin
+                          </button>
                         ) : (
-                          <button className="text-sm text-blue-600 hover:underline">Make Admin</button>
+                          <button
+                            onClick={() => handleRoleChange(u.id, 'admin')}
+                            className="text-sm text-blue-600 hover:underline"
+                          >
+                            Make Admin
+                          </button>
                         )}
                       </td>
                     </tr>
@@ -318,10 +343,16 @@ export default function AdminDashboard() {
               className="w-full border rounded-md p-2 mb-6"
             />
             <div className="flex justify-end gap-3">
-              <button onClick={() => setShowEditModal(false)} className="px-4 py-2 rounded-md bg-gray-200 hover:bg-gray-300">
+              <button
+                onClick={() => setShowEditModal(false)}
+                className="px-4 py-2 rounded-md bg-gray-200 hover:bg-gray-300"
+              >
                 Cancel
               </button>
-              <button onClick={handleSaveEdit} className="px-4 py-2 rounded-md bg-[#C6A664] text-[#0A1E2D] hover:bg-[#b59655]">
+              <button
+                onClick={handleSaveEdit}
+                className="px-4 py-2 rounded-md bg-[#C6A664] text-[#0A1E2D] hover:bg-[#b59655]"
+              >
                 Save Changes
               </button>
             </div>
@@ -349,10 +380,16 @@ export default function AdminDashboard() {
               className="w-full border rounded-md p-2 mb-6"
             />
             <div className="flex justify-end gap-3">
-              <button onClick={() => setShowAddModal(false)} className="px-4 py-2 rounded-md bg-gray-200 hover:bg-gray-300">
+              <button
+                onClick={() => setShowAddModal(false)}
+                className="px-4 py-2 rounded-md bg-gray-200 hover:bg-gray-300"
+              >
                 Cancel
               </button>
-              <button onClick={handleAddSource} className="px-4 py-2 rounded-md bg-[#C6A664] text-[#0A1E2D] hover:bg-[#b59655]">
+              <button
+                onClick={handleAddSource}
+                className="px-4 py-2 rounded-md bg-[#C6A664] text-[#0A1E2D] hover:bg-[#b59655]"
+              >
                 Add Source
               </button>
             </div>
