@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, usePathname } from 'next/navigation'
 import { supabase } from '@/lib/supabaseClient'
 import Image from 'next/image'
 import {
@@ -19,15 +19,17 @@ import {
 
 export default function AdminDashboard() {
   const router = useRouter()
+  const pathname = usePathname()
   const [authorized, setAuthorized] = useState(false)
+  const [userRole, setUserRole] = useState<string | null>(null)
   const [users, setUsers] = useState<any[]>([])
   const [payoutSummary, setPayoutSummary] = useState<any[]>([])
   const [monthlyTrends, setMonthlyTrends] = useState<any[]>([])
-  const [portfolioSummary, setPortfolioSummary] = useState<any | null>(null)
+  const [portfolioSummary, setPortfolioSummary] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [message, setMessage] = useState('')
 
-  // Verify admin access
+  // Verify admin access and set role
   useEffect(() => {
     const verifyAdmin = async () => {
       const { data: { user } } = await supabase.auth.getUser()
@@ -39,17 +41,22 @@ export default function AdminDashboard() {
         .eq('id', user.id)
         .single()
 
-      if (error || !data || data.role !== 'admin') {
+      if (error || !data) {
         router.push('/dashboard')
       } else {
-        setAuthorized(true)
-        await fetchData()
+        setUserRole(data.role)
+        if (data.role !== 'admin') {
+          router.push('/dashboard')
+        } else {
+          setAuthorized(true)
+          await fetchData()
+        }
       }
     }
     verifyAdmin()
   }, [router])
 
-  // Fetch data for admin dashboard
+  // Fetch all admin dashboard data
   const fetchData = async () => {
     try {
       setLoading(true)
@@ -58,13 +65,11 @@ export default function AdminDashboard() {
         supabase.from('v_user_payout_summary').select('*'),
         supabase.from('v_admin_monthly_trends').select('*'),
         supabase.from('v_admin_portfolio_summary').select('*')
-        ])
-
-        setUsers(usersData.data || [])
-        setPayoutSummary(payoutsData.data || [])
-        setMonthlyTrends(trendsData.data || [])
-        setPortfolioSummary(portfolioData.data && portfolioData.data.length > 0 ? portfolioData.data[0] : null)
-
+      ])
+      setUsers(usersData.data || [])
+      setPayoutSummary(payoutsData.data || [])
+      setMonthlyTrends(trendsData.data || [])
+      setPortfolioSummary(portfolioData.data && portfolioData.data.length > 0 ? portfolioData.data : [])
     } catch (err) {
       console.error(err)
       setMessage('Error loading admin data.')
@@ -73,11 +78,9 @@ export default function AdminDashboard() {
     }
   }
 
+  // Change user role dynamically
   const handleRoleChange = async (userId: string, newRole: string) => {
-    const { error } = await supabase
-      .from('users')
-      .update({ role: newRole })
-      .eq('id', userId)
+    const { error } = await supabase.from('users').update({ role: newRole }).eq('id', userId)
     if (error) setMessage('Error updating role.')
     else {
       setMessage('User role updated successfully.')
@@ -94,18 +97,22 @@ export default function AdminDashboard() {
         <div className="flex justify-between items-center mb-6">
           <Image src="/HOW2Logo.png" alt="Haven One Wealth Logo" width={160} height={60} />
           <div className="flex gap-3">
-            <button
-              onClick={() => router.push('/dashboard')}
-              className="bg-[#C6A664] text-[#0A1E2D] px-4 py-2 rounded-md font-semibold hover:bg-[#b59655] transition"
-            >
-              Switch to User View
-            </button>
+            {userRole === 'admin' && (
+              <button
+                onClick={() =>
+                  router.push(pathname === '/admin-dashboard' ? '/dashboard' : '/admin-dashboard')
+                }
+                className="bg-[#C6A664] text-[#0A1E2D] px-4 py-2 rounded-md font-semibold hover:bg-[#b59655] transition"
+              >
+                {pathname === '/admin-dashboard' ? 'Switch to User View' : 'Switch to Admin View'}
+              </button>
+            )}
             <button
               onClick={async () => {
                 await supabase.auth.signOut()
                 router.push('/login')
               }}
-              className="bg-[#0A1E2D] text-white px-4 py-2 rounded-md hover:bg-[#C6A664]"
+              className="bg-[#0A1E2D] text-white px-4 py-2 rounded-md hover:bg-[#C6A664] transition"
             >
               Logout
             </button>
@@ -118,44 +125,51 @@ export default function AdminDashboard() {
 
         {loading ? (
           <div className="flex justify-center items-center py-20 text-gray-500">
-            <svg className="animate-spin h-6 w-6 mr-2 text-[#C6A664]" viewBox="0 0 24 24">
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4l3-3-3-3v4a8 8 0 00-8 8z"></path>
+            <svg
+              className="animate-spin h-6 w-6 mr-2 text-[#C6A664]"
+              viewBox="0 0 24 24"
+            >
+              <circle
+                className="opacity-25"
+                cx="12"
+                cy="12"
+                r="10"
+                stroke="currentColor"
+                strokeWidth="4"
+              ></circle>
+              <path
+                className="opacity-75"
+                fill="currentColor"
+                d="M4 12a8 8 0 018-8v4l3-3-3-3v4a8 8 0 00-8 8z"
+              ></path>
             </svg>
             Loading data...
           </div>
         ) : (
           <div className="space-y-10">
-            {/* Section 1: Portfolio Summary */}
+            {/* Portfolio Summary */}
             <section>
               <h2 className="text-xl font-semibold mb-4 text-[#0A1E2D]">Portfolio Summary</h2>
-              {!portfolioSummary ? (
+              {portfolioSummary.length === 0 ? (
                 <p className="text-gray-500">No data yet.</p>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  <div className="bg-[#fdfbf7] p-5 rounded-xl border border-gray-200 text-center">
-                    <p className="text-sm text-gray-500 mb-1">Total Users</p>
-                    <p className="text-2xl font-semibold text-[#0A1E2D]">
-                      {portfolioSummary.total_users?.toLocaleString() ?? 0}
-                    </p>
-                  </div>
-                  <div className="bg-[#fdfbf7] p-5 rounded-xl border border-gray-200 text-center">
-                    <p className="text-sm text-gray-500 mb-1">Total Sources</p>
-                    <p className="text-2xl font-semibold text-[#0A1E2D]">
-                      {portfolioSummary.total_sources?.toLocaleString() ?? 0}
-                    </p>
-                  </div>
-                  <div className="bg-[#fdfbf7] p-5 rounded-xl border border-gray-200 text-center">
-                    <p className="text-sm text-gray-500 mb-1">Total Payouts</p>
-                    <p className="text-2xl font-semibold text-[#0A1E2D]">
-                      ${portfolioSummary.total_payouts?.toFixed(2) ?? '0.00'}
-                    </p>
-                  </div>
+                  {portfolioSummary.map((item, idx) => (
+                    <div
+                      key={idx}
+                      className="bg-[#fdfbf7] p-5 rounded-xl border border-gray-200 text-center"
+                    >
+                      <p className="text-sm text-gray-500 mb-1">{item.metric_name}</p>
+                      <p className="text-2xl font-semibold text-[#0A1E2D]">
+                        {item.metric_value?.toLocaleString()}
+                      </p>
+                    </div>
+                  ))}
                 </div>
               )}
             </section>
 
-            {/* Section 2: Global Payout Chart */}
+            {/* Global Payout Distribution */}
             <section>
               <h2 className="text-xl font-semibold mb-4 text-[#0A1E2D]">Global Payout Distribution</h2>
               {payoutSummary.length === 0 ? (
@@ -168,13 +182,13 @@ export default function AdminDashboard() {
                     <YAxis />
                     <Tooltip />
                     <Legend />
-                    <Bar dataKey="total_amount" fill="#C6A664" name="Total Payout" />
+                    <Bar dataKey="total_payout" fill="#C6A664" name="Total Payout" />
                   </BarChart>
                 </ResponsiveContainer>
               )}
             </section>
 
-            {/* Section 3: Monthly Trend Chart */}
+            {/* Monthly Trends */}
             <section>
               <h2 className="text-xl font-semibold mb-4 text-[#0A1E2D]">Monthly Trends</h2>
               {monthlyTrends.length === 0 ? (
@@ -187,14 +201,26 @@ export default function AdminDashboard() {
                     <YAxis />
                     <Tooltip />
                     <Legend />
-                    <Line type="monotone" dataKey="total_payout" stroke="#C6A664" strokeWidth={2} name="Total Payout" />
-                    <Line type="monotone" dataKey="avg_payout" stroke="#0A1E2D" strokeWidth={2} name="Average Payout" />
+                    <Line
+                      type="monotone"
+                      dataKey="total_payout"
+                      stroke="#C6A664"
+                      strokeWidth={2}
+                      name="Total Payout"
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="avg_payout"
+                      stroke="#0A1E2D"
+                      strokeWidth={2}
+                      name="Average Payout"
+                    />
                   </LineChart>
                 </ResponsiveContainer>
               )}
             </section>
 
-            {/* Section 4: User Management */}
+            {/* User Management */}
             <section>
               <h2 className="text-xl font-semibold mb-4 text-[#0A1E2D]">User Management</h2>
               <table className="w-full border border-gray-200 rounded-lg">
