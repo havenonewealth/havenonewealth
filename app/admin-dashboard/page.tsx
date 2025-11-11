@@ -62,14 +62,15 @@ export default function AdminDashboard() {
       setLoading(true)
       const [usersData, payoutsData, trendsData, portfolioData] = await Promise.all([
         supabase.from('users').select('id, email, role, created_at'),
-        supabase.from('v_user_payout_summary').select('*'),
+        supabase.from('v_admin_portfolio_summary').select('*'),
         supabase.from('v_admin_monthly_trends').select('*'),
-        supabase.from('v_admin_portfolio_summary').select('*')
+        supabase.from('v_user_payout_summary').select('*')
       ])
+
       setUsers(usersData.data || [])
-      setPayoutSummary(payoutsData.data || [])
+      setPortfolioSummary(portfolioData.data || [])
       setMonthlyTrends(trendsData.data || [])
-      setPortfolioSummary(portfolioData.data && portfolioData.data.length > 0 ? portfolioData.data : [])
+      setPayoutSummary(payoutsData.data || [])
     } catch (err) {
       console.error(err)
       setMessage('Error loading admin data.')
@@ -150,18 +151,18 @@ export default function AdminDashboard() {
             {/* Portfolio Summary */}
             <section>
               <h2 className="text-xl font-semibold mb-4 text-[#0A1E2D]">Portfolio Summary</h2>
-              {portfolioSummary.length === 0 ? (
+              {payoutSummary.length === 0 ? (
                 <p className="text-gray-500">No data yet.</p>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  {portfolioSummary.map((item, idx) => (
+                  {payoutSummary.map((item, idx) => (
                     <div
                       key={idx}
                       className="bg-[#fdfbf7] p-5 rounded-xl border border-gray-200 text-center"
                     >
-                      <p className="text-sm text-gray-500 mb-1">{item.metric_name}</p>
+                      <p className="text-sm text-gray-500 mb-1">{item.source_name}</p>
                       <p className="text-2xl font-semibold text-[#0A1E2D]">
-                        {item.metric_value?.toLocaleString()}
+                        {item.total_amount?.toLocaleString()}
                       </p>
                     </div>
                   ))}
@@ -172,11 +173,11 @@ export default function AdminDashboard() {
             {/* Global Payout Distribution */}
             <section>
               <h2 className="text-xl font-semibold mb-4 text-[#0A1E2D]">Global Payout Distribution</h2>
-              {payoutSummary.length === 0 ? (
+              {portfolioSummary.length === 0 ? (
                 <p className="text-gray-500">No payout data available.</p>
               ) : (
                 <ResponsiveContainer width="100%" height={350}>
-                  <BarChart data={payoutSummary}>
+                  <BarChart data={portfolioSummary}>
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="source_name" />
                     <YAxis />
