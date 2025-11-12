@@ -32,7 +32,7 @@ export default function AdminDashboard() {
   const [editItem, setEditItem] = useState<any | null>(null)
   const [showEditModal, setShowEditModal] = useState(false)
   const [showAddModal, setShowAddModal] = useState(false)
-  const [newSource, setNewSource] = useState({ source_name: '', total_payout: '' })
+  const [newSource, setNewSource] = useState({ source_name: '', expected_amount: '' })
 
   // Verify admin access
   useEffect(() => {
@@ -70,7 +70,7 @@ export default function AdminDashboard() {
         supabase.from('v_admin_portfolio_summary').select('*'),
         supabase.from('v_admin_monthly_trends').select('*'),
         supabase.from('v_user_payout_summary').select('*'),
-        supabase.from('income_sources').select('id, user_id, source_name, total_payout')
+        supabase.from('income_sources').select('id, user_id, source_name, expected_amount')
       ])
 
       const mergedPortfolio = await Promise.all(
@@ -79,7 +79,6 @@ export default function AdminDashboard() {
             (s) => s.source_name === item.source_name && s.user_id === null
           )
 
-          // Auto-create admin-level record if missing
           if (!match) {
             const { data: inserted, error } = await supabase
               .from('income_sources')
@@ -87,7 +86,7 @@ export default function AdminDashboard() {
                 {
                   user_id: null,
                   source_name: item.source_name,
-                  total_payout: Number(item.total_payout || 0)
+                  expected_amount: Number(item.expected_amount || 0)
                 }
               ])
               .select()
@@ -98,7 +97,7 @@ export default function AdminDashboard() {
           return {
             ...item,
             id: match?.id ?? null,
-            total_payout: match?.total_payout ?? item.total_payout
+            expected_amount: match?.expected_amount ?? item.expected_amount
           }
         })
       )
@@ -140,8 +139,8 @@ export default function AdminDashboard() {
 
   const handleSaveEdit = async () => {
     if (!editItem) return
-    const { id, source_name, total_payout } = editItem
-    console.log('Attempting update for:', id, source_name, total_payout)
+    const { id, source_name, expected_amount } = editItem
+    console.log('Attempting update for:', id, source_name, expected_amount)
 
     if (!id) {
       alert('This record has no valid ID and cannot be edited.')
@@ -150,7 +149,7 @@ export default function AdminDashboard() {
 
     const { data, error } = await supabase
       .from('income_sources')
-      .update({ source_name, total_payout: Number(total_payout) })
+      .update({ source_name, expected_amount: Number(expected_amount) })
       .eq('id', id)
       .select()
 
@@ -167,13 +166,13 @@ export default function AdminDashboard() {
 
   // Add new income source
   const handleAddSource = async () => {
-    if (!newSource.source_name || !newSource.total_payout) {
+    if (!newSource.source_name || !newSource.expected_amount) {
       alert('Please fill in all fields.')
       return
     }
     const { error } = await supabase
       .from('income_sources')
-      .insert([{ user_id: null, source_name: newSource.source_name, total_payout: Number(newSource.total_payout) }])
+      .insert([{ user_id: null, source_name: newSource.source_name, expected_amount: Number(newSource.expected_amount) }])
 
     if (error) {
       console.error(error)
@@ -181,7 +180,7 @@ export default function AdminDashboard() {
     } else {
       alert('New source added successfully.')
       setShowAddModal(false)
-      setNewSource({ source_name: '', total_payout: '' })
+      setNewSource({ source_name: '', expected_amount: '' })
       fetchData()
     }
   }
@@ -258,7 +257,7 @@ export default function AdminDashboard() {
                     <div key={idx} className="bg-[#fdfbf7] p-5 rounded-xl border border-gray-200 text-center">
                       <p className="text-sm text-gray-500 mb-1">{item.source_name}</p>
                       <p className="text-2xl font-semibold text-[#0A1E2D]">
-                        {formatCurrency(Number(item.total_payout || 0))}
+                        {formatCurrency(Number(item.expected_amount || 0))}
                       </p>
                       <div className="mt-2 flex justify-center gap-3">
                         <button onClick={() => handleEdit(item)} className="text-sm text-blue-600 hover:underline">
@@ -287,7 +286,7 @@ export default function AdminDashboard() {
                   <BarChart
                     data={portfolioSummary.map((item) => ({
                       source_name: item.source_name,
-                      total_payout: Number(item.total_payout || 0)
+                      expected_amount: Number(item.expected_amount || 0)
                     }))}
                   >
                     <CartesianGrid strokeDasharray="3 3" />
@@ -295,7 +294,7 @@ export default function AdminDashboard() {
                     <YAxis tickFormatter={(value) => `$${value}`} />
                     <Tooltip formatter={(value: any) => `$${value}`} />
                     <Legend />
-                    <Bar dataKey="total_payout" fill="#C6A664" name="Total Payout ($)" />
+                    <Bar dataKey="expected_amount" fill="#C6A664" name="Expected Amount ($)" />
                   </BarChart>
                 </ResponsiveContainer>
               )}
@@ -314,8 +313,7 @@ export default function AdminDashboard() {
                     <YAxis />
                     <Tooltip />
                     <Legend />
-                    <Line type="monotone" dataKey="total_payout" stroke="#C6A664" strokeWidth={2} name="Total Payout" />
-                    <Line type="monotone" dataKey="avg_payout" stroke="#0A1E2D" strokeWidth={2} name="Average Payout" />
+                    <Line type="monotone" dataKey="expected_amount" stroke="#C6A664" strokeWidth={2} name="Expected Amount" />
                   </LineChart>
                 </ResponsiveContainer>
               )}
@@ -377,11 +375,11 @@ export default function AdminDashboard() {
               onChange={(e) => setEditItem({ ...editItem, source_name: e.target.value })}
               className="w-full border rounded-md p-2 mb-4"
             />
-            <label className="block mb-2 text-sm text-gray-600">Total Payout</label>
+            <label className="block mb-2 text-sm text-gray-600">Expected Amount</label>
             <input
               type="number"
-              value={editItem.total_payout}
-              onChange={(e) => setEditItem({ ...editItem, total_payout: e.target.value })}
+              value={editItem.expected_amount}
+              onChange={(e) => setEditItem({ ...editItem, expected_amount: e.target.value })}
               className="w-full border rounded-md p-2 mb-6"
             />
             <div className="flex justify-end gap-3">
@@ -414,11 +412,11 @@ export default function AdminDashboard() {
               onChange={(e) => setNewSource({ ...newSource, source_name: e.target.value })}
               className="w-full border rounded-md p-2 mb-4"
             />
-            <label className="block mb-2 text-sm text-gray-600">Total Payout</label>
+            <label className="block mb-2 text-sm text-gray-600">Expected Amount</label>
             <input
               type="number"
-              value={newSource.total_payout}
-              onChange={(e) => setNewSource({ ...newSource, total_payout: e.target.value })}
+              value={newSource.expected_amount}
+              onChange={(e) => setNewSource({ ...newSource, expected_amount: e.target.value })}
               className="w-full border rounded-md p-2 mb-6"
             />
             <div className="flex justify-end gap-3">
