@@ -66,40 +66,23 @@ export default function AdminDashboard() {
   const fetchData = async () => {
     try {
       setLoading(true);
-
-      const [usersData, incomeData, trendsData, payoutData] = await Promise.all([
+      const [usersData, portfolioView, trendsView] = await Promise.all([
         supabase.from('users').select('id, email, role, created_at'),
-        supabase.from('income_sources').select('id, source_name, expected_amount, user_id'),
-        supabase.from('v_admin_monthly_trends').select('*'),
-        supabase.from('v_user_payout_summary').select('*')
+        supabase.from('v_admin_portfolio_summary').select('*'),
+        supabase.from('v_admin_monthly_trends').select('*')
       ]);
 
-      // Merge payout info into income sources
-      const merged = (incomeData.data || []).map((src) => {
-        const payoutInfo = payoutData.data?.find(
-          (p) => p.source_name.trim().toLowerCase() === src.source_name.trim().toLowerCase()
-        );
-
-        return {
-          ...src,
-          total_payout: payoutInfo ? payoutInfo.total_amount : 0,
-          expected_amount: src.expected_amount ?? 0
-        };
-      });
-
+      // Set data directly from views
       setUsers(usersData.data || []);
-      setPortfolioSummary(merged);
-      setMonthlyTrends(trendsData.data || []);
-      setPayoutSummary(payoutData.data || []);
-
+      setPortfolioSummary(portfolioView.data || []);
+      setMonthlyTrends(trendsView.data || []);
     } catch (err) {
-      console.error(err);
+      console.error('Dashboard fetch error:', err);
       setMessage('Error loading admin data.');
     } finally {
       setLoading(false);
     }
   };
-
 
   const formatCurrency = (value: number) =>
     value?.toLocaleString('en-US', { style: 'currency', currency: 'USD' })
@@ -298,14 +281,15 @@ export default function AdminDashboard() {
                 <p className="text-gray-500">No monthly data available.</p>
               ) : (
                 <ResponsiveContainer width="100%" height={350}>
-                  <LineChart data={monthlyTrends}>
+                  <BarChart data={portfolioSummary}>
                     <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="month" />
-                    <YAxis />
-                    <Tooltip />
+                    <XAxis dataKey="source_name" />
+                    <YAxis tickFormatter={(value) => `$${value}`} />
+                    <Tooltip formatter={(value) => `$${value}`} />
                     <Legend />
-                    <Line type="monotone" dataKey="expected_amount" stroke="#C6A664" strokeWidth={2} name="Expected Amount" />
-                  </LineChart>
+                    <Bar dataKey="expected_amount" fill="#C6A664" name="Expected Amount ($)" />
+                    <Bar dataKey="total_payout" fill="#0A1E2D" name="Total Payout ($)" />
+                  </BarChart>
                 </ResponsiveContainer>
               )}
             </section>
