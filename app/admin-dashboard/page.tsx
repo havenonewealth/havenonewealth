@@ -20,13 +20,12 @@ import {
 export default function AdminDashboard() {
   const router = useRouter()
   const pathname = usePathname()
-
   const [authorized, setAuthorized] = useState(false)
   const [userRole, setUserRole] = useState<string | null>(null)
   const [users, setUsers] = useState<any[]>([])
-  const [payoutSummary, setPayoutSummary] = useState<any[]>([])
-  const [monthlyTrends, setMonthlyTrends] = useState<any[]>([])
   const [portfolioSummary, setPortfolioSummary] = useState<any[]>([])
+  const [portfolioAggregates, setPortfolioAggregates] = useState<any[]>([])
+  const [monthlyTrends, setMonthlyTrends] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [message, setMessage] = useState('')
   const [editItem, setEditItem] = useState<any | null>(null)
@@ -65,47 +64,17 @@ export default function AdminDashboard() {
   const fetchData = async () => {
     try {
       setLoading(true)
-      const [usersData, portfolioData, trendsData, payoutData, incomeData] = await Promise.all([
+      const [usersData, summaryData, aggregatesData, trendsData] = await Promise.all([
         supabase.from('users').select('id, email, role, created_at'),
         supabase.from('v_admin_portfolio_summary').select('*'),
-        supabase.from('v_admin_monthly_trends').select('*'),
-        supabase.from('v_user_payout_summary').select('*'),
-        supabase.from('income_sources').select('id, user_id, source_name, expected_amount')
+        supabase.from('v_admin_portfolio_aggregates').select('*'),
+        supabase.from('v_admin_monthly_trends').select('*')
       ])
 
-      const mergedPortfolio = await Promise.all(
-        (portfolioData.data || []).map(async (item: any) => {
-          let match = incomeData.data?.find(
-            (s) => s.source_name === item.source_name && s.user_id === null
-          )
-
-          if (!match) {
-            const { data: inserted, error } = await supabase
-              .from('income_sources')
-              .insert([
-                {
-                  user_id: null,
-                  source_name: item.source_name,
-                  expected_amount: Number(item.expected_amount || 0)
-                }
-              ])
-              .select()
-              .single()
-            if (!error && inserted) match = inserted
-          }
-
-          return {
-            ...item,
-            id: match?.id ?? null,
-            expected_amount: match?.expected_amount ?? item.expected_amount
-          }
-        })
-      )
-
       setUsers(usersData.data || [])
-      setPortfolioSummary(mergedPortfolio)
+      setPortfolioSummary(summaryData.data || [])
+      setPortfolioAggregates(aggregatesData.data || [])
       setMonthlyTrends(trendsData.data || [])
-      setPayoutSummary(payoutData.data || [])
     } catch (err) {
       console.error(err)
       setMessage('Error loading admin data.')
@@ -132,7 +101,6 @@ export default function AdminDashboard() {
 
   // Edit income source
   const handleEdit = (item: any) => {
-    console.log('Editing item:', item)
     setEditItem(item)
     setShowEditModal(true)
   }
@@ -140,24 +108,15 @@ export default function AdminDashboard() {
   const handleSaveEdit = async () => {
     if (!editItem) return
     const { id, source_name, expected_amount } = editItem
-    console.log('Attempting update for:', id, source_name, expected_amount)
-
-    if (!id) {
-      alert('This record has no valid ID and cannot be edited.')
-      return
-    }
-
-    const { data, error } = await supabase
+    const { error } = await supabase
       .from('income_sources')
-      .update({ source_name, expected_amount: Number(expected_amount) })
+      .update({ source_name, expected_amount })
       .eq('id', id)
-      .select()
 
     if (error) {
-      console.error('Supabase update error:', error)
-      alert(`Error updating record: ${error.message}`)
+      console.error(error)
+      alert('Error updating record.')
     } else {
-      console.log('Update success:', data)
       alert('Record updated successfully.')
       setShowEditModal(false)
       fetchData()
@@ -172,7 +131,7 @@ export default function AdminDashboard() {
     }
     const { error } = await supabase
       .from('income_sources')
-      .insert([{ user_id: null, source_name: newSource.source_name, expected_amount: Number(newSource.expected_amount) }])
+      .insert([{ source_name: newSource.source_name, expected_amount: Number(newSource.expected_amount), user_id: null }])
 
     if (error) {
       console.error(error)
@@ -228,6 +187,8 @@ export default function AdminDashboard() {
 
         <h1 className="text-3xl font-semibold mb-6 text-[#0A1E2D]">Admin Dashboard</h1>
 
+        {message && <p className="mb-4 text-sm text-gray-700">{message}</p>}
+
         {loading ? (
           <div className="flex justify-center items-center py-20 text-gray-500">
             <svg className="animate-spin h-6 w-6 mr-2 text-[#C6A664]" viewBox="0 0 24 24">
@@ -279,14 +240,14 @@ export default function AdminDashboard() {
             {/* Global Payout Distribution */}
             <section>
               <h2 className="text-xl font-semibold mb-4 text-[#0A1E2D]">Global Payout Distribution</h2>
-              {portfolioSummary.length === 0 ? (
+              {portfolioAggregates.length === 0 ? (
                 <p className="text-gray-500">No payout data available.</p>
               ) : (
                 <ResponsiveContainer width="100%" height={350}>
                   <BarChart
-                    data={portfolioSummary.map((item) => ({
+                    data={portfolioAggregates.map((item) => ({
                       source_name: item.source_name,
-                      expected_amount: Number(item.expected_amount || 0)
+                      total_expected: Number(item.total_expected || 0)
                     }))}
                   >
                     <CartesianGrid strokeDasharray="3 3" />
@@ -294,7 +255,7 @@ export default function AdminDashboard() {
                     <YAxis tickFormatter={(value) => `$${value}`} />
                     <Tooltip formatter={(value: any) => `$${value}`} />
                     <Legend />
-                    <Bar dataKey="expected_amount" fill="#C6A664" name="Expected Amount ($)" />
+                    <Bar dataKey="total_expected" fill="#C6A664" name="Total Expected ($)" />
                   </BarChart>
                 </ResponsiveContainer>
               )}
@@ -313,7 +274,8 @@ export default function AdminDashboard() {
                     <YAxis />
                     <Tooltip />
                     <Legend />
-                    <Line type="monotone" dataKey="expected_amount" stroke="#C6A664" strokeWidth={2} name="Expected Amount" />
+                    <Line type="monotone" dataKey="total_payout" stroke="#C6A664" strokeWidth={2} name="Total Payout" />
+                    <Line type="monotone" dataKey="avg_payout" stroke="#0A1E2D" strokeWidth={2} name="Average Payout" />
                   </LineChart>
                 </ResponsiveContainer>
               )}
@@ -383,16 +345,10 @@ export default function AdminDashboard() {
               className="w-full border rounded-md p-2 mb-6"
             />
             <div className="flex justify-end gap-3">
-              <button
-                onClick={() => setShowEditModal(false)}
-                className="px-4 py-2 rounded-md bg-gray-200 hover:bg-gray-300"
-              >
+              <button onClick={() => setShowEditModal(false)} className="px-4 py-2 rounded-md bg-gray-200 hover:bg-gray-300">
                 Cancel
               </button>
-              <button
-                onClick={handleSaveEdit}
-                className="px-4 py-2 rounded-md bg-[#C6A664] text-[#0A1E2D] hover:bg-[#b59655]"
-              >
+              <button onClick={handleSaveEdit} className="px-4 py-2 rounded-md bg-[#C6A664] text-[#0A1E2D] hover:bg-[#b59655]">
                 Save Changes
               </button>
             </div>
@@ -420,16 +376,10 @@ export default function AdminDashboard() {
               className="w-full border rounded-md p-2 mb-6"
             />
             <div className="flex justify-end gap-3">
-              <button
-                onClick={() => setShowAddModal(false)}
-                className="px-4 py-2 rounded-md bg-gray-200 hover:bg-gray-300"
-              >
+              <button onClick={() => setShowAddModal(false)} className="px-4 py-2 rounded-md bg-gray-200 hover:bg-gray-300">
                 Cancel
               </button>
-              <button
-                onClick={handleAddSource}
-                className="px-4 py-2 rounded-md bg-[#C6A664] text-[#0A1E2D] hover:bg-[#b59655]"
-              >
+              <button onClick={handleAddSource} className="px-4 py-2 rounded-md bg-[#C6A664] text-[#0A1E2D] hover:bg-[#b59655]">
                 Add Source
               </button>
             </div>
