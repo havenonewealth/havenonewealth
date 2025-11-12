@@ -65,58 +65,41 @@ export default function AdminDashboard() {
   // Fetch dashboard data
   const fetchData = async () => {
     try {
-      setLoading(true)
-      const [usersData, portfolioData, aggregatesData, trendsData, payoutData, incomeData] = await Promise.all([
+      setLoading(true);
+
+      const [usersData, incomeData, trendsData, payoutData] = await Promise.all([
         supabase.from('users').select('id, email, role, created_at'),
-        supabase.from('v_admin_portfolio_summary').select('*'),
-        supabase.from('v_admin_portfolio_aggregates').select('*'),
+        supabase.from('income_sources').select('id, source_name, expected_amount, user_id'),
         supabase.from('v_admin_monthly_trends').select('*'),
-        supabase.from('v_user_payout_summary').select('*'),
-        supabase.from('income_sources').select('id, user_id, source_name, expected_amount')
-      ])
+        supabase.from('v_user_payout_summary').select('*')
+      ]);
 
-      // Merge view with actual IDs
-      const mergedPortfolio = await Promise.all(
-        (portfolioData.data || []).map(async (item: any) => {
-          let match = incomeData.data?.find(
-            (s) => s.source_name === item.source_name && s.user_id === null
-          )
+      // Merge payout info into income sources
+      const merged = (incomeData.data || []).map((src) => {
+        const payoutInfo = payoutData.data?.find(
+          (p) => p.source_name.trim().toLowerCase() === src.source_name.trim().toLowerCase()
+        );
 
-          if (!match) {
-            const { data: inserted, error } = await supabase
-              .from('income_sources')
-              .insert([
-                {
-                  user_id: null,
-                  source_name: item.source_name,
-                  expected_amount: Number(item.expected_amount || 0)
-                }
-              ])
-              .select()
-              .single()
-            if (!error && inserted) match = inserted
-          }
+        return {
+          ...src,
+          total_payout: payoutInfo ? payoutInfo.total_amount : 0,
+          expected_amount: src.expected_amount ?? 0
+        };
+      });
 
-          return {
-            ...item,
-            id: match?.id ?? null,
-            expected_amount: match?.expected_amount ?? item.expected_amount
-          }
-        })
-      )
+      setUsers(usersData.data || []);
+      setPortfolioSummary(merged);
+      setMonthlyTrends(trendsData.data || []);
+      setPayoutSummary(payoutData.data || []);
 
-      setUsers(usersData.data || [])
-      setPortfolioSummary(mergedPortfolio)
-      setPortfolioAggregates(aggregatesData.data || [])
-      setMonthlyTrends(trendsData.data || [])
-      setPayoutSummary(payoutData.data || [])
     } catch (err) {
-      console.error(err)
-      setMessage('Error loading admin data.')
+      console.error(err);
+      setMessage('Error loading admin data.');
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
+
 
   const formatCurrency = (value: number) =>
     value?.toLocaleString('en-US', { style: 'currency', currency: 'USD' })
