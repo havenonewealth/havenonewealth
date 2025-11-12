@@ -20,12 +20,14 @@ import {
 export default function AdminDashboard() {
   const router = useRouter()
   const pathname = usePathname()
+
   const [authorized, setAuthorized] = useState(false)
   const [userRole, setUserRole] = useState<string | null>(null)
   const [users, setUsers] = useState<any[]>([])
+  const [payoutSummary, setPayoutSummary] = useState<any[]>([])
+  const [monthlyTrends, setMonthlyTrends] = useState<any[]>([])
   const [portfolioSummary, setPortfolioSummary] = useState<any[]>([])
   const [portfolioAggregates, setPortfolioAggregates] = useState<any[]>([])
-  const [monthlyTrends, setMonthlyTrends] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [message, setMessage] = useState('')
   const [editItem, setEditItem] = useState<any | null>(null)
@@ -64,17 +66,50 @@ export default function AdminDashboard() {
   const fetchData = async () => {
     try {
       setLoading(true)
-      const [usersData, summaryData, aggregatesData, trendsData] = await Promise.all([
+      const [usersData, portfolioData, aggregatesData, trendsData, payoutData, incomeData] = await Promise.all([
         supabase.from('users').select('id, email, role, created_at'),
         supabase.from('v_admin_portfolio_summary').select('*'),
         supabase.from('v_admin_portfolio_aggregates').select('*'),
-        supabase.from('v_admin_monthly_trends').select('*')
+        supabase.from('v_admin_monthly_trends').select('*'),
+        supabase.from('v_user_payout_summary').select('*'),
+        supabase.from('income_sources').select('id, user_id, source_name, expected_amount')
       ])
 
+      // Merge view with actual IDs
+      const mergedPortfolio = await Promise.all(
+        (portfolioData.data || []).map(async (item: any) => {
+          let match = incomeData.data?.find(
+            (s) => s.source_name === item.source_name && s.user_id === null
+          )
+
+          if (!match) {
+            const { data: inserted, error } = await supabase
+              .from('income_sources')
+              .insert([
+                {
+                  user_id: null,
+                  source_name: item.source_name,
+                  expected_amount: Number(item.expected_amount || 0)
+                }
+              ])
+              .select()
+              .single()
+            if (!error && inserted) match = inserted
+          }
+
+          return {
+            ...item,
+            id: match?.id ?? null,
+            expected_amount: match?.expected_amount ?? item.expected_amount
+          }
+        })
+      )
+
       setUsers(usersData.data || [])
-      setPortfolioSummary(summaryData.data || [])
+      setPortfolioSummary(mergedPortfolio)
       setPortfolioAggregates(aggregatesData.data || [])
       setMonthlyTrends(trendsData.data || [])
+      setPayoutSummary(payoutData.data || [])
     } catch (err) {
       console.error(err)
       setMessage('Error loading admin data.')
@@ -89,7 +124,12 @@ export default function AdminDashboard() {
   // Delete income source
   const handleDelete = async (id: string, sourceName: string) => {
     if (!confirm(`Are you sure you want to delete ${sourceName}?`)) return
-    const { error } = await supabase.from('income_sources').delete().eq('id', id)
+    
+    const { error } = await supabase
+      .from('income_sources')
+      .delete()
+      .eq('id', id)
+
     if (error) {
       console.error(error)
       alert('Error deleting source.')
@@ -108,14 +148,20 @@ export default function AdminDashboard() {
   const handleSaveEdit = async () => {
     if (!editItem) return
     const { id, source_name, expected_amount } = editItem
+
+    if (!id) {
+      alert('This record has no valid ID and cannot be edited.')
+      return
+    }
+
     const { error } = await supabase
       .from('income_sources')
-      .update({ source_name, expected_amount })
+      .update({ source_name, expected_amount: Number(expected_amount) })
       .eq('id', id)
 
     if (error) {
-      console.error(error)
-      alert('Error updating record.')
+      console.error('Supabase update error:', error)
+      alert(`Error updating record: ${error.message}`)
     } else {
       alert('Record updated successfully.')
       setShowEditModal(false)
@@ -129,9 +175,10 @@ export default function AdminDashboard() {
       alert('Please fill in all fields.')
       return
     }
+
     const { error } = await supabase
       .from('income_sources')
-      .insert([{ source_name: newSource.source_name, expected_amount: Number(newSource.expected_amount), user_id: null }])
+      .insert([{ user_id: null, source_name: newSource.source_name, expected_amount: Number(newSource.expected_amount) }])
 
     if (error) {
       console.error(error)
@@ -274,8 +321,7 @@ export default function AdminDashboard() {
                     <YAxis />
                     <Tooltip />
                     <Legend />
-                    <Line type="monotone" dataKey="total_payout" stroke="#C6A664" strokeWidth={2} name="Total Payout" />
-                    <Line type="monotone" dataKey="avg_payout" stroke="#0A1E2D" strokeWidth={2} name="Average Payout" />
+                    <Line type="monotone" dataKey="expected_amount" stroke="#C6A664" strokeWidth={2} name="Expected Amount" />
                   </LineChart>
                 </ResponsiveContainer>
               )}
