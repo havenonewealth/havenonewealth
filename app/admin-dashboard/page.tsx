@@ -271,6 +271,7 @@ export default function AdminDashboard() {
             </section>
 
 
+
             {/* Monthly Trends */}
             <section>
               <h2 className="text-xl font-semibold mb-4 text-[#0A1E2D]">Monthly Trends</h2>
@@ -278,15 +279,28 @@ export default function AdminDashboard() {
                 <p className="text-gray-500">No monthly data available.</p>
               ) : (
                 <ResponsiveContainer width="100%" height={350}>
-                  <BarChart data={portfolioSummary}>
+                  <LineChart data={monthlyTrends}>
                     <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="source_name" />
+                    <XAxis dataKey="month" />
                     <YAxis tickFormatter={(value) => `$${value}`} />
-                    <Tooltip formatter={(value) => `$${value}`} />
+                    <Tooltip formatter={(value: any) => `$${value}`} />
                     <Legend />
-                    <Bar dataKey="expected_amount" fill="#C6A664" name="Expected Amount ($)" />
-                    <Bar dataKey="total_payout" fill="#0A1E2D" name="Total Payout ($)" />
-                  </BarChart>
+                    <Line
+                      type="monotone"
+                      dataKey="total_payout"
+                      stroke="#0A1E2D"
+                      strokeWidth={2}
+                      name="Total Payout ($)"
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="total_payment"
+                      stroke="#C6A664"
+                      strokeWidth={2}
+                      name="Number of Payments"
+                      yAxisId={1}
+                    />
+                  </LineChart>
                 </ResponsiveContainer>
               )}
             </section>
