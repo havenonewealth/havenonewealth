@@ -21,11 +21,13 @@ export default function PayoutsPage() {
   const [loading, setLoading] = useState(true)
   const [uploading, setUploading] = useState(false)
   const [fileName, setFileName] = useState('')
-  const [uploadProgress, setUploadProgress] = useState(0)
   const [filePreview, setFilePreview] = useState<string | null>(null)
   const [fileType, setFileType] = useState<string | null>(null)
+  const [showEditModal, setShowEditModal] = useState(false)
+  const [editItem, setEditItem] = useState<any | null>(null)
+  const [editFile, setEditFile] = useState<File | null>(null)
 
-  // Redirect unauthenticated users
+  // Check user and fetch data
   useEffect(() => {
     const checkUser = async () => {
       try {
@@ -71,7 +73,7 @@ export default function PayoutsPage() {
     }
   }
 
-  // Handle file upload with PDF/Image preview
+  // File upload helper
   const handleFileUpload = async (file: File) => {
     try {
       if (!file) return null
@@ -83,7 +85,6 @@ export default function PayoutsPage() {
 
       setUploading(true)
       setFileName(file.name)
-      setUploadProgress(0)
       setFileType(file.type)
 
       const { data: { user } } = await supabase.auth.getUser()
@@ -93,10 +94,7 @@ export default function PayoutsPage() {
 
       const { error: uploadError } = await supabase.storage
         .from('payout-attachments')
-        .upload(filePath, file, {
-          cacheControl: '3600',
-          upsert: false
-        })
+        .upload(filePath, file, { cacheControl: '3600', upsert: false })
 
       if (uploadError) throw uploadError
 
@@ -104,7 +102,6 @@ export default function PayoutsPage() {
         .from('payout-attachments')
         .getPublicUrl(filePath)
 
-      // Generate local preview
       if (file.type.startsWith('image/')) {
         const reader = new FileReader()
         reader.onloadend = () => setFilePreview(reader.result as string)
@@ -114,7 +111,6 @@ export default function PayoutsPage() {
         setFilePreview(localUrl)
       }
 
-      setUploadProgress(100)
       return publicUrl.publicUrl
     } catch (err) {
       await logError('payouts-file-upload', err)
@@ -125,7 +121,7 @@ export default function PayoutsPage() {
     }
   }
 
-  // Add payout record
+  // Add new payout
   const addPayout = async (e: any) => {
     e.preventDefault()
     try {
@@ -149,7 +145,6 @@ export default function PayoutsPage() {
       setFileName('')
       setFilePreview(null)
       setFileType(null)
-      setUploadProgress(0)
       await fetchData()
     } catch (err) {
       await logError('payouts-insert', err)
@@ -157,7 +152,7 @@ export default function PayoutsPage() {
     }
   }
 
-  // Delete payout and cleanup storage
+  // Delete payout
   const deletePayout = async (id: string, attachmentUrl?: string) => {
     try {
       if (!confirm('Are you sure you want to delete this payout?')) return
@@ -179,6 +174,43 @@ export default function PayoutsPage() {
     } catch (err) {
       await logError('payouts-delete', err)
       setMessage('Error deleting payout.')
+    }
+  }
+
+  // Open edit modal
+  const handleEdit = (item: any) => {
+    setEditItem(item)
+    setShowEditModal(true)
+  }
+
+  // Save edits
+  const handleSaveEdit = async () => {
+    try {
+      let attachmentUrl = editItem.attachment_url
+      if (editFile) {
+        const uploaded = await handleFileUpload(editFile)
+        if (uploaded) attachmentUrl = uploaded
+      }
+
+      const { error } = await supabase
+        .from('payouts')
+        .update({
+          amount: parseFloat(editItem.amount),
+          payment_date: editItem.payment_date,
+          status: editItem.status,
+          attachment_url: attachmentUrl
+        })
+        .eq('id', editItem.id)
+
+      if (error) throw error
+
+      alert('Payout updated successfully.')
+      setShowEditModal(false)
+      setEditFile(null)
+      fetchData()
+    } catch (err) {
+      await logError('payouts-edit', err)
+      alert('Error updating payout.')
     }
   }
 
@@ -205,7 +237,7 @@ export default function PayoutsPage() {
         </div>
 
         <h1 className="text-3xl font-semibold mb-2 text-[#0A1E2D]">Payouts</h1>
-        <p className="text-gray-600 mb-8 text-[15px]">Record and track all royalty and residual payouts tied to your income sources.</p>
+        <p className="text-gray-600 mb-8 text-[15px]">Record, track, and update royalty and residual payouts.</p>
 
         {/* Add Payout Form */}
         <form onSubmit={addPayout} className="flex flex-col gap-3 max-w-md mb-10">
@@ -220,57 +252,28 @@ export default function PayoutsPage() {
 
           <input type="date" placeholder="Payment Date" value={newPayout.payment_date} onChange={(e) => setNewPayout({ ...newPayout, payment_date: e.target.value })} required className="p-2 border border-gray-300 rounded-md" />
 
-          <input type="text" placeholder="Status (e.g. Paid / Pending)" value={newPayout.status} onChange={(e) => setNewPayout({ ...newPayout, status: e.target.value })} className="p-2 border border-gray-300 rounded-md" />
+          <input type="text" placeholder="Status (Paid / Pending)" value={newPayout.status} onChange={(e) => setNewPayout({ ...newPayout, status: e.target.value })} className="p-2 border border-gray-300 rounded-md" />
 
-          {/* File Upload */}
-          <div className="flex flex-col gap-2">
-            <input
-              type="file"
-              accept=".pdf,.png,.jpg,.jpeg"
-              onChange={async (e) => {
-                const file = e.target.files?.[0]
-                if (!file) return
-                const url = await handleFileUpload(file)
-                if (url) setNewPayout({ ...newPayout, attachment_url: url })
-              }}
-              className="p-2 border border-gray-300 rounded-md"
-            />
-            {fileName && <p className="text-sm text-gray-600">File: {fileName}</p>}
-
-            {/* Preview Section */}
-            {filePreview && (
-              <div className="mt-2 border border-gray-200 rounded-md p-2 bg-gray-50">
-                {fileType === 'application/pdf' ? (
-                  <iframe src={filePreview} className="w-full h-64 border rounded-md" title="PDF Preview"></iframe>
-                ) : (
-                  <img src={filePreview} alt="Preview" className="w-40 h-40 object-cover rounded-md border border-gray-200" />
-                )}
-              </div>
-            )}
-
-            {uploading && (
-              <div className="w-full bg-gray-200 rounded-full h-2 mt-1">
-                <div className="bg-[#C6A664] h-2 rounded-full transition-all duration-300" style={{ width: `${uploadProgress}%` }}></div>
-              </div>
-            )}
-          </div>
+          <input
+            type="file"
+            accept=".pdf,.png,.jpg,.jpeg"
+            onChange={async (e) => {
+              const file = e.target.files?.[0]
+              if (!file) return
+              const url = await handleFileUpload(file)
+              if (url) setNewPayout({ ...newPayout, attachment_url: url })
+            }}
+            className="p-2 border border-gray-300 rounded-md"
+          />
 
           <button type="submit" className="bg-[#C6A664] text-[#0A1E2D] font-semibold py-2 rounded-md hover:bg-[#b59655] disabled:opacity-50" disabled={uploading}>
             {uploading ? 'Please wait...' : 'Add Payout'}
           </button>
         </form>
 
-        {message && <p className="mb-6 text-sm text-gray-700">{message}</p>}
-
-        {/* Payouts List */}
+        {/* Payout List */}
         {loading ? (
-          <div className="flex flex-col items-center justify-center py-20 text-gray-600">
-            <svg className="animate-spin h-8 w-8 text-[#C6A664] mb-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4l3-3-3-3v4a8 8 0 00-8 8z"></path>
-            </svg>
-            <p>Loading payouts...</p>
-          </div>
+          <p>Loading...</p>
         ) : payouts.length === 0 ? (
           <p className="text-gray-500">No payouts recorded yet.</p>
         ) : (
@@ -284,14 +287,15 @@ export default function PayoutsPage() {
                       <p className="text-lg font-semibold">{src ? src.source_name : 'Unknown Source'}</p>
                       <p className="text-sm text-gray-600">${p.amount} • {p.status} • {p.payment_date}</p>
                       {p.attachment_url && (
-                        <a href={p.attachment_url} target="_blank" rel="noopener noreferrer" className="text-sm text-blue-600 underline">
+                        <a href={p.attachment_url} target="_blank" className="text-sm text-blue-600 underline">
                           View Attachment
                         </a>
                       )}
                     </div>
-                    <button onClick={() => deletePayout(p.id, p.attachment_url)} className="text-red-600 text-sm hover:underline">
-                      Delete
-                    </button>
+                    <div className="flex gap-3">
+                      <button onClick={() => handleEdit(p)} className="text-blue-600 text-sm hover:underline">Edit</button>
+                      <button onClick={() => deletePayout(p.id, p.attachment_url)} className="text-red-600 text-sm hover:underline">Delete</button>
+                    </div>
                   </div>
                 </li>
               )
@@ -299,6 +303,68 @@ export default function PayoutsPage() {
           </ul>
         )}
       </div>
+
+      {/* Edit Modal */}
+      {showEditModal && editItem && (
+        <div className="fixed inset-0 bg-black bg-opacity-40 flex justify-center items-center z-50">
+          <div className="bg-white p-6 rounded-lg w-[400px] shadow-lg">
+            <h3 className="text-xl font-semibold mb-4 text-[#0A1E2D]">Edit Payout</h3>
+
+            <label className="block mb-2 text-sm text-gray-600">Amount</label>
+            <input
+              type="number"
+              value={editItem.amount}
+              onChange={(e) => setEditItem({ ...editItem, amount: e.target.value })}
+              className="w-full border rounded-md p-2 mb-3"
+            />
+
+            <label className="block mb-2 text-sm text-gray-600">Payment Date</label>
+            <input
+              type="date"
+              value={editItem.payment_date?.split('T')[0]}
+              onChange={(e) => setEditItem({ ...editItem, payment_date: e.target.value })}
+              className="w-full border rounded-md p-2 mb-3"
+            />
+
+            <label className="block mb-2 text-sm text-gray-600">Status</label>
+            <input
+              type="text"
+              value={editItem.status}
+              onChange={(e) => setEditItem({ ...editItem, status: e.target.value })}
+              className="w-full border rounded-md p-2 mb-3"
+            />
+
+            <label className="block mb-2 text-sm text-gray-600">Attachment</label>
+            {editItem.attachment_url && (
+              <div className="flex justify-between items-center mb-2">
+                <a href={editItem.attachment_url} target="_blank" className="text-blue-600 text-sm hover:underline">
+                  View Current
+                </a>
+                <button
+                  className="text-red-500 text-sm hover:underline"
+                  onClick={() => setEditItem({ ...editItem, attachment_url: null })}
+                >
+                  Remove
+                </button>
+              </div>
+            )}
+
+            <input
+              type="file"
+              accept=".pdf,.png,.jpg,.jpeg"
+              onChange={(e) => setEditFile(e.target.files?.[0] || null)}
+              className="w-full border rounded-md p-2 mb-4"
+            />
+
+            <div className="flex justify-end gap-3">
+              <button onClick={() => setShowEditModal(false)} className="px-4 py-2 bg-gray-200 rounded-md hover:bg-gray-300">Cancel</button>
+              <button onClick={handleSaveEdit} className="px-4 py-2 bg-[#C6A664] text-[#0A1E2D] rounded-md hover:bg-[#b59655]">
+                Save
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   )
 }
