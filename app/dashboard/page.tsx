@@ -1,262 +1,109 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import HavenOneLayout from '@/components/HavenOneLayout'
 import { supabase } from '@/lib/supabaseClient'
-import Image from 'next/image'
-import { logError } from '@/app/utils/logger'
-import { useRouter, usePathname } from 'next/navigation'
+import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, Legend, LineChart, Line } from 'recharts'
 
 export default function Dashboard() {
-  const router = useRouter()
-  const pathname = usePathname()
-  const [sources, setSources] = useState<any[]>([])
-  const [newSource, setNewSource] = useState({
-    source_name: '',
-    source_type: '',
-    frequency: '',
-    expected_amount: ''
-  })
-  const [message, setMessage] = useState('')
-  const [userRole, setUserRole] = useState<string | null>(null)
+  const [summary, setSummary] = useState<any[]>([])
+  const [monthly, setMonthly] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const [message, setMessage] = useState('')
 
-  // Verify authentication and fetch role + sources
   useEffect(() => {
-    const checkUser = async () => {
-      try {
-        const { data: { session } } = await supabase.auth.getSession()
-        if (!session) {
-          router.push('/login')
-          return
-        }
+    fetchData()
+  }, [])
 
-        const { data: { user } } = await supabase.auth.getUser()
-        if (!user) return
-
-        // Fetch role
-        const { data: roleData, error } = await supabase
-          .from('users')
-          .select('role')
-          .eq('id', user.id)
-          .single()
-
-        if (!error && roleData) {
-          setUserRole(roleData.role)
-        }
-
-        await fetchSources()
-      } catch (err) {
-        await logError('dashboard-auth-check', err)
-        setMessage('Error loading dashboard.')
-      } finally {
-        setLoading(false)
-      }
-    }
-    checkUser()
-  }, [router])
-
-  // Fetch data only for the current logged-in user
-  const fetchSources = async () => {
+  const fetchData = async () => {
     try {
+      setLoading(true)
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
 
-      const { data, error } = await supabase
-        .from('income_sources')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false })
-
-      if (error) throw error
-      setSources(data || [])
-    } catch (err) {
-      setMessage('Error loading data.')
-      await logError('dashboard-fetch-sources', err)
-    }
-  }
-
-  // Add new record tied to current user
-  const addSource = async (e: any) => {
-    e.preventDefault()
-
-    try {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) {
-        setMessage('You must be logged in to add a source.')
-        return
-      }
-
-      const { error } = await supabase.from('income_sources').insert([
-        {
-          ...newSource,
-          user_id: user.id
-        }
+      const [summaryData, monthlyData] = await Promise.all([
+        supabase.from('v_user_portfolio_summary').select('*').eq('user_id', user.id),
+        supabase.from('v_user_monthly_trends').select('*').eq('user_id', user.id)
       ])
 
-      if (error) throw error
-
-      setMessage('✅ Source added successfully!')
-      await fetchSources()
-      setNewSource({ source_name: '', source_type: '', frequency: '', expected_amount: '' })
+      setSummary(summaryData.data || [])
+      setMonthly(monthlyData.data || [])
     } catch (err) {
-      setMessage('Error adding source.')
-      await logError('dashboard-insert-income-source', err)
+      console.error(err)
+      setMessage('Error loading dashboard.')
+    } finally {
+      setLoading(false)
     }
   }
 
-  // Logout handler
-  const handleLogout = async () => {
-    try {
-      await supabase.auth.signOut()
-      router.push('/login')
-    } catch (err) {
-      await logError('dashboard-logout', err)
-    }
-  }
+  const totalIncome = summary.reduce((sum, s) => sum + (s.total_payout || 0), 0)
+  const unpaidResiduals = summary.filter(s => s.status === 'Pending').reduce((sum, s) => sum + (s.expected_amount || 0), 0)
+  const upcomingPayments = monthly.filter(m => m.future_month === true).reduce((sum, s) => sum + (s.expected_amount || 0), 0)
 
-  if (loading) {
-    return (
-      <main className="flex items-center justify-center min-h-screen bg-[#f8f9fa] text-[#0A1E2D]">
-        <div className="text-center">
-          <svg
-            className="animate-spin h-8 w-8 mx-auto mb-3 text-[#C6A664]"
-            xmlns="http://www.w3.org/2000/svg"
-            fill="none"
-            viewBox="0 0 24 24"
-          >
-            <circle
-              className="opacity-25"
-              cx="12"
-              cy="12"
-              r="10"
-              stroke="currentColor"
-              strokeWidth="4"
-            ></circle>
-            <path
-              className="opacity-75"
-              fill="currentColor"
-              d="M4 12a8 8 0 018-8v4l3-3-3-3v4a8 8 0 00-8 8z"
-            ></path>
-          </svg>
-          <p>Loading your dashboard...</p>
-        </div>
-      </main>
-    )
-  }
+  const formatCurrency = (v: number) => v?.toLocaleString('en-US', { style: 'currency', currency: 'USD' })
 
   return (
-    <main className="min-h-screen bg-[#f8f9fa] text-[#0A1E2D] px-6 py-10 font-[Lato]">
-      <div className="max-w-5xl mx-auto bg-white p-10 rounded-2xl shadow-md border border-gray-100">
-
-        {/* Logo & Header Row */}
-        <div className="flex justify-between items-center mb-4">
-          <Image
-            src="/HOW2Logo.png"
-            alt="Haven One Wealth Logo"
-            width={160}
-            height={60}
-          />
-          <div className="flex gap-3">
-            <button
-              onClick={() => router.push('/payouts')}
-              className="bg-[#C6A664] text-[#0A1E2D] px-4 py-2 rounded-md font-semibold hover:bg-[#b59655] transition"
-            >
-              Payouts
-            </button>
-            <button
-              onClick={() => router.push('/analytics')}
-              className="bg-[#C6A664] text-[#0A1E2D] px-4 py-2 rounded-md font-semibold hover:bg-[#b59655] transition"
-            >
-              Analytics
-            </button>
-
-            {userRole === 'admin' && (
-              <button
-                onClick={() =>
-                  router.push(pathname === '/dashboard' ? '/admin-dashboard' : '/dashboard')
-                }
-                className="bg-[#C6A664] text-[#0A1E2D] px-4 py-2 rounded-md font-semibold hover:bg-[#b59655] transition"
-              >
-                {pathname === '/dashboard' ? 'Switch to Admin View' : 'Switch to User View'}
-              </button>
-            )}
-
-            <button
-              onClick={handleLogout}
-              className="bg-[#0A1E2D] text-white px-4 py-2 rounded-md hover:bg-[#C6A664] transition"
-            >
-              Logout
-            </button>
+    <HavenOneLayout title="Dashboard">
+      {loading ? (
+        <p>Loading...</p>
+      ) : (
+        <div className="space-y-12">
+          {/* KPI Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
+              <p className="text-gray-500 text-sm mb-1">Total Income This Year</p>
+              <p className="text-3xl font-semibold text-[#0A1E2D]">{formatCurrency(totalIncome)}</p>
+            </div>
+            <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
+              <p className="text-gray-500 text-sm mb-1">Unpaid Residuals</p>
+              <p className="text-3xl font-semibold text-[#C6A664]">{formatCurrency(unpaidResiduals)}</p>
+            </div>
+            <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
+              <p className="text-gray-500 text-sm mb-1">Upcoming Payments</p>
+              <p className="text-3xl font-semibold text-[#0A1E2D]">{formatCurrency(upcomingPayments)}</p>
+            </div>
           </div>
+
+          {/* Payout Distribution */}
+          <section>
+            <h2 className="text-xl font-semibold mb-4 text-[#0A1E2D]">Payout Distribution</h2>
+            {summary.length === 0 ? (
+              <p className="text-gray-500">No payout data available.</p>
+            ) : (
+              <ResponsiveContainer width="100%" height={350}>
+                <BarChart data={summary}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="source_name" />
+                  <YAxis tickFormatter={(v) => `$${v}`} />
+                  <Tooltip formatter={(v: any) => `$${v}`} />
+                  <Legend />
+                  <Bar dataKey="expected_amount" fill="#C6A664" name="Expected ($)" />
+                  <Bar dataKey="total_payout" fill="#0A1E2D" name="Paid ($)" />
+                </BarChart>
+              </ResponsiveContainer>
+            )}
+          </section>
+
+          {/* Monthly Trends */}
+          <section>
+            <h2 className="text-xl font-semibold mb-4 text-[#0A1E2D]">Monthly Trends</h2>
+            {monthly.length === 0 ? (
+              <p className="text-gray-500">No monthly data available.</p>
+            ) : (
+              <ResponsiveContainer width="100%" height={350}>
+                <LineChart data={monthly}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="month" />
+                  <YAxis tickFormatter={(v) => `$${v}`} />
+                  <Tooltip formatter={(v: any) => `$${v}`} />
+                  <Legend />
+                  <Line type="monotone" dataKey="total_payout" stroke="#0A1E2D" name="Total Payout ($)" strokeWidth={2} />
+                </LineChart>
+              </ResponsiveContainer>
+            )}
+          </section>
         </div>
-
-        <h1 className="text-3xl font-semibold mb-2 text-[#0A1E2D]">Haven One Wealth Dashboard</h1>
-        <p className="text-gray-600 mb-8 text-[15px]">
-          Track your royalties, residuals, and income sources securely.
-        </p>
-
-        {/* Add Source Form */}
-        <form onSubmit={addSource} className="flex flex-col gap-3 max-w-md mb-10">
-          <input
-            type="text"
-            placeholder="Source Name (e.g. Spotify)"
-            value={newSource.source_name}
-            onChange={(e) => setNewSource({ ...newSource, source_name: e.target.value })}
-            required
-            className="p-2 border border-gray-300 rounded-md"
-          />
-          <input
-            type="text"
-            placeholder="Type (Royalty / Residual)"
-            value={newSource.source_type}
-            onChange={(e) => setNewSource({ ...newSource, source_type: e.target.value })}
-            className="p-2 border border-gray-300 rounded-md"
-          />
-          <input
-            type="text"
-            placeholder="Frequency (Monthly / Quarterly)"
-            value={newSource.frequency}
-            onChange={(e) => setNewSource({ ...newSource, frequency: e.target.value })}
-            className="p-2 border border-gray-300 rounded-md"
-          />
-          <input
-            type="number"
-            placeholder="Expected Amount"
-            value={newSource.expected_amount}
-            onChange={(e) => setNewSource({ ...newSource, expected_amount: e.target.value })}
-            className="p-2 border border-gray-300 rounded-md"
-          />
-          <button
-            type="submit"
-            className="bg-[#C6A664] text-[#0A1E2D] font-semibold py-2 rounded-md hover:bg-[#b59655] transition"
-          >
-            Add Source
-          </button>
-        </form>
-
-        {message && <p className="mb-6 text-sm text-gray-700">{message}</p>}
-
-        {/* Income Source List */}
-        <h2 className="text-xl font-semibold mb-3 text-[#0A1E2D]">Your Income Sources</h2>
-
-        {sources.length === 0 ? (
-          <p className="text-gray-500">No income sources added yet.</p>
-        ) : (
-          <ul className="space-y-3">
-            {sources.map((src) => (
-              <li
-                key={src.id}
-                className="border border-gray-200 p-4 rounded-lg shadow-sm hover:shadow-md transition"
-              >
-                <p className="text-lg font-semibold">{src.source_name}</p>
-                <p className="text-sm text-gray-600">
-                  {src.source_type} • {src.frequency} • ${src.expected_amount}
-                </p>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
-    </main>
+      )}
+    </HavenOneLayout>
   )
 }
