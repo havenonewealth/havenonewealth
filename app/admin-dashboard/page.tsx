@@ -277,7 +277,13 @@ export default function AdminDashboard() {
                 <p className="text-gray-500">No monthly data available.</p>
               ) : (
                 <ResponsiveContainer width="100%" height={350}>
-                  <LineChart data={monthlyTrends}>
+                  <LineChart
+                    data={monthlyTrends.map((d) => ({
+                      ...d,
+                      total_payout: Number(d.total_payout) || 0,
+                      total_payment: Number(d.total_payment) || 0
+                    }))}
+                  >
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="month" />
                     <YAxis
@@ -301,6 +307,7 @@ export default function AdminDashboard() {
                         offset: 10,
                         style: { textAnchor: 'middle', fill: '#555' }
                       }}
+                      allowDecimals={false}
                     />
                     <Tooltip
                       contentStyle={{ backgroundColor: '#fff', borderRadius: '8px', borderColor: '#ccc' }}
@@ -334,6 +341,7 @@ export default function AdminDashboard() {
                 </ResponsiveContainer>
               )}
             </section>
+
 
 
             {/* User Management */}
