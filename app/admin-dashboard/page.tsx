@@ -281,7 +281,7 @@ export default function AdminDashboard() {
                     data={monthlyTrends.map((d) => ({
                       ...d,
                       total_payout: Number(d.total_payout) || 0,
-                      total_payment: Number(d.total_payment) || 0
+                      total_payments: Number(d.total_payments) || 0
                     }))}
                   >
                     <CartesianGrid strokeDasharray="3 3" />
@@ -300,6 +300,7 @@ export default function AdminDashboard() {
                     <YAxis
                       yAxisId="right"
                       orientation="right"
+                      allowDecimals={false}
                       label={{
                         value: 'Number of Payments',
                         angle: 90,
@@ -307,7 +308,6 @@ export default function AdminDashboard() {
                         offset: 10,
                         style: { textAnchor: 'middle', fill: '#555' }
                       }}
-                      allowDecimals={false}
                     />
                     <Tooltip
                       contentStyle={{ backgroundColor: '#fff', borderRadius: '8px', borderColor: '#ccc' }}
@@ -331,7 +331,7 @@ export default function AdminDashboard() {
                     <Line
                       yAxisId="right"
                       type="monotone"
-                      dataKey="total_payment"
+                      dataKey="total_payments"
                       stroke="#C6A664"
                       strokeWidth={2}
                       name="Number of Payments"
@@ -341,8 +341,6 @@ export default function AdminDashboard() {
                 </ResponsiveContainer>
               )}
             </section>
-
-
 
             {/* User Management */}
             <section>
