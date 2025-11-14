@@ -270,8 +270,6 @@ export default function AdminDashboard() {
               )}
             </section>
 
-
-
             {/* Monthly Trends */}
             <section>
               <h2 className="text-xl font-semibold mb-4 text-[#0A1E2D]">Monthly Trends</h2>
@@ -282,28 +280,61 @@ export default function AdminDashboard() {
                   <LineChart data={monthlyTrends}>
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="month" />
-                    <YAxis tickFormatter={(value) => `$${value}`} />
-                    <Tooltip formatter={(value: any) => `$${value}`} />
+                    <YAxis
+                      yAxisId="left"
+                      tickFormatter={(value) => `$${value}`}
+                      label={{
+                        value: 'Total Payout ($)',
+                        angle: -90,
+                        position: 'insideLeft',
+                        offset: 10,
+                        style: { textAnchor: 'middle', fill: '#555' }
+                      }}
+                    />
+                    <YAxis
+                      yAxisId="right"
+                      orientation="right"
+                      label={{
+                        value: 'Number of Payments',
+                        angle: 90,
+                        position: 'insideRight',
+                        offset: 10,
+                        style: { textAnchor: 'middle', fill: '#555' }
+                      }}
+                    />
+                    <Tooltip
+                      contentStyle={{ backgroundColor: '#fff', borderRadius: '8px', borderColor: '#ccc' }}
+                      formatter={(value: any, name: string) => {
+                        if (name === 'Total Payout ($)') return [`$${value}`, 'Total Payout']
+                        if (name === 'Number of Payments') return [value, 'Number of Payments']
+                        return [value, name]
+                      }}
+                      labelFormatter={(label) => `Month: ${label}`}
+                    />
                     <Legend />
                     <Line
+                      yAxisId="left"
                       type="monotone"
                       dataKey="total_payout"
                       stroke="#0A1E2D"
                       strokeWidth={2}
                       name="Total Payout ($)"
+                      dot={{ r: 4 }}
                     />
                     <Line
+                      yAxisId="right"
                       type="monotone"
                       dataKey="total_payment"
                       stroke="#C6A664"
                       strokeWidth={2}
                       name="Number of Payments"
-                      yAxisId={1}
+                      dot={{ r: 4 }}
                     />
                   </LineChart>
                 </ResponsiveContainer>
               )}
             </section>
+
 
             {/* User Management */}
             <section>
