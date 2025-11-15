@@ -23,7 +23,6 @@ interface Payout {
   source_id: string
   income_sources?: {
     source_name?: string
-    user_id?: string
   } | null
 }
 
@@ -51,6 +50,13 @@ export default function Dashboard() {
   const [userRole, setUserRole] = useState<string | null>(null)
   const [editItem, setEditItem] = useState<IncomeSource | null>(null)
   const [showEditModal, setShowEditModal] = useState(false)
+  const [showAddPayout, setShowAddPayout] = useState(false)
+  const [newPayout, setNewPayout] = useState({
+    source_id: '',
+    amount: '',
+    payout_date: '',
+    status: 'Pending'
+  })
 
   const formatCurrency = (value: number | null | undefined) => {
     if (!value || isNaN(value)) return '$0.00'
@@ -94,9 +100,14 @@ export default function Dashboard() {
     const { data, error } = await supabase
       .from('payouts')
       .select(`
-        id, amount, payout_date, status, source_id,
-        income_sources ( source_name, user_id )
+        id,
+        amount,
+        payout_date,
+        status,
+        source_id,
+        income_sources (source_name)
       `)
+      .eq('user_id', userId)
       .order('payout_date', { ascending: false })
 
     if (error) {
@@ -104,12 +115,7 @@ export default function Dashboard() {
       setPayouts([])
       return
     }
-
-    // Filter safely by userId
-    const filtered = (data as Payout[] || []).filter(
-      (p) => p?.income_sources?.user_id === userId
-    )
-    setPayouts(filtered)
+    setPayouts(data || [])
   }
 
   // ---------- CRUD ----------
@@ -117,7 +123,7 @@ export default function Dashboard() {
     e.preventDefault()
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
-    if (!specificType || !expectedAmount) {
+    if (!specificType) {
       setMessage('Please fill all required fields.')
       return
     }
@@ -128,7 +134,7 @@ export default function Dashboard() {
         source_name: specificType,
         source_type: subCategory,
         frequency,
-        expected_amount: Number(expectedAmount)
+        expected_amount: expectedAmount ? Number(expectedAmount) : null
       }
     ])
 
@@ -171,6 +177,30 @@ export default function Dashboard() {
     else {
       setShowEditModal(false)
       await fetchSources()
+    }
+  }
+
+  const handleAddPayout = async (e: any) => {
+    e.preventDefault()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return
+
+    const { error } = await supabase.from('payouts').insert([
+      {
+        source_id: newPayout.source_id,
+        user_id: user.id,
+        amount: parseFloat(newPayout.amount),
+        payout_date: newPayout.payout_date,
+        status: newPayout.status
+      }
+    ])
+    if (error) {
+      console.error('Error adding payout:', error)
+      alert('Error adding payout.')
+    } else {
+      setShowAddPayout(false)
+      setNewPayout({ source_id: '', amount: '', payout_date: '', status: 'Pending' })
+      await fetchPayouts(user.id)
     }
   }
 
@@ -346,7 +376,15 @@ export default function Dashboard() {
         {/* ---------- PAYOUTS TAB ---------- */}
         {activeTab === 'payouts' && (
           <>
-            <h1 className="text-2xl font-semibold mb-6">Payouts</h1>
+            <div className="flex justify-between items-center mb-6">
+              <h1 className="text-2xl font-semibold">Payouts</h1>
+              <button
+                onClick={() => setShowAddPayout(true)}
+                className="bg-[#C6A664] text-[#0A1E2D] px-4 py-2 rounded-md font-semibold hover:bg-[#b59655]"
+              >
+                + Add Payout
+              </button>
+            </div>
             {payouts.length === 0 ? (
               <p className="text-gray-500">No payout data available yet.</p>
             ) : (
@@ -365,8 +403,10 @@ export default function Dashboard() {
                       <tr key={p.id} className="border-t hover:bg-[#fdfbf7]">
                         <td className="p-3">{p.income_sources?.source_name || '—'}</td>
                         <td className="p-3">{formatCurrency(p.amount)}</td>
-                        <td className="p-3">{new Date(p.payout_date).toLocaleDateString()}</td>
-                        <td className="p-3 capitalize">{p.status}</td>
+                        <td className="p-3">{new Date(p.payout_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</td>
+                        <td className={`p-3 capitalize ${p.status === 'Paid' ? 'text-green-600' : p.status === 'Pending' ? 'text-yellow-600' : 'text-gray-800'}`}>
+                          {p.status}
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -382,7 +422,6 @@ export default function Dashboard() {
         <div className="fixed inset-0 bg-black bg-opacity-40 flex justify-center items-center">
           <div className="bg-white p-6 rounded-lg w-[400px] shadow-lg">
             <h3 className="text-xl font-semibold mb-4 text-[#0A1E2D]">Edit Income Source</h3>
-
             <label className="block mb-2 text-sm text-gray-600">Source Name</label>
             <input
               type="text"
@@ -390,7 +429,6 @@ export default function Dashboard() {
               onChange={(e) => setEditItem({ ...editItem, source_name: e.target.value })}
               className="w-full border rounded-md p-2 mb-4"
             />
-
             <label className="block mb-2 text-sm text-gray-600">Frequency</label>
             <input
               type="text"
@@ -398,7 +436,6 @@ export default function Dashboard() {
               onChange={(e) => setEditItem({ ...editItem, frequency: e.target.value })}
               className="w-full border rounded-md p-2 mb-4"
             />
-
             <label className="block mb-2 text-sm text-gray-600">Expected Amount</label>
             <input
               type="text"
@@ -409,7 +446,6 @@ export default function Dashboard() {
               }}
               className="w-full border rounded-md p-2 mb-6 text-right"
             />
-
             <div className="flex justify-end gap-3">
               <button onClick={() => setShowEditModal(false)} className="px-4 py-2 rounded-md bg-gray-200 hover:bg-gray-300">
                 Cancel
@@ -422,6 +458,63 @@ export default function Dashboard() {
         </div>
       )}
 
+      {/* ---------- ADD PAYOUT MODAL ---------- */}
+      {showAddPayout && (
+        <div className="fixed inset-0 bg-black bg-opacity-40 flex justify-center items-center">
+          <div className="bg-white p-6 rounded-lg w-[420px] shadow-lg">
+            <h3 className="text-xl font-semibold mb-4 text-[#0A1E2D]">Add New Payout</h3>
+            <form onSubmit={handleAddPayout}>
+              <label className="block mb-2 text-sm text-gray-600">Source</label>
+              <select
+                value={newPayout.source_id}
+                onChange={(e) => setNewPayout({ ...newPayout, source_id: e.target.value })}
+                className="w-full border rounded-md p-2 mb-4"
+              >
+                <option value="">Select Source</option>
+                {sources.map((s) => (
+                  <option key={s.id} value={s.id}>{s.source_name}</option>
+                ))}
+              </select>
+
+              <label className="block mb-2 text-sm text-gray-600">Amount</label>
+              <input
+                type="number"
+                value={newPayout.amount}
+                onChange={(e) => setNewPayout({ ...newPayout, amount: e.target.value })}
+                className="w-full border rounded-md p-2 mb-4"
+              />
+
+              <label className="block mb-2 text-sm text-gray-600">Payment Date</label>
+              <input
+                type="date"
+                value={newPayout.payout_date}
+                onChange={(e) => setNewPayout({ ...newPayout, payout_date: e.target.value })}
+                className="w-full border rounded-md p-2 mb-4"
+              />
+
+              <label className="block mb-2 text-sm text-gray-600">Status</label>
+              <select
+                value={newPayout.status}
+                onChange={(e) => setNewPayout({ ...newPayout, status: e.target.value })}
+                className="w-full border rounded-md p-2 mb-6"
+              >
+                <option value="Pending">Pending</option>
+                <option value="Paid">Paid</option>
+                <option value="Scheduled">Scheduled</option>
+              </select>
+
+              <div className="flex justify-end gap-3">
+                <button onClick={() => setShowAddPayout(false)} type="button" className="px-4 py-2 rounded-md bg-gray-200 hover:bg-gray-300">
+                  Cancel
+                </button>
+                <button type="submit" className="px-4 py-2 rounded-md bg-[#C6A664] text-[#0A1E2D] hover:bg-[#b59655]">
+                  Save Payout
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </main>
   )
 }
