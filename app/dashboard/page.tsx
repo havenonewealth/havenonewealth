@@ -19,6 +19,8 @@ export default function Dashboard() {
   const [message, setMessage] = useState('')
   const [loading, setLoading] = useState(true)
   const [userRole, setUserRole] = useState<string | null>(null)
+  const [editItem, setEditItem] = useState<any | null>(null)
+  const [showEditModal, setShowEditModal] = useState(false)
 
   // Initial load
   useEffect(() => {
@@ -29,19 +31,10 @@ export default function Dashboard() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
 
-      // Role
-      const { data: roleData } = await supabase
-        .from('users')
-        .select('role')
-        .eq('id', user.id)
-        .single()
+      const { data: roleData } = await supabase.from('users').select('role').eq('id', user.id).single()
       setUserRole(roleData?.role || null)
 
-      // Glossary
-      const { data: glossaryData } = await supabase
-        .from('income_glossary')
-        .select('*')
-        .order('main_category', { ascending: true })
+      const { data: glossaryData } = await supabase.from('income_glossary').select('*')
       setGlossary(glossaryData || [])
 
       await Promise.all([fetchSources(), fetchPayouts()])
@@ -53,10 +46,7 @@ export default function Dashboard() {
   const fetchSources = async () => {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
-    const { data } = await supabase
-      .from('income_sources')
-      .select('*')
-      .eq('user_id', user.id)
+    const { data } = await supabase.from('income_sources').select('*').eq('user_id', user.id)
     setSources(data || [])
   }
 
@@ -65,7 +55,7 @@ export default function Dashboard() {
     if (!user) return
     const { data } = await supabase
       .from('payouts')
-      .select('*, income_sources(source_name)')
+      .select('id, amount, payout_date, status, source_id, income_sources(source_name)')
       .eq('user_id', user.id)
       .order('payout_date', { ascending: false })
     setPayouts(data || [])
@@ -75,18 +65,16 @@ export default function Dashboard() {
     e.preventDefault()
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
-
     if (!specificType || !expectedAmount) {
       setMessage('Please fill all required fields.')
       return
     }
-
     const { error } = await supabase.from('income_sources').insert([
       {
         user_id: user.id,
         source_name: specificType,
         source_type: subCategory,
-        frequency: frequency || null,
+        frequency,
         expected_amount: Number(expectedAmount)
       }
     ])
@@ -102,9 +90,33 @@ export default function Dashboard() {
     }
   }
 
-  const handleLogout = async () => {
-    await supabase.auth.signOut()
-    router.push('/login')
+  const handleDelete = async (id: string, name: string) => {
+    if (!confirm(`Delete source "${name}" and all related payouts?`)) return
+    const { error } = await supabase.from('income_sources').delete().eq('id', id)
+    if (error) alert('Error deleting source.')
+    else {
+      await fetchSources()
+      await fetchPayouts()
+    }
+  }
+
+  const handleEdit = (item: any) => {
+    setEditItem(item)
+    setShowEditModal(true)
+  }
+
+  const handleSaveEdit = async () => {
+    if (!editItem) return
+    const { id, source_name, frequency, expected_amount } = editItem
+    const { error } = await supabase
+      .from('income_sources')
+      .update({ source_name, frequency, expected_amount: Number(expected_amount) })
+      .eq('id', id)
+    if (error) alert('Error updating source.')
+    else {
+      setShowEditModal(false)
+      await fetchSources()
+    }
   }
 
   const mainOptions = [...new Set(glossary.map((g) => g.main_category))]
@@ -115,6 +127,11 @@ export default function Dashboard() {
     setSpecificType(value)
     const found = glossary.find((g) => g.specific_type === value)
     if (found) setFrequency(found.default_frequency || '')
+  }
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut()
+    router.push('/login')
   }
 
   if (loading)
@@ -173,8 +190,7 @@ export default function Dashboard() {
         {activeTab === 'sources' && (
           <>
             <h1 className="text-2xl font-semibold mb-6">Income Sources</h1>
-
-            <form onSubmit={handleAddSource} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
+            <form onSubmit={handleAddSource} className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
               <select
                 value={mainCategory}
                 onChange={(e) => {
@@ -231,27 +247,41 @@ export default function Dashboard() {
                 onChange={(e) => setExpectedAmount(e.target.value)}
                 className="border p-2 rounded-md"
               />
-              <button type="submit" className="bg-[#C6A664] text-[#0A1E2D] rounded-md font-semibold hover:bg-[#b59655]">
+              <button
+                type="submit"
+                className="bg-[#C6A664] text-[#0A1E2D] rounded-md font-semibold hover:bg-[#b59655]"
+              >
                 Add Source
               </button>
             </form>
 
-            {message && <p className="text-gray-700 mb-4">{message}</p>}
-
-            <ul className="space-y-3">
-              {sources.length === 0 ? (
-                <p className="text-gray-500">No income sources added yet.</p>
-              ) : (
-                sources.map((src) => (
-                  <li key={src.id} className="border border-gray-200 p-4 rounded-lg shadow-sm hover:shadow-md transition">
-                    <p className="text-lg font-semibold">{src.source_name}</p>
-                    <p className="text-sm text-gray-600">
-                      {src.source_type} • {src.frequency} • ${src.expected_amount}
-                    </p>
+            {sources.length === 0 ? (
+              <p className="text-gray-500">No income sources added yet.</p>
+            ) : (
+              <ul className="space-y-3">
+                {sources.map((src) => (
+                  <li
+                    key={src.id}
+                    className="border border-gray-200 p-4 rounded-lg shadow-sm hover:shadow-md transition flex justify-between items-center"
+                  >
+                    <div>
+                      <p className="text-lg font-semibold">{src.source_name}</p>
+                      <p className="text-sm text-gray-600">
+                        {src.source_type} • {src.frequency} • ${src.expected_amount}
+                      </p>
+                    </div>
+                    <div className="flex gap-3">
+                      <button onClick={() => handleEdit(src)} className="text-blue-600 hover:underline">
+                        Edit
+                      </button>
+                      <button onClick={() => handleDelete(src.id, src.source_name)} className="text-red-600 hover:underline">
+                        Delete
+                      </button>
+                    </div>
                   </li>
-                ))
-              )}
-            </ul>
+                ))}
+              </ul>
+            )}
           </>
         )}
 
@@ -287,6 +317,44 @@ export default function Dashboard() {
           </>
         )}
       </div>
+
+      {/* Edit Modal */}
+      {showEditModal && editItem && (
+        <div className="fixed inset-0 bg-black bg-opacity-40 flex justify-center items-center">
+          <div className="bg-white p-6 rounded-lg w-[400px] shadow-lg">
+            <h3 className="text-xl font-semibold mb-4 text-[#0A1E2D]">Edit Income Source</h3>
+            <label className="block mb-2 text-sm text-gray-600">Source Name</label>
+            <input
+              type="text"
+              value={editItem.source_name}
+              onChange={(e) => setEditItem({ ...editItem, source_name: e.target.value })}
+              className="w-full border rounded-md p-2 mb-4"
+            />
+            <label className="block mb-2 text-sm text-gray-600">Frequency</label>
+            <input
+              type="text"
+              value={editItem.frequency}
+              onChange={(e) => setEditItem({ ...editItem, frequency: e.target.value })}
+              className="w-full border rounded-md p-2 mb-4"
+            />
+            <label className="block mb-2 text-sm text-gray-600">Expected Amount</label>
+            <input
+              type="number"
+              value={editItem.expected_amount}
+              onChange={(e) => setEditItem({ ...editItem, expected_amount: e.target.value })}
+              className="w-full border rounded-md p-2 mb-6"
+            />
+            <div className="flex justify-end gap-3">
+              <button onClick={() => setShowEditModal(false)} className="px-4 py-2 rounded-md bg-gray-200 hover:bg-gray-300">
+                Cancel
+              </button>
+              <button onClick={handleSaveEdit} className="px-4 py-2 rounded-md bg-[#C6A664] text-[#0A1E2D] hover:bg-[#b59655]">
+                Save Changes
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   )
 }
