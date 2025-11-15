@@ -1,162 +1,290 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useRouter, usePathname } from 'next/navigation'
 import { supabase } from '@/lib/supabaseClient'
 import Image from 'next/image'
-import { logError } from '@/app/utils/logger'
-import PayoutsSection from '@/components/PayoutsSection'
+import { useRouter } from 'next/navigation'
 
 export default function Dashboard() {
   const router = useRouter()
-  const pathname = usePathname()
+  const [activeTab, setActiveTab] = useState<'sources' | 'payouts'>('sources')
+  const [glossary, setGlossary] = useState<any[]>([])
   const [sources, setSources] = useState<any[]>([])
-  const [user, setUser] = useState<any>(null)
-  const [userRole, setUserRole] = useState<string | null>(null)
-  const [newSource, setNewSource] = useState({
-    source_name: '',
-    source_type: '',
-    frequency: '',
-    expected_amount: ''
-  })
+  const [payouts, setPayouts] = useState<any[]>([])
+  const [mainCategory, setMainCategory] = useState('')
+  const [subCategory, setSubCategory] = useState('')
+  const [specificType, setSpecificType] = useState('')
+  const [frequency, setFrequency] = useState('')
+  const [expectedAmount, setExpectedAmount] = useState('')
   const [message, setMessage] = useState('')
   const [loading, setLoading] = useState(true)
+  const [userRole, setUserRole] = useState<string | null>(null)
 
-  // Check session and fetch data
+  // Initial load
   useEffect(() => {
-    const init = async () => {
-      try {
-        const { data: { session } } = await supabase.auth.getSession()
-        if (!session) return router.push('/login')
+    const loadData = async () => {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) return router.push('/login')
 
-        const { data: { user } } = await supabase.auth.getUser()
-        if (!user) return router.push('/login')
-        setUser(user)
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
 
-        const { data: roleData } = await supabase
-          .from('users')
-          .select('role')
-          .eq('id', user.id)
-          .single()
-        setUserRole(roleData?.role || null)
+      // Role
+      const { data: roleData } = await supabase
+        .from('users')
+        .select('role')
+        .eq('id', user.id)
+        .single()
+      setUserRole(roleData?.role || null)
 
-        await fetchSources(user.id)
-      } catch (err) {
-        await logError('dashboard-init', err)
-      } finally {
-        setLoading(false)
-      }
+      // Glossary
+      const { data: glossaryData } = await supabase
+        .from('income_glossary')
+        .select('*')
+        .order('main_category', { ascending: true })
+      setGlossary(glossaryData || [])
+
+      await Promise.all([fetchSources(), fetchPayouts()])
+      setLoading(false)
     }
-    init()
+    loadData()
   }, [router])
 
-  const fetchSources = async (userId: string) => {
-    try {
-      const { data, error } = await supabase
-        .from('income_sources')
-        .select('*')
-        .eq('user_id', userId)
-        .order('created_at', { ascending: false })
-      if (error) throw error
-      setSources(data || [])
-    } catch (err) {
-      await logError('dashboard-fetch-sources', err)
-    }
+  const fetchSources = async () => {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return
+    const { data } = await supabase
+      .from('income_sources')
+      .select('*')
+      .eq('user_id', user.id)
+    setSources(data || [])
   }
 
-  const addSource = async (e: any) => {
+  const fetchPayouts = async () => {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return
+    const { data } = await supabase
+      .from('payouts')
+      .select('*, income_sources(source_name)')
+      .eq('user_id', user.id)
+      .order('payout_date', { ascending: false })
+    setPayouts(data || [])
+  }
+
+  const handleAddSource = async (e: any) => {
     e.preventDefault()
-    try {
-      if (!user) return
-      const { error } = await supabase.from('income_sources').insert([
-        { ...newSource, user_id: user.id }
-      ])
-      if (error) throw error
-      setMessage('Source added successfully.')
-      setNewSource({ source_name: '', source_type: '', frequency: '', expected_amount: '' })
-      fetchSources(user.id)
-    } catch (err) {
-      await logError('dashboard-add-source', err)
-      setMessage('Error adding source.')
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return
+
+    if (!specificType || !expectedAmount) {
+      setMessage('Please fill all required fields.')
+      return
+    }
+
+    const { error } = await supabase.from('income_sources').insert([
+      {
+        user_id: user.id,
+        source_name: specificType,
+        source_type: subCategory,
+        frequency: frequency || null,
+        expected_amount: Number(expectedAmount)
+      }
+    ])
+    if (error) setMessage('Error adding income source.')
+    else {
+      setMessage('✅ Source added successfully!')
+      await fetchSources()
+      setMainCategory('')
+      setSubCategory('')
+      setSpecificType('')
+      setFrequency('')
+      setExpectedAmount('')
     }
   }
 
   const handleLogout = async () => {
-    try {
-      await supabase.auth.signOut()
-      router.push('/login')
-    } catch (err) {
-      await logError('dashboard-logout', err)
-    }
+    await supabase.auth.signOut()
+    router.push('/login')
   }
 
-  if (loading) {
+  const mainOptions = [...new Set(glossary.map((g) => g.main_category))]
+  const subOptions = [...new Set(glossary.filter((g) => g.main_category === mainCategory).map((g) => g.sub_category))]
+  const specificOptions = glossary.filter((g) => g.main_category === mainCategory && g.sub_category === subCategory)
+
+  const handleSpecificChange = (value: string) => {
+    setSpecificType(value)
+    const found = glossary.find((g) => g.specific_type === value)
+    if (found) setFrequency(found.default_frequency || '')
+  }
+
+  if (loading)
     return (
       <main className="flex items-center justify-center min-h-screen bg-[#f8f9fa] text-[#0A1E2D]">
         <div className="text-center">
-          <svg className="animate-spin h-8 w-8 mx-auto mb-3 text-[#C6A664]" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4l3-3-3-3v4a8 8 0 00-8 8z"></path>
+          <svg className="animate-spin h-8 w-8 mx-auto mb-3 text-[#C6A664]" fill="none" viewBox="0 0 24 24">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4l3-3-3-3v4a8 8 0 00-8 8z" />
           </svg>
-          <p>Loading your dashboard...</p>
+          <p>Loading dashboard...</p>
         </div>
       </main>
     )
-  }
 
   return (
     <main className="min-h-screen bg-[#f8f9fa] text-[#0A1E2D] px-6 py-10 font-[Lato]">
       <div className="max-w-6xl mx-auto bg-white p-10 rounded-2xl shadow-md border border-gray-100">
-        
         {/* Header */}
         <div className="flex justify-between items-center mb-6">
           <Image src="/HOW2Logo.png" alt="Haven One Wealth Logo" width={160} height={60} />
           <div className="flex gap-3">
-            <button onClick={() => router.push('/analytics')} className="bg-[#C6A664] text-[#0A1E2D] px-4 py-2 rounded-md font-semibold hover:bg-[#b59655]">Analytics</button>
+            <button
+              onClick={() => setActiveTab('sources')}
+              className={`px-4 py-2 rounded-md font-semibold ${
+                activeTab === 'sources' ? 'bg-[#C6A664] text-[#0A1E2D]' : 'bg-gray-200 text-gray-800'
+              }`}
+            >
+              Sources
+            </button>
+            <button
+              onClick={() => setActiveTab('payouts')}
+              className={`px-4 py-2 rounded-md font-semibold ${
+                activeTab === 'payouts' ? 'bg-[#C6A664] text-[#0A1E2D]' : 'bg-gray-200 text-gray-800'
+              }`}
+            >
+              Payouts
+            </button>
             {userRole === 'admin' && (
               <button
-                onClick={() => router.push(pathname === '/dashboard' ? '/admin-dashboard' : '/dashboard')}
-                className="bg-[#C6A664] text-[#0A1E2D] px-4 py-2 rounded-md font-semibold hover:bg-[#b59655]"
+                onClick={() => router.push('/admin-dashboard')}
+                className="bg-[#0A1E2D] text-white px-4 py-2 rounded-md hover:bg-[#C6A664] transition"
               >
-                {pathname === '/dashboard' ? 'Switch to Admin View' : 'Switch to User View'}
+                Admin
               </button>
             )}
-            <button onClick={handleLogout} className="bg-[#0A1E2D] text-white px-4 py-2 rounded-md hover:bg-[#C6A664]">Logout</button>
+            <button
+              onClick={handleLogout}
+              className="bg-[#0A1E2D] text-white px-4 py-2 rounded-md hover:bg-[#C6A664] transition"
+            >
+              Logout
+            </button>
           </div>
         </div>
 
-        <h1 className="text-3xl font-semibold mb-2 text-[#0A1E2D]">Haven One Wealth Dashboard</h1>
-        <p className="text-gray-600 mb-8 text-[15px]">Track your royalties, residuals, and income sources securely.</p>
+        {activeTab === 'sources' && (
+          <>
+            <h1 className="text-2xl font-semibold mb-6">Income Sources</h1>
 
-        {/* Add Source Form */}
-        <form onSubmit={addSource} className="flex flex-col gap-3 max-w-md mb-10">
-          <input type="text" placeholder="Source Name (e.g. Netflix)" value={newSource.source_name} onChange={(e) => setNewSource({ ...newSource, source_name: e.target.value })} required className="p-2 border border-gray-300 rounded-md" />
-          <input type="text" placeholder="Type (Royalty / Residual)" value={newSource.source_type} onChange={(e) => setNewSource({ ...newSource, source_type: e.target.value })} className="p-2 border border-gray-300 rounded-md" />
-          <input type="text" placeholder="Frequency (Monthly / Quarterly)" value={newSource.frequency} onChange={(e) => setNewSource({ ...newSource, frequency: e.target.value })} className="p-2 border border-gray-300 rounded-md" />
-          <input type="number" placeholder="Expected Amount" value={newSource.expected_amount} onChange={(e) => setNewSource({ ...newSource, expected_amount: e.target.value })} className="p-2 border border-gray-300 rounded-md" />
-          <button type="submit" className="bg-[#C6A664] text-[#0A1E2D] font-semibold py-2 rounded-md hover:bg-[#b59655]">Add Source</button>
-        </form>
+            <form onSubmit={handleAddSource} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
+              <select
+                value={mainCategory}
+                onChange={(e) => {
+                  setMainCategory(e.target.value)
+                  setSubCategory('')
+                  setSpecificType('')
+                }}
+                className="border p-2 rounded-md"
+              >
+                <option value="">Select Main Category</option>
+                {mainOptions.map((cat, i) => (
+                  <option key={i} value={cat}>{cat}</option>
+                ))}
+              </select>
 
-        {message && <p className="text-sm text-gray-700 mb-6">{message}</p>}
+              <select
+                value={subCategory}
+                onChange={(e) => {
+                  setSubCategory(e.target.value)
+                  setSpecificType('')
+                }}
+                className="border p-2 rounded-md"
+                disabled={!mainCategory}
+              >
+                <option value="">Select Sub Category</option>
+                {subOptions.map((sub, i) => (
+                  <option key={i} value={sub}>{sub}</option>
+                ))}
+              </select>
 
-        {/* Income Source List */}
-        <h2 className="text-xl font-semibold mb-3 text-[#0A1E2D]">Your Income Sources</h2>
-        {sources.length === 0 ? (
-          <p className="text-gray-500">No income sources added yet.</p>
-        ) : (
-          <div className="space-y-6">
-            {sources.map((src) => (
-              <div key={src.id} className="border border-gray-200 p-5 rounded-xl shadow-sm bg-[#fdfbf7] hover:shadow-md transition">
-                <div className="flex justify-between items-center mb-2">
-                  <div>
-                    <p className="text-lg font-semibold text-[#0A1E2D]">{src.source_name}</p>
-                    <p className="text-sm text-gray-600">{src.source_type} • {src.frequency} • ${src.expected_amount}</p>
-                  </div>
-                </div>
-                <PayoutsSection sourceId={src.id} userId={user.id} />
+              <select
+                value={specificType}
+                onChange={(e) => handleSpecificChange(e.target.value)}
+                className="border p-2 rounded-md"
+                disabled={!subCategory}
+              >
+                <option value="">Select Type</option>
+                {specificOptions.map((s, i) => (
+                  <option key={i} value={s.specific_type}>{s.specific_type}</option>
+                ))}
+              </select>
+
+              <input
+                type="text"
+                placeholder="Frequency"
+                value={frequency}
+                onChange={(e) => setFrequency(e.target.value)}
+                className="border p-2 rounded-md"
+              />
+              <input
+                type="number"
+                placeholder="Expected Amount"
+                value={expectedAmount}
+                onChange={(e) => setExpectedAmount(e.target.value)}
+                className="border p-2 rounded-md"
+              />
+              <button type="submit" className="bg-[#C6A664] text-[#0A1E2D] rounded-md font-semibold hover:bg-[#b59655]">
+                Add Source
+              </button>
+            </form>
+
+            {message && <p className="text-gray-700 mb-4">{message}</p>}
+
+            <ul className="space-y-3">
+              {sources.length === 0 ? (
+                <p className="text-gray-500">No income sources added yet.</p>
+              ) : (
+                sources.map((src) => (
+                  <li key={src.id} className="border border-gray-200 p-4 rounded-lg shadow-sm hover:shadow-md transition">
+                    <p className="text-lg font-semibold">{src.source_name}</p>
+                    <p className="text-sm text-gray-600">
+                      {src.source_type} • {src.frequency} • ${src.expected_amount}
+                    </p>
+                  </li>
+                ))
+              )}
+            </ul>
+          </>
+        )}
+
+        {activeTab === 'payouts' && (
+          <>
+            <h1 className="text-2xl font-semibold mb-6">Payouts</h1>
+            {payouts.length === 0 ? (
+              <p className="text-gray-500">No payout data available yet.</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="min-w-full border border-gray-200 rounded-lg">
+                  <thead className="bg-[#f9f7f3]">
+                    <tr>
+                      <th className="p-3 text-left">Source</th>
+                      <th className="p-3 text-left">Amount</th>
+                      <th className="p-3 text-left">Date</th>
+                      <th className="p-3 text-left">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {payouts.map((p) => (
+                      <tr key={p.id} className="border-t hover:bg-[#fdfbf7]">
+                        <td className="p-3">{p.income_sources?.source_name || '—'}</td>
+                        <td className="p-3">${p.amount?.toLocaleString()}</td>
+                        <td className="p-3">{new Date(p.payout_date).toLocaleDateString()}</td>
+                        <td className="p-3 capitalize">{p.status}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
-            ))}
-          </div>
+            )}
+          </>
         )}
       </div>
     </main>
