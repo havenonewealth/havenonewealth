@@ -18,7 +18,7 @@ interface IncomeSource {
 interface Payout {
   id: string
   amount: number
-  payout_date: string
+  payment_date: string
   status: string
   source_id: string
   income_sources?: {
@@ -54,7 +54,7 @@ export default function Dashboard() {
   const [newPayout, setNewPayout] = useState({
     source_id: '',
     amount: '',
-    payout_date: '',
+    payment_date: '',
     status: 'Pending'
   })
 
@@ -105,14 +105,14 @@ export default function Dashboard() {
         .select(`
           id,
           amount,
-          payout_date,
+          payment_date,
           status,
           source_id,
           user_id,
           income_sources:income_sources!inner(source_name)
         `)
         .eq('user_id', userId)
-        .order('payout_date', { ascending: false })
+        .order('payment_date', { ascending: false })
 
       console.log('🔍 Raw Supabase response:', { data, error })
 
@@ -218,7 +218,7 @@ export default function Dashboard() {
         source_id: newPayout.source_id,
         user_id: user.id,
         amount: parseFloat(newPayout.amount),
-        payout_date: newPayout.payout_date,
+        payment_date: newPayout.payment_date,
         status: newPayout.status
       }
     ])
@@ -227,7 +227,7 @@ export default function Dashboard() {
       alert('Error adding payout.')
     } else {
       setShowAddPayout(false)
-      setNewPayout({ source_id: '', amount: '', payout_date: '', status: 'Pending' })
+      setNewPayout({ source_id: '', amount: '', payment_date: '', status: 'Pending' })
       await fetchPayouts(user.id)
     }
   }
@@ -431,7 +431,7 @@ export default function Dashboard() {
                       <tr key={p.id} className="border-t hover:bg-[#fdfbf7]">
                         <td className="p-3">{p.income_sources?.source_name || '—'}</td>
                         <td className="p-3">{formatCurrency(p.amount)}</td>
-                        <td className="p-3">{new Date(p.payout_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</td>
+                        <td className="p-3">{new Date(p.payment_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</td>
                         <td className={`p-3 capitalize ${p.status === 'Paid' ? 'text-green-600' : p.status === 'Pending' ? 'text-yellow-600' : 'text-gray-800'}`}>
                           {p.status}
                         </td>
@@ -515,8 +515,8 @@ export default function Dashboard() {
               <label className="block mb-2 text-sm text-gray-600">Payment Date</label>
               <input
                 type="date"
-                value={newPayout.payout_date}
-                onChange={(e) => setNewPayout({ ...newPayout, payout_date: e.target.value })}
+                value={newPayout.payment_date}
+                onChange={(e) => setNewPayout({ ...newPayout, payment_date: e.target.value })}
                 className="w-full border rounded-md p-2 mb-4"
               />
 
