@@ -115,8 +115,19 @@ export default function Dashboard() {
       setPayouts([])
       return
     }
-    setPayouts(data || [])
+
+    // Normalize the relationship in case Supabase returns arrays
+    const normalized = (data || []).map((item: any) => ({
+      ...item,
+      income_sources:
+        Array.isArray(item.income_sources) && item.income_sources.length > 0
+          ? item.income_sources[0]
+          : item.income_sources || null
+    }))
+
+    setPayouts(normalized)
   }
+
 
   // ---------- CRUD ----------
   const handleAddSource = async (e: any) => {
