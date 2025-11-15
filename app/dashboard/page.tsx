@@ -5,12 +5,42 @@ import { supabase } from '@/lib/supabaseClient'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 
+// ---------- Interfaces ----------
+interface IncomeSource {
+  id: string
+  user_id: string
+  source_name: string
+  source_type?: string
+  frequency?: string
+  expected_amount?: number
+}
+
+interface Payout {
+  id: string
+  amount: number
+  payout_date: string
+  status: string
+  source_id: string
+  income_sources?: {
+    source_name?: string
+    user_id?: string
+  } | null
+}
+
+interface GlossaryItem {
+  main_category: string
+  sub_category: string
+  specific_type: string
+  default_frequency?: string
+}
+
+// ---------- Component ----------
 export default function Dashboard() {
   const router = useRouter()
   const [activeTab, setActiveTab] = useState<'sources' | 'payouts'>('sources')
-  const [glossary, setGlossary] = useState<any[]>([])
-  const [sources, setSources] = useState<any[]>([])
-  const [payouts, setPayouts] = useState<any[]>([])
+  const [glossary, setGlossary] = useState<GlossaryItem[]>([])
+  const [sources, setSources] = useState<IncomeSource[]>([])
+  const [payouts, setPayouts] = useState<Payout[]>([])
   const [mainCategory, setMainCategory] = useState('')
   const [subCategory, setSubCategory] = useState('')
   const [specificType, setSpecificType] = useState('')
@@ -19,10 +49,19 @@ export default function Dashboard() {
   const [message, setMessage] = useState('')
   const [loading, setLoading] = useState(true)
   const [userRole, setUserRole] = useState<string | null>(null)
-  const [editItem, setEditItem] = useState<any | null>(null)
+  const [editItem, setEditItem] = useState<IncomeSource | null>(null)
   const [showEditModal, setShowEditModal] = useState(false)
 
-  // Initial load
+  const formatCurrency = (value: number | null | undefined) => {
+    if (!value || isNaN(value)) return '$0.00'
+    return value.toLocaleString('en-US', {
+      style: 'currency',
+      currency: 'USD',
+      minimumFractionDigits: 2
+    })
+  }
+
+  // ---------- Initial Load ----------
   useEffect(() => {
     const loadData = async () => {
       const { data: { session } } = await supabase.auth.getSession()
@@ -37,30 +76,43 @@ export default function Dashboard() {
       const { data: glossaryData } = await supabase.from('income_glossary').select('*')
       setGlossary(glossaryData || [])
 
-      await Promise.all([fetchSources(), fetchPayouts()])
+      await Promise.all([fetchSources(), fetchPayouts(user.id)])
       setLoading(false)
     }
     loadData()
   }, [router])
 
+  // ---------- Fetch Data ----------
   const fetchSources = async () => {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
     const { data } = await supabase.from('income_sources').select('*').eq('user_id', user.id)
-    setSources(data || [])
+    setSources((data as IncomeSource[]) || [])
   }
 
-  const fetchPayouts = async () => {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return
-    const { data } = await supabase
+  const fetchPayouts = async (userId: string) => {
+    const { data, error } = await supabase
       .from('payouts')
-      .select('id, amount, payout_date, status, source_id, income_sources(source_name)')
-      .eq('user_id', user.id)
+      .select(`
+        id, amount, payout_date, status, source_id,
+        income_sources ( source_name, user_id )
+      `)
       .order('payout_date', { ascending: false })
-    setPayouts(data || [])
+
+    if (error) {
+      console.error('Error fetching payouts:', error)
+      setPayouts([])
+      return
+    }
+
+    // Filter safely by userId
+    const filtered = (data as Payout[] || []).filter(
+      (p) => p?.income_sources?.user_id === userId
+    )
+    setPayouts(filtered)
   }
 
+  // ---------- CRUD ----------
   const handleAddSource = async (e: any) => {
     e.preventDefault()
     const { data: { user } } = await supabase.auth.getUser()
@@ -69,6 +121,7 @@ export default function Dashboard() {
       setMessage('Please fill all required fields.')
       return
     }
+
     const { error } = await supabase.from('income_sources').insert([
       {
         user_id: user.id,
@@ -78,6 +131,7 @@ export default function Dashboard() {
         expected_amount: Number(expectedAmount)
       }
     ])
+
     if (error) setMessage('Error adding income source.')
     else {
       setMessage('✅ Source added successfully!')
@@ -96,11 +150,12 @@ export default function Dashboard() {
     if (error) alert('Error deleting source.')
     else {
       await fetchSources()
-      await fetchPayouts()
+      const { data: { user } } = await supabase.auth.getUser()
+      if (user) await fetchPayouts(user.id)
     }
   }
 
-  const handleEdit = (item: any) => {
+  const handleEdit = (item: IncomeSource) => {
     setEditItem(item)
     setShowEditModal(true)
   }
@@ -119,6 +174,7 @@ export default function Dashboard() {
     }
   }
 
+  // ---------- Glossary Logic ----------
   const mainOptions = [...new Set(glossary.map((g) => g.main_category))]
   const subOptions = [...new Set(glossary.filter((g) => g.main_category === mainCategory).map((g) => g.sub_category))]
   const specificOptions = glossary.filter((g) => g.main_category === mainCategory && g.sub_category === subCategory)
@@ -134,6 +190,7 @@ export default function Dashboard() {
     router.push('/login')
   }
 
+  // ---------- UI ----------
   if (loading)
     return (
       <main className="flex items-center justify-center min-h-screen bg-[#f8f9fa] text-[#0A1E2D]">
@@ -187,6 +244,7 @@ export default function Dashboard() {
           </div>
         </div>
 
+        {/* ---------- SOURCES TAB ---------- */}
         {activeTab === 'sources' && (
           <>
             <h1 className="text-2xl font-semibold mb-6">Income Sources</h1>
@@ -267,7 +325,7 @@ export default function Dashboard() {
                     <div>
                       <p className="text-lg font-semibold">{src.source_name}</p>
                       <p className="text-sm text-gray-600">
-                        {src.source_type} • {src.frequency} • ${src.expected_amount}
+                        {src.source_type} • {src.frequency} • {formatCurrency(src.expected_amount)}
                       </p>
                     </div>
                     <div className="flex gap-3">
@@ -285,6 +343,7 @@ export default function Dashboard() {
           </>
         )}
 
+        {/* ---------- PAYOUTS TAB ---------- */}
         {activeTab === 'payouts' && (
           <>
             <h1 className="text-2xl font-semibold mb-6">Payouts</h1>
@@ -305,7 +364,7 @@ export default function Dashboard() {
                     {payouts.map((p) => (
                       <tr key={p.id} className="border-t hover:bg-[#fdfbf7]">
                         <td className="p-3">{p.income_sources?.source_name || '—'}</td>
-                        <td className="p-3">${p.amount?.toLocaleString()}</td>
+                        <td className="p-3">{formatCurrency(p.amount)}</td>
                         <td className="p-3">{new Date(p.payout_date).toLocaleDateString()}</td>
                         <td className="p-3 capitalize">{p.status}</td>
                       </tr>
@@ -318,7 +377,7 @@ export default function Dashboard() {
         )}
       </div>
 
-      {/* Edit Modal */}
+      {/* ---------- EDIT MODAL ---------- */}
       {showEditModal && editItem && (
         <div className="fixed inset-0 bg-black bg-opacity-40 flex justify-center items-center">
           <div className="bg-white p-6 rounded-lg w-[400px] shadow-lg">
@@ -333,15 +392,15 @@ export default function Dashboard() {
             <label className="block mb-2 text-sm text-gray-600">Frequency</label>
             <input
               type="text"
-              value={editItem.frequency}
+              value={editItem.frequency || ''}
               onChange={(e) => setEditItem({ ...editItem, frequency: e.target.value })}
               className="w-full border rounded-md p-2 mb-4"
             />
             <label className="block mb-2 text-sm text-gray-600">Expected Amount</label>
             <input
               type="number"
-              value={editItem.expected_amount}
-              onChange={(e) => setEditItem({ ...editItem, expected_amount: e.target.value })}
+              value={editItem.expected_amount || 0}
+              onChange={(e) => setEditItem({ ...editItem, expected_amount: Number(e.target.value) })}
               className="w-full border rounded-md p-2 mb-6"
             />
             <div className="flex justify-end gap-3">
