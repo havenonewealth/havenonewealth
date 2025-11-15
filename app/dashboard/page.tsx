@@ -382,6 +382,7 @@ export default function Dashboard() {
         <div className="fixed inset-0 bg-black bg-opacity-40 flex justify-center items-center">
           <div className="bg-white p-6 rounded-lg w-[400px] shadow-lg">
             <h3 className="text-xl font-semibold mb-4 text-[#0A1E2D]">Edit Income Source</h3>
+
             <label className="block mb-2 text-sm text-gray-600">Source Name</label>
             <input
               type="text"
@@ -389,6 +390,7 @@ export default function Dashboard() {
               onChange={(e) => setEditItem({ ...editItem, source_name: e.target.value })}
               className="w-full border rounded-md p-2 mb-4"
             />
+
             <label className="block mb-2 text-sm text-gray-600">Frequency</label>
             <input
               type="text"
@@ -396,13 +398,18 @@ export default function Dashboard() {
               onChange={(e) => setEditItem({ ...editItem, frequency: e.target.value })}
               className="w-full border rounded-md p-2 mb-4"
             />
+
             <label className="block mb-2 text-sm text-gray-600">Expected Amount</label>
             <input
-              type="number"
-              value={editItem.expected_amount || 0}
-              onChange={(e) => setEditItem({ ...editItem, expected_amount: Number(e.target.value) })}
-              className="w-full border rounded-md p-2 mb-6"
+              type="text"
+              value={editItem.expected_amount ? `$${Number(editItem.expected_amount).toLocaleString('en-US', { minimumFractionDigits: 2 })}` : ''}
+              onChange={(e) => {
+                const rawValue = e.target.value.replace(/[^0-9.]/g, '')
+                setEditItem({ ...editItem, expected_amount: parseFloat(rawValue) || 0 })
+              }}
+              className="w-full border rounded-md p-2 mb-6 text-right"
             />
+
             <div className="flex justify-end gap-3">
               <button onClick={() => setShowEditModal(false)} className="px-4 py-2 rounded-md bg-gray-200 hover:bg-gray-300">
                 Cancel
@@ -414,6 +421,7 @@ export default function Dashboard() {
           </div>
         </div>
       )}
+
     </main>
   )
 }
