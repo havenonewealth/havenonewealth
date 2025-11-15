@@ -19,7 +19,7 @@ import {
 } from 'recharts'
 import { logError } from '@/app/utils/logger'
 
-// ⬇ Lazy-load CSV export
+// Lazy load CSV export
 const CSVLink = dynamic(
   () => import('react-csv').then((mod) => mod.CSVLink),
   { ssr: false, loading: () => <button disabled className="bg-gray-300 px-4 py-2 rounded-md text-gray-700">Preparing CSV...</button> }
@@ -96,19 +96,27 @@ export default function AdminDashboard() {
 
   const formatCurrency = (v: number) => v?.toLocaleString('en-US', { style: 'currency', currency: 'USD' })
 
+  // Build grouped + detailed CSV export
+  const groupedPayouts = ['Paid', 'Pending', 'Scheduled']
+    .flatMap((status) => {
+      const filtered = payouts.filter((p) => p.status === status)
+      return filtered.map((p) => ({
+        PaymentStatus: status,
+        User: users.find((u) => u.id === p.income_sources?.user_id)?.email || '',
+        Source: p.income_sources?.source_name || '',
+        Amount: formatCurrency(Number(p.amount) || 0),
+        PayoutDate: p.payout_date,
+        Status: p.status
+      }))
+    })
+
   const exportData = viewMode === 'summary'
     ? portfolioSummary.map((p) => ({
         Source: p.source_name,
         Expected: formatCurrency(Number(p.expected_amount)),
         Payouts: formatCurrency(Number(p.total_payout || 0))
       }))
-    : payouts.map((p) => ({
-        User: users.find((u) => u.id === p.income_sources?.user_id)?.email || '',
-        Source: p.income_sources?.source_name,
-        Amount: formatCurrency(Number(p.amount)),
-        Date: p.payout_date,
-        Status: p.status
-      }))
+    : groupedPayouts
 
   if (!authorized) return null
 
@@ -139,7 +147,7 @@ export default function AdminDashboard() {
             )}
 
             <CSVLink
-              filename={`admin-${viewMode}-export.csv`}
+              filename={`HavenOne-${viewMode === 'summary' ? 'PortfolioSummary' : 'PayoutsDetailed'}-${new Date().toISOString().slice(0,10)}.csv`}
               data={exportData}
               className="bg-[#0A1E2D] text-white px-4 py-2 rounded-md hover:bg-[#C6A664]"
             >
@@ -171,7 +179,7 @@ export default function AdminDashboard() {
           </div>
         ) : (
           <>
-            {/* KPI Summary */}
+            {/* KPI Section */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-10">
               <div className="bg-[#fdfbf7] p-5 rounded-xl border border-gray-200 text-center shadow-sm">
                 <p className="text-gray-500 text-sm mb-1">Total Expected</p>
@@ -191,10 +199,9 @@ export default function AdminDashboard() {
               </div>
             </div>
 
-            {/* Summary vs Details */}
+            {/* Summary and Detailed Views */}
             {viewMode === 'summary' ? (
               <>
-                {/* Global Payout Distribution */}
                 <section className="mb-10">
                   <h2 className="text-xl font-semibold mb-4 text-[#0A1E2D]">Global Payout Distribution</h2>
                   {portfolioSummary.length === 0 ? (
@@ -214,7 +221,6 @@ export default function AdminDashboard() {
                   )}
                 </section>
 
-                {/* Monthly Trends */}
                 <section>
                   <h2 className="text-xl font-semibold mb-4 text-[#0A1E2D]">Monthly Trends</h2>
                   {monthlyTrends.length === 0 ? (
@@ -273,47 +279,6 @@ export default function AdminDashboard() {
                 )}
               </section>
             )}
-
-            {/* User Management */}
-            <section className="mt-10">
-              <h2 className="text-xl font-semibold mb-4 text-[#0A1E2D]">User Management</h2>
-              <table className="w-full border border-gray-200 rounded-lg">
-                <thead className="bg-[#f9f7f3]">
-                  <tr className="text-left">
-                    <th className="p-3">Email</th>
-                    <th className="p-3">Role</th>
-                    <th className="p-3">Created</th>
-                    <th className="p-3 text-center">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {users.map((u) => (
-                    <tr key={u.id} className="border-t border-gray-100 hover:bg-[#fdfbf7]">
-                      <td className="p-3">{u.email}</td>
-                      <td className="p-3 capitalize">{u.role}</td>
-                      <td className="p-3">{new Date(u.created_at).toLocaleDateString()}</td>
-                      <td className="p-3 text-center">
-                        {u.role === 'admin' ? (
-                          <button
-                            onClick={() => supabase.from('users').update({ role: 'user' }).eq('id', u.id).then(fetchData)}
-                            className="text-sm text-red-600 hover:underline"
-                          >
-                            Revoke Admin
-                          </button>
-                        ) : (
-                          <button
-                            onClick={() => supabase.from('users').update({ role: 'admin' }).eq('id', u.id).then(fetchData)}
-                            className="text-sm text-blue-600 hover:underline"
-                          >
-                            Make Admin
-                          </button>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </section>
           </>
         )}
       </div>
