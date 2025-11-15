@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import dynamic from 'next/dynamic'
 import { useRouter, usePathname } from 'next/navigation'
 import { supabase } from '@/lib/supabaseClient'
 import Image from 'next/image'
@@ -16,8 +17,13 @@ import {
   Line,
   Legend
 } from 'recharts'
-import { CSVLink } from 'react-csv'
 import { logError } from '@/app/utils/logger'
+
+// ⬇ Lazy-load CSV export
+const CSVLink = dynamic(
+  () => import('react-csv').then((mod) => mod.CSVLink),
+  { ssr: false, loading: () => <button disabled className="bg-gray-300 px-4 py-2 rounded-md text-gray-700">Preparing CSV...</button> }
+)
 
 export default function AdminDashboard() {
   const router = useRouter()
@@ -33,7 +39,6 @@ export default function AdminDashboard() {
   const [user, setUser] = useState<any>(null)
   const [viewMode, setViewMode] = useState<'summary' | 'details'>('summary')
 
-  // KPI cards
   const [kpis, setKpis] = useState({
     totalExpected: 0,
     totalPaid: 0,
@@ -77,7 +82,6 @@ export default function AdminDashboard() {
       setMonthlyTrends(trendsView.data || [])
       setPayouts(payoutData.data || [])
 
-      // KPI totals
       const expected = portfolioView.data?.reduce((a, b) => a + (Number(b.expected_amount) || 0), 0) || 0
       const paid = payoutData.data?.filter((p) => p.status === 'Paid').reduce((a, b) => a + (Number(b.amount) || 0), 0) || 0
       const pending = payoutData.data?.filter((p) => p.status === 'Pending').reduce((a, b) => a + (Number(b.amount) || 0), 0) || 0
@@ -87,15 +91,6 @@ export default function AdminDashboard() {
     } catch (err) {
       await logError('admin-fetch', err)
       setMessage('Error loading admin data.')
-    }
-  }
-
-  const handleRoleChange = async (userId: string, newRole: string) => {
-    const { error } = await supabase.from('users').update({ role: newRole }).eq('id', userId)
-    if (error) setMessage('Error updating role.')
-    else {
-      setMessage('User role updated successfully.')
-      fetchData()
     }
   }
 
@@ -131,6 +126,18 @@ export default function AdminDashboard() {
             >
               {viewMode === 'summary' ? 'Switch to Detailed View' : 'Switch to Summary View'}
             </button>
+
+            {userRole === 'admin' && (
+              <button
+                onClick={() =>
+                  router.push(pathname === '/admin-dashboard' ? '/dashboard' : '/admin-dashboard')
+                }
+                className="bg-[#C6A664] text-[#0A1E2D] px-4 py-2 rounded-md font-semibold hover:bg-[#b59655]"
+              >
+                {pathname === '/admin-dashboard' ? 'Switch to User View' : 'Switch to Admin View'}
+              </button>
+            )}
+
             <CSVLink
               filename={`admin-${viewMode}-export.csv`}
               data={exportData}
@@ -138,6 +145,7 @@ export default function AdminDashboard() {
             >
               Export CSV
             </CSVLink>
+
             <button
               onClick={async () => {
                 await supabase.auth.signOut()
@@ -153,26 +161,6 @@ export default function AdminDashboard() {
         <h1 className="text-3xl font-semibold mb-6 text-[#0A1E2D]">Admin Dashboard</h1>
         {message && <p className="text-sm text-gray-700 mb-4">{message}</p>}
 
-        {/* KPI Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-10">
-          <div className="bg-[#fdfbf7] p-6 rounded-xl border border-gray-200 text-center">
-            <p className="text-sm text-gray-500 mb-1">Total Expected</p>
-            <p className="text-2xl font-semibold text-[#0A1E2D]">{formatCurrency(kpis.totalExpected)}</p>
-          </div>
-          <div className="bg-[#fdfbf7] p-6 rounded-xl border border-gray-200 text-center">
-            <p className="text-sm text-gray-500 mb-1">Total Paid</p>
-            <p className="text-2xl font-semibold text-green-700">{formatCurrency(kpis.totalPaid)}</p>
-          </div>
-          <div className="bg-[#fdfbf7] p-6 rounded-xl border border-gray-200 text-center">
-            <p className="text-sm text-gray-500 mb-1">Pending</p>
-            <p className="text-2xl font-semibold text-orange-600">{formatCurrency(kpis.totalPending)}</p>
-          </div>
-          <div className="bg-[#fdfbf7] p-6 rounded-xl border border-gray-200 text-center">
-            <p className="text-sm text-gray-500 mb-1">Scheduled</p>
-            <p className="text-2xl font-semibold text-blue-600">{formatCurrency(kpis.totalScheduled)}</p>
-          </div>
-        </div>
-
         {loading ? (
           <div className="flex justify-center items-center py-20 text-gray-500">
             <svg className="animate-spin h-6 w-6 mr-2 text-[#C6A664]" viewBox="0 0 24 24">
@@ -183,85 +171,111 @@ export default function AdminDashboard() {
           </div>
         ) : (
           <>
+            {/* KPI Summary */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-10">
+              <div className="bg-[#fdfbf7] p-5 rounded-xl border border-gray-200 text-center shadow-sm">
+                <p className="text-gray-500 text-sm mb-1">Total Expected</p>
+                <p className="text-2xl font-semibold">{formatCurrency(kpis.totalExpected)}</p>
+              </div>
+              <div className="bg-[#fdfbf7] p-5 rounded-xl border border-gray-200 text-center shadow-sm">
+                <p className="text-gray-500 text-sm mb-1">Total Paid</p>
+                <p className="text-2xl font-semibold text-green-700">{formatCurrency(kpis.totalPaid)}</p>
+              </div>
+              <div className="bg-[#fdfbf7] p-5 rounded-xl border border-gray-200 text-center shadow-sm">
+                <p className="text-gray-500 text-sm mb-1">Pending</p>
+                <p className="text-2xl font-semibold text-yellow-600">{formatCurrency(kpis.totalPending)}</p>
+              </div>
+              <div className="bg-[#fdfbf7] p-5 rounded-xl border border-gray-200 text-center shadow-sm">
+                <p className="text-gray-500 text-sm mb-1">Scheduled</p>
+                <p className="text-2xl font-semibold text-blue-700">{formatCurrency(kpis.totalScheduled)}</p>
+              </div>
+            </div>
+
+            {/* Summary vs Details */}
             {viewMode === 'summary' ? (
               <>
-                {/* Portfolio Summary */}
+                {/* Global Payout Distribution */}
                 <section className="mb-10">
-                  <h2 className="text-xl font-semibold mb-4 text-[#0A1E2D]">Portfolio Summary</h2>
+                  <h2 className="text-xl font-semibold mb-4 text-[#0A1E2D]">Global Payout Distribution</h2>
                   {portfolioSummary.length === 0 ? (
-                    <p className="text-gray-500">No data available.</p>
+                    <p className="text-gray-500">No payout data available.</p>
                   ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                      {portfolioSummary.map((item, idx) => (
-                        <div key={idx} className="bg-[#fdfbf7] p-5 rounded-xl border border-gray-200">
-                          <p className="text-sm text-gray-500 mb-1">{item.source_name}</p>
-                          <p className="text-2xl font-semibold text-[#0A1E2D]">{formatCurrency(Number(item.expected_amount || 0))}</p>
-                        </div>
-                      ))}
-                    </div>
+                    <ResponsiveContainer width="100%" height={350}>
+                      <BarChart data={portfolioSummary}>
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis dataKey="source_name" />
+                        <YAxis tickFormatter={(v) => `$${v}`} />
+                        <Tooltip formatter={(v: any) => `$${v}`} />
+                        <Legend />
+                        <Bar dataKey="expected_amount" fill="#C6A664" name="Expected Amount ($)" />
+                        <Bar dataKey="total_payout" fill="#0A1E2D" name="Total Payout ($)" />
+                      </BarChart>
+                    </ResponsiveContainer>
                   )}
                 </section>
 
-                {/* Charts */}
+                {/* Monthly Trends */}
                 <section>
-                  <h2 className="text-xl font-semibold mb-4 text-[#0A1E2D]">Global Trends</h2>
-                  <ResponsiveContainer width="100%" height={350}>
-                    <BarChart data={portfolioSummary}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="source_name" />
-                      <YAxis tickFormatter={(v) => `$${v}`} />
-                      <Tooltip formatter={(v: any) => `$${v}`} />
-                      <Legend />
-                      <Bar dataKey="expected_amount" fill="#C6A664" name="Expected Amount ($)" />
-                      <Bar dataKey="total_payout" fill="#0A1E2D" name="Total Payout ($)" />
-                    </BarChart>
-                  </ResponsiveContainer>
+                  <h2 className="text-xl font-semibold mb-4 text-[#0A1E2D]">Monthly Trends</h2>
+                  {monthlyTrends.length === 0 ? (
+                    <p className="text-gray-500">No trend data available.</p>
+                  ) : (
+                    <ResponsiveContainer width="100%" height={350}>
+                      <LineChart data={monthlyTrends}>
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis dataKey="month" />
+                        <YAxis yAxisId="left" tickFormatter={(v) => `$${v}`} />
+                        <YAxis yAxisId="right" orientation="right" allowDecimals={false} />
+                        <Tooltip formatter={(v: any) => `$${v}`} />
+                        <Legend />
+                        <Line yAxisId="left" type="monotone" dataKey="total_payout" stroke="#0A1E2D" strokeWidth={2} name="Total Payout ($)" />
+                        <Line yAxisId="right" type="monotone" dataKey="total_payments" stroke="#C6A664" strokeWidth={2} name="Number of Payments" />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  )}
                 </section>
               </>
             ) : (
-              /* Detailed View */
               <section>
-                <h2 className="text-xl font-semibold mb-4 text-[#0A1E2D]">Detailed Payouts by User</h2>
-                {payouts.length === 0 ? (
-                  <p className="text-gray-500">No payout data available.</p>
+                <h2 className="text-xl font-semibold mb-4 text-[#0A1E2D]">Payouts by User</h2>
+                {users.length === 0 || payouts.length === 0 ? (
+                  <p className="text-gray-500">No detailed payout data available.</p>
                 ) : (
-                  <div className="space-y-8">
-                    {users.map((u) => {
-                      const userPayouts = payouts.filter((p) => p.income_sources?.user_id === u.id)
-                      if (userPayouts.length === 0) return null
-                      return (
-                        <div key={u.id} className="border border-gray-200 rounded-xl p-5 bg-[#fdfbf7]">
-                          <h3 className="text-lg font-semibold text-[#0A1E2D] mb-3">{u.email}</h3>
-                          <table className="w-full text-sm border border-gray-200">
-                            <thead className="bg-[#f9f7f3]">
-                              <tr>
-                                <th className="p-2">Source</th>
-                                <th className="p-2">Amount</th>
-                                <th className="p-2">Date</th>
-                                <th className="p-2">Status</th>
+                  users.map((u) => {
+                    const userPayouts = payouts.filter((p) => p.income_sources?.user_id === u.id)
+                    if (userPayouts.length === 0) return null
+                    return (
+                      <div key={u.id} className="mb-8">
+                        <h3 className="text-lg font-semibold mb-2 text-[#0A1E2D]">{u.email}</h3>
+                        <table className="w-full border border-gray-200 rounded-lg text-sm">
+                          <thead className="bg-[#f9f7f3]">
+                            <tr>
+                              <th className="p-3 text-left">Source</th>
+                              <th className="p-3 text-left">Amount</th>
+                              <th className="p-3 text-left">Date</th>
+                              <th className="p-3 text-left">Status</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {userPayouts.map((p) => (
+                              <tr key={p.id} className="border-t border-gray-100 hover:bg-[#fdfbf7]">
+                                <td className="p-3">{p.income_sources?.source_name || '—'}</td>
+                                <td className="p-3">{formatCurrency(Number(p.amount) || 0)}</td>
+                                <td className="p-3">{p.payout_date}</td>
+                                <td className="p-3">{p.status}</td>
                               </tr>
-                            </thead>
-                            <tbody>
-                              {userPayouts.map((p) => (
-                                <tr key={p.id} className="border-t hover:bg-[#fff]">
-                                  <td className="p-2">{p.income_sources?.source_name}</td>
-                                  <td className="p-2">{formatCurrency(Number(p.amount || 0))}</td>
-                                  <td className="p-2">{new Date(p.payout_date).toLocaleDateString()}</td>
-                                  <td className="p-2">{p.status}</td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        </div>
-                      )
-                    })}
-                  </div>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )
+                  })
                 )}
               </section>
             )}
 
             {/* User Management */}
-            <section className="mt-12">
+            <section className="mt-10">
               <h2 className="text-xl font-semibold mb-4 text-[#0A1E2D]">User Management</h2>
               <table className="w-full border border-gray-200 rounded-lg">
                 <thead className="bg-[#f9f7f3]">
@@ -280,9 +294,19 @@ export default function AdminDashboard() {
                       <td className="p-3">{new Date(u.created_at).toLocaleDateString()}</td>
                       <td className="p-3 text-center">
                         {u.role === 'admin' ? (
-                          <button onClick={() => handleRoleChange(u.id, 'user')} className="text-sm text-red-600 hover:underline">Revoke Admin</button>
+                          <button
+                            onClick={() => supabase.from('users').update({ role: 'user' }).eq('id', u.id).then(fetchData)}
+                            className="text-sm text-red-600 hover:underline"
+                          >
+                            Revoke Admin
+                          </button>
                         ) : (
-                          <button onClick={() => handleRoleChange(u.id, 'admin')} className="text-sm text-blue-600 hover:underline">Make Admin</button>
+                          <button
+                            onClick={() => supabase.from('users').update({ role: 'admin' }).eq('id', u.id).then(fetchData)}
+                            className="text-sm text-blue-600 hover:underline"
+                          >
+                            Make Admin
+                          </button>
                         )}
                       </td>
                     </tr>
