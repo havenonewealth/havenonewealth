@@ -97,37 +97,54 @@ export default function Dashboard() {
   }
 
   const fetchPayouts = async (userId: string) => {
-    const { data, error } = await supabase
-      .from('payouts')
-      .select(`
-        id,
-        amount,
-        payout_date,
-        status,
-        source_id,
-        income_sources (source_name)
-      `)
-      .eq('user_id', userId)
-      .order('payout_date', { ascending: false })
+    console.log('🧩 Starting fetchPayouts for user:', userId)
 
-    if (error) {
-      console.error('Error fetching payouts:', error)
+    try {
+      const { data, error } = await supabase
+        .from('payouts')
+        .select(`
+          id,
+          amount,
+          payout_date,
+          status,
+          source_id,
+          user_id,
+          income_sources:income_sources!inner(source_name)
+        `)
+        .eq('user_id', userId)
+        .order('payout_date', { ascending: false })
+
+      console.log('🔍 Raw Supabase response:', { data, error })
+
+      if (error) {
+        console.error('❌ Supabase fetch error:', error)
+        setPayouts([])
+        return
+      }
+
+      if (!data || data.length === 0) {
+        console.warn('⚠️ No payouts found for user:', userId)
+        console.log('💡 Try commenting out the .eq("user_id") line to test full dataset.')
+        setPayouts([])
+        return
+      }
+
+      // Normalize structure (in case income_sources comes back as an array)
+      const normalized = data.map((item: any) => ({
+        ...item,
+        income_sources:
+          Array.isArray(item.income_sources) && item.income_sources.length > 0
+            ? item.income_sources[0]
+            : item.income_sources || null
+      }))
+
+      console.log('✅ Normalized payouts ready for UI:', normalized)
+      setPayouts(normalized)
+    } catch (err) {
+      console.error('🔥 Unexpected error in fetchPayouts():', err)
       setPayouts([])
-      return
     }
-
-    // Normalize the relationship in case Supabase returns arrays
-    const normalized = (data || []).map((item: any) => ({
-      ...item,
-      income_sources:
-        Array.isArray(item.income_sources) && item.income_sources.length > 0
-          ? item.income_sources[0]
-          : item.income_sources || null
-    }))
-
-    setPayouts(normalized)
   }
-
 
   // ---------- CRUD ----------
   const handleAddSource = async (e: any) => {
