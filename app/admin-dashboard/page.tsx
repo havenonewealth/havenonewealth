@@ -16,7 +16,7 @@ import {
   Line,
   Legend
 } from 'recharts'
-import PayoutsSection from '@/components/PayoutsSection'
+import { CSVLink } from 'react-csv'
 import { logError } from '@/app/utils/logger'
 
 export default function AdminDashboard() {
@@ -26,10 +26,20 @@ export default function AdminDashboard() {
   const [userRole, setUserRole] = useState<string | null>(null)
   const [users, setUsers] = useState<any[]>([])
   const [portfolioSummary, setPortfolioSummary] = useState<any[]>([])
+  const [payouts, setPayouts] = useState<any[]>([])
   const [monthlyTrends, setMonthlyTrends] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [message, setMessage] = useState('')
   const [user, setUser] = useState<any>(null)
+  const [viewMode, setViewMode] = useState<'summary' | 'details'>('summary')
+
+  // KPI cards
+  const [kpis, setKpis] = useState({
+    totalExpected: 0,
+    totalPaid: 0,
+    totalPending: 0,
+    totalScheduled: 0
+  })
 
   useEffect(() => {
     const verifyAdmin = async () => {
@@ -56,14 +66,24 @@ export default function AdminDashboard() {
 
   const fetchData = async () => {
     try {
-      const [usersData, portfolioView, trendsView] = await Promise.all([
+      const [usersData, portfolioView, trendsView, payoutData] = await Promise.all([
         supabase.from('users').select('id, email, role, created_at'),
         supabase.from('v_admin_portfolio_summary').select('*'),
-        supabase.from('v_admin_monthly_trends').select('*')
+        supabase.from('v_admin_monthly_trends').select('*'),
+        supabase.from('payouts').select('*, income_sources(source_name, user_id)')
       ])
       setUsers(usersData.data || [])
       setPortfolioSummary(portfolioView.data || [])
       setMonthlyTrends(trendsView.data || [])
+      setPayouts(payoutData.data || [])
+
+      // KPI totals
+      const expected = portfolioView.data?.reduce((a, b) => a + (Number(b.expected_amount) || 0), 0) || 0
+      const paid = payoutData.data?.filter((p) => p.status === 'Paid').reduce((a, b) => a + (Number(b.amount) || 0), 0) || 0
+      const pending = payoutData.data?.filter((p) => p.status === 'Pending').reduce((a, b) => a + (Number(b.amount) || 0), 0) || 0
+      const scheduled = payoutData.data?.filter((p) => p.status === 'Scheduled').reduce((a, b) => a + (Number(b.amount) || 0), 0) || 0
+
+      setKpis({ totalExpected: expected, totalPaid: paid, totalPending: pending, totalScheduled: scheduled })
     } catch (err) {
       await logError('admin-fetch', err)
       setMessage('Error loading admin data.')
@@ -81,6 +101,20 @@ export default function AdminDashboard() {
 
   const formatCurrency = (v: number) => v?.toLocaleString('en-US', { style: 'currency', currency: 'USD' })
 
+  const exportData = viewMode === 'summary'
+    ? portfolioSummary.map((p) => ({
+        Source: p.source_name,
+        Expected: formatCurrency(Number(p.expected_amount)),
+        Payouts: formatCurrency(Number(p.total_payout || 0))
+      }))
+    : payouts.map((p) => ({
+        User: users.find((u) => u.id === p.income_sources?.user_id)?.email || '',
+        Source: p.income_sources?.source_name,
+        Amount: formatCurrency(Number(p.amount)),
+        Date: p.payout_date,
+        Status: p.status
+      }))
+
   if (!authorized) return null
 
   return (
@@ -92,11 +126,18 @@ export default function AdminDashboard() {
           <Image src="/HOW2Logo.png" alt="Haven One Wealth Logo" width={160} height={60} />
           <div className="flex gap-3">
             <button
-              onClick={() => router.push(pathname === '/admin-dashboard' ? '/dashboard' : '/admin-dashboard')}
+              onClick={() => setViewMode(viewMode === 'summary' ? 'details' : 'summary')}
               className="bg-[#C6A664] text-[#0A1E2D] px-4 py-2 rounded-md font-semibold hover:bg-[#b59655]"
             >
-              {pathname === '/admin-dashboard' ? 'Switch to User View' : 'Switch to Admin View'}
+              {viewMode === 'summary' ? 'Switch to Detailed View' : 'Switch to Summary View'}
             </button>
+            <CSVLink
+              filename={`admin-${viewMode}-export.csv`}
+              data={exportData}
+              className="bg-[#0A1E2D] text-white px-4 py-2 rounded-md hover:bg-[#C6A664]"
+            >
+              Export CSV
+            </CSVLink>
             <button
               onClick={async () => {
                 await supabase.auth.signOut()
@@ -112,6 +153,26 @@ export default function AdminDashboard() {
         <h1 className="text-3xl font-semibold mb-6 text-[#0A1E2D]">Admin Dashboard</h1>
         {message && <p className="text-sm text-gray-700 mb-4">{message}</p>}
 
+        {/* KPI Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-10">
+          <div className="bg-[#fdfbf7] p-6 rounded-xl border border-gray-200 text-center">
+            <p className="text-sm text-gray-500 mb-1">Total Expected</p>
+            <p className="text-2xl font-semibold text-[#0A1E2D]">{formatCurrency(kpis.totalExpected)}</p>
+          </div>
+          <div className="bg-[#fdfbf7] p-6 rounded-xl border border-gray-200 text-center">
+            <p className="text-sm text-gray-500 mb-1">Total Paid</p>
+            <p className="text-2xl font-semibold text-green-700">{formatCurrency(kpis.totalPaid)}</p>
+          </div>
+          <div className="bg-[#fdfbf7] p-6 rounded-xl border border-gray-200 text-center">
+            <p className="text-sm text-gray-500 mb-1">Pending</p>
+            <p className="text-2xl font-semibold text-orange-600">{formatCurrency(kpis.totalPending)}</p>
+          </div>
+          <div className="bg-[#fdfbf7] p-6 rounded-xl border border-gray-200 text-center">
+            <p className="text-sm text-gray-500 mb-1">Scheduled</p>
+            <p className="text-2xl font-semibold text-blue-600">{formatCurrency(kpis.totalScheduled)}</p>
+          </div>
+        </div>
+
         {loading ? (
           <div className="flex justify-center items-center py-20 text-gray-500">
             <svg className="animate-spin h-6 w-6 mr-2 text-[#C6A664]" viewBox="0 0 24 24">
@@ -121,75 +182,86 @@ export default function AdminDashboard() {
             Loading data...
           </div>
         ) : (
-          <div className="space-y-10">
-
-            {/* Portfolio Summary */}
-            <section>
-              <h2 className="text-xl font-semibold mb-4 text-[#0A1E2D]">Portfolio Summary</h2>
-              {portfolioSummary.length === 0 ? (
-                <p className="text-gray-500">No portfolio data available.</p>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  {portfolioSummary.map((item, idx) => (
-                    <div key={idx} className="bg-[#fdfbf7] p-5 rounded-xl border border-gray-200">
-                      <p className="text-sm text-gray-500 mb-1">{item.source_name}</p>
-                      <p className="text-2xl font-semibold text-[#0A1E2D]">{formatCurrency(Number(item.expected_amount || 0))}</p>
-                      <PayoutsSection sourceId={item.id} userId={user.id} />
+          <>
+            {viewMode === 'summary' ? (
+              <>
+                {/* Portfolio Summary */}
+                <section className="mb-10">
+                  <h2 className="text-xl font-semibold mb-4 text-[#0A1E2D]">Portfolio Summary</h2>
+                  {portfolioSummary.length === 0 ? (
+                    <p className="text-gray-500">No data available.</p>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                      {portfolioSummary.map((item, idx) => (
+                        <div key={idx} className="bg-[#fdfbf7] p-5 rounded-xl border border-gray-200">
+                          <p className="text-sm text-gray-500 mb-1">{item.source_name}</p>
+                          <p className="text-2xl font-semibold text-[#0A1E2D]">{formatCurrency(Number(item.expected_amount || 0))}</p>
+                        </div>
+                      ))}
                     </div>
-                  ))}
-                </div>
-              )}
-            </section>
+                  )}
+                </section>
 
-            {/* Global Payout Distribution */}
-            <section>
-              <h2 className="text-xl font-semibold mb-4 text-[#0A1E2D]">Global Payout Distribution</h2>
-              {portfolioSummary.length === 0 ? (
-                <p className="text-gray-500">No payout data available.</p>
-              ) : (
-                <ResponsiveContainer width="100%" height={350}>
-                  <BarChart data={portfolioSummary}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="source_name" />
-                    <YAxis tickFormatter={(value) => `$${value}`} />
-                    <Tooltip formatter={(v: any) => `$${v}`} />
-                    <Legend />
-                    <Bar dataKey="expected_amount" fill="#C6A664" name="Expected Amount ($)" />
-                    <Bar dataKey="total_payout" fill="#0A1E2D" name="Total Payout ($)" />
-                  </BarChart>
-                </ResponsiveContainer>
-              )}
-            </section>
-
-            {/* Monthly Trends */}
-            <section>
-              <h2 className="text-xl font-semibold mb-4 text-[#0A1E2D]">Monthly Trends</h2>
-              {monthlyTrends.length === 0 ? (
-                <p className="text-gray-500">No trend data available.</p>
-              ) : (
-                <ResponsiveContainer width="100%" height={350}>
-                  <LineChart
-                    data={monthlyTrends.map((d) => ({
-                      ...d,
-                      total_payout: Number(d.total_payout) || 0,
-                      total_payments: Number(d.total_payments) || 0
-                    }))}
-                  >
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="month" />
-                    <YAxis yAxisId="left" tickFormatter={(value) => `$${value}`} />
-                    <YAxis yAxisId="right" orientation="right" allowDecimals={false} />
-                    <Tooltip formatter={(value: any) => `$${value}`} />
-                    <Legend />
-                    <Line yAxisId="left" type="monotone" dataKey="total_payout" stroke="#0A1E2D" strokeWidth={2} name="Total Payout ($)" />
-                    <Line yAxisId="right" type="monotone" dataKey="total_payments" stroke="#C6A664" strokeWidth={2} name="Number of Payments" />
-                  </LineChart>
-                </ResponsiveContainer>
-              )}
-            </section>
+                {/* Charts */}
+                <section>
+                  <h2 className="text-xl font-semibold mb-4 text-[#0A1E2D]">Global Trends</h2>
+                  <ResponsiveContainer width="100%" height={350}>
+                    <BarChart data={portfolioSummary}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="source_name" />
+                      <YAxis tickFormatter={(v) => `$${v}`} />
+                      <Tooltip formatter={(v: any) => `$${v}`} />
+                      <Legend />
+                      <Bar dataKey="expected_amount" fill="#C6A664" name="Expected Amount ($)" />
+                      <Bar dataKey="total_payout" fill="#0A1E2D" name="Total Payout ($)" />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </section>
+              </>
+            ) : (
+              /* Detailed View */
+              <section>
+                <h2 className="text-xl font-semibold mb-4 text-[#0A1E2D]">Detailed Payouts by User</h2>
+                {payouts.length === 0 ? (
+                  <p className="text-gray-500">No payout data available.</p>
+                ) : (
+                  <div className="space-y-8">
+                    {users.map((u) => {
+                      const userPayouts = payouts.filter((p) => p.income_sources?.user_id === u.id)
+                      if (userPayouts.length === 0) return null
+                      return (
+                        <div key={u.id} className="border border-gray-200 rounded-xl p-5 bg-[#fdfbf7]">
+                          <h3 className="text-lg font-semibold text-[#0A1E2D] mb-3">{u.email}</h3>
+                          <table className="w-full text-sm border border-gray-200">
+                            <thead className="bg-[#f9f7f3]">
+                              <tr>
+                                <th className="p-2">Source</th>
+                                <th className="p-2">Amount</th>
+                                <th className="p-2">Date</th>
+                                <th className="p-2">Status</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {userPayouts.map((p) => (
+                                <tr key={p.id} className="border-t hover:bg-[#fff]">
+                                  <td className="p-2">{p.income_sources?.source_name}</td>
+                                  <td className="p-2">{formatCurrency(Number(p.amount || 0))}</td>
+                                  <td className="p-2">{new Date(p.payout_date).toLocaleDateString()}</td>
+                                  <td className="p-2">{p.status}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+              </section>
+            )}
 
             {/* User Management */}
-            <section>
+            <section className="mt-12">
               <h2 className="text-xl font-semibold mb-4 text-[#0A1E2D]">User Management</h2>
               <table className="w-full border border-gray-200 rounded-lg">
                 <thead className="bg-[#f9f7f3]">
@@ -218,7 +290,7 @@ export default function AdminDashboard() {
                 </tbody>
               </table>
             </section>
-          </div>
+          </>
         )}
       </div>
     </main>
