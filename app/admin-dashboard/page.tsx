@@ -29,11 +29,20 @@ export default function AdminDashboard() {
         supabase.from('payouts').select('*, income_sources(source_name, user_id)')
       ])
       setUsers(us.data || [])
-      setPayouts(po.data || [])
-      const paid = po.data.filter(p => p.status === 'Paid').reduce((a, b) => a + b.amount, 0)
-      const pending = po.data.filter(p => p.status === 'Pending').reduce((a, b) => a + b.amount, 0)
-      const scheduled = po.data.filter(p => p.status === 'Scheduled').reduce((a, b) => a + b.amount, 0)
-      setKpis({ expected: paid + pending + scheduled, paid, pending, scheduled })
+      const payoutsData = po.data || []
+      setPayouts(payoutsData)
+
+      const paid = payoutsData.filter(p => p.status === 'Paid').reduce((a, b) => a + (b.amount || 0), 0)
+      const pending = payoutsData.filter(p => p.status === 'Pending').reduce((a, b) => a + (b.amount || 0), 0)
+      const scheduled = payoutsData.filter(p => p.status === 'Scheduled').reduce((a, b) => a + (b.amount || 0), 0)
+
+      setKpis({
+        expected: paid + pending + scheduled,
+        paid,
+        pending,
+        scheduled
+      })
+
     })()
   }, [router])
 
