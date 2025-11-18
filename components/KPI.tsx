@@ -1,8 +1,19 @@
-export default function KPI({ label, value }: { label: string, value: string }) {
+import React from 'react'
+
+interface KPIProps {
+  title: string
+  value: number | string
+  sub?: string
+}
+
+export default function KPI({ title, value, sub }: KPIProps) {
   return (
-    <div className='bg-[#fdfbf7] p-5 rounded-xl border border-gray-200 text-center shadow-sm'>
-      <p className='text-gray-500 text-sm mb-1'>{label}</p>
-      <p className='text-2xl font-semibold'>{value}</p>
+    <div className="bg-white border rounded-xl p-6 shadow-sm">
+      <div className="text-sm text-gray-500 mb-1">{title}</div>
+      <div className="text-3xl font-semibold text-gray-900 tracking-tight">
+        {typeof value === 'number' ? value.toLocaleString() : value}
+      </div>
+      {sub && <div className="text-sm text-gray-500 mt-1">{sub}</div>}
     </div>
   )
 }

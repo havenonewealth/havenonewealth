@@ -1,79 +1,118 @@
 'use client'
+
 import { useEffect, useState } from 'react'
-import { supabase } from '@/lib/supabaseClient'
-import { useRouter } from 'next/navigation'
-import dynamic from 'next/dynamic'
 import Image from 'next/image'
+
+import {
+  getAdminGlobalSummary,
+  getAdminPortfolioAggregates,
+  getAdminMonthlyTrends,
+  getAdminRecentPayouts,
+  getAllUsers,
+  type AdminSummary,
+  type PortfolioAggregate,
+  type MonthlyTrend,
+  type RecentPayout,
+  type AppUser
+} from '@/lib/supabase/admin'
+
 import KPI from '@/components/KPI'
-import Charts from '@/components/Charts'
-import { formatCurrency } from '@/lib/utils/formatCurrency'
+import GlobalPayoutChart from '@/components/admin-dashboard/GlobalPayoutChart'
+import MonthlyTrendsChart from '@/components/admin-dashboard/MonthlyTrendsChart'
+import RecentPayoutsTable from '@/components/admin-dashboard/RecentPayoutsTable'
+import UserManagementTable from '@/components/admin-dashboard/UserManagementTable'
 
-const CSVLink = dynamic(() => import('react-csv').then((m) => m.CSVLink), { ssr: false })
-
-export default function AdminDashboard() {
-  const router = useRouter()
-  const [users, setUsers] = useState<any[]>([])
-  const [payouts, setPayouts] = useState<any[]>([])
-  const [kpis, setKpis] = useState({ expected: 0, paid: 0, pending: 0, scheduled: 0 })
-  const [authorized, setAuthorized] = useState(false)
+export default function AdminDashboardPage() {
+  const [summary, setSummary] = useState<AdminSummary | null>(null)
+  const [aggregates, setAggregates] = useState<PortfolioAggregate[]>([])
+  const [monthlyTrends, setMonthlyTrends] = useState<MonthlyTrend[]>([])
+  const [recentPayouts, setRecentPayouts] = useState<RecentPayout[]>([])
+  const [users, setUsers] = useState<AppUser[]>([])
 
   useEffect(() => {
-    (async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return router.push('/login')
-      const { data } = await supabase.from('users').select('role').eq('id', user.id).single()
-      if (data?.role !== 'admin') return router.push('/dashboard')
-      setAuthorized(true)
-      const [us, po] = await Promise.all([
-        supabase.from('users').select('*'),
-        supabase.from('payouts').select('*, income_sources(source_name, user_id)')
-      ])
-      setUsers(us.data || [])
-      const payoutsData = po.data || []
-      setPayouts(payoutsData)
+    async function load() {
+      const s = await getAdminGlobalSummary()
+      const a = await getAdminPortfolioAggregates()
+      const m = await getAdminMonthlyTrends()
+      const r = await getAdminRecentPayouts()
+      const u = await getAllUsers()
 
-      const paid = payoutsData.filter(p => p.status === 'Paid').reduce((a, b) => a + (b.amount || 0), 0)
-      const pending = payoutsData.filter(p => p.status === 'Pending').reduce((a, b) => a + (b.amount || 0), 0)
-      const scheduled = payoutsData.filter(p => p.status === 'Scheduled').reduce((a, b) => a + (b.amount || 0), 0)
+      setSummary(s)
+      setAggregates(a)
+      setMonthlyTrends(m)
+      setRecentPayouts(r)
+      setUsers(u)
+    }
+    load()
+  }, [])
 
-      setKpis({
-        expected: paid + pending + scheduled,
-        paid,
-        pending,
-        scheduled
-      })
-
-    })()
-  }, [router])
-
-  if (!authorized) return null
-
-  const exportData = payouts.map(p => ({
-    User: users.find(u => u.id === p.income_sources?.user_id)?.email || '',
-    Source: p.income_sources?.source_name || '',
-    Amount: formatCurrency(p.amount),
-    Status: p.status,
-    Date: p.payment_date
-  }))
+  if (!summary) {
+    return <div className="p-10 text-gray-500">Loading dashboard...</div>
+  }
 
   return (
-    <main className="min-h-screen bg-[#f8f9fa] text-[#0A1E2D] px-6 py-10 font-[Lato]">
-      <div className="max-w-7xl mx-auto bg-white p-10 rounded-2xl shadow-md border border-gray-100">
-        <div className="flex justify-between items-center mb-6">
-          <Image src="/HOW2Logo.png" alt="Haven One Wealth Logo" width={160} height={60} />
-          <div className="flex gap-3">
-            <button onClick={() => router.push('/dashboard')} className="bg-[#C6A664] text-[#0A1E2D] px-4 py-2 rounded-md hover:bg-[#b59655]">Back to User View</button>
-            <CSVLink data={exportData} filename="HavenOne-Payouts.csv" className="bg-[#0A1E2D] text-white px-4 py-2 rounded-md hover:bg-[#C6A664]">Export CSV</CSVLink>
-          </div>
+    <div className="p-10 max-w-7xl mx-auto">
+      {/* Header */}
+      <div className="flex justify-between items-center mb-10">
+        <Image src="/havenone-logo.png" alt="Haven One Wealth" width={150} height={150} />
+        <div className="flex gap-4">
+          <button className="px-4 py-2 bg-gray-100 rounded text-sm">Switch to User View</button>
+          <button className="px-4 py-2 bg-black text-white rounded text-sm">Logout</button>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-10">
-          <KPI label="Expected" value={formatCurrency(kpis.expected)} />
-          <KPI label="Paid" value={formatCurrency(kpis.paid)} />
-          <KPI label="Pending" value={formatCurrency(kpis.pending)} />
-          <KPI label="Scheduled" value={formatCurrency(kpis.scheduled)} />
-        </div>
-        <Charts data={payouts} />
       </div>
-    </main>
+
+      <h1 className="text-3xl font-semibold mb-8">Admin Dashboard</h1>
+
+      {/* KPI Grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-12">
+        <KPI
+          title="Total Portfolio Value"
+          value={summary.total_payout_amount}
+          sub={`${summary.total_sources} Sources  •  ${summary.total_payouts} Payouts`}
+        />
+        <KPI
+          title="Average Payout"
+          value={summary.avg_payout_amount}
+          sub="Across all income sources"
+        />
+        <KPI
+          title="Active Users"
+          value={users.length}
+          sub="Administrators and earners"
+        />
+      </div>
+
+      {/* Global Payout Distribution */}
+      <div className="mb-14">
+        <h2 className="text-xl font-semibold mb-4">Payout Distribution by Source</h2>
+        <div className="bg-white rounded-xl shadow-sm p-6 border">
+          <GlobalPayoutChart aggregates={aggregates} />
+        </div>
+      </div>
+
+      {/* Monthly Trends */}
+      <div className="mb-14">
+        <h2 className="text-xl font-semibold mb-4">Monthly Portfolio Trends</h2>
+        <div className="bg-white rounded-xl shadow-sm p-6 border">
+          <MonthlyTrendsChart trends={monthlyTrends} />
+        </div>
+      </div>
+
+      {/* Recent Payout Activity */}
+      <div className="mb-14">
+        <h2 className="text-xl font-semibold mb-4">Recent Payout Activity</h2>
+        <div className="bg-white rounded-xl shadow-sm p-6 border">
+          <RecentPayoutsTable payouts={recentPayouts} />
+        </div>
+      </div>
+
+      {/* User Management */}
+      <div className="mb-20">
+        <h2 className="text-xl font-semibold mb-4">User Management</h2>
+        <div className="bg-white rounded-xl shadow-sm p-6 border">
+          <UserManagementTable users={users} />
+        </div>
+      </div>
+    </div>
   )
 }

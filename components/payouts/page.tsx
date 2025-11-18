@@ -1,9 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-
-import { getPayouts } from '@/lib/supabase/payouts'
-import { Payout } from '@/lib/types'
+import { getPayouts, Payout } from '@/lib/supabase/payouts'
 import PayoutsTable from '@/components/payouts/PayoutsTable'
 
 export default function PayoutsPage() {
@@ -13,9 +11,7 @@ export default function PayoutsPage() {
   useEffect(() => {
     async function load() {
       setLoading(true)
-
       const data = await getPayouts()
-
       setPayouts(data || [])
       setLoading(false)
     }
@@ -30,7 +26,6 @@ export default function PayoutsPage() {
   return (
     <div className="p-10 max-w-7xl mx-auto">
       <h1 className="text-3xl font-semibold mb-8">Payouts</h1>
-
       <PayoutsTable payouts={payouts} />
     </div>
   )
