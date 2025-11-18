@@ -2,8 +2,17 @@
 
 import { useEffect, useState } from 'react'
 
-import { getSources, getSourceAggregates, getSourceTrends } from '@/lib/supabase/sources'
-import { IncomeSource, PortfolioAggregate, MonthlyTrend } from '@/lib/types'
+import { 
+  getSources, 
+  getSourceAggregates, 
+  getSourceTrends 
+} from '@/lib/supabase/sources'
+
+import { 
+  IncomeSource, 
+  PortfolioAggregate, 
+  MonthlyTrend 
+} from '@/lib/types'
 
 import SourcesList from '@/components/sources/SourcesList'
 import SourceAnalyticsChart from '@/components/sources/SourceAnalyticsChart'
@@ -16,35 +25,54 @@ export default function SourcesPage() {
 
   useEffect(() => {
     async function load() {
-      setLoading(true)
+      try {
+        setLoading(true)
 
-      const s = await getSources()
-      const a = await getSourceAggregates()
-      const t = await getSourceTrends()
+        const s = await getSources()
+        const a = await getSourceAggregates()
+        const t = await getSourceTrends()
 
-      setSources(s)
-      setAggregates(a)
-      setTrends(t)
+        // Defensive fallback in case any call returns null
+        setSources(Array.isArray(s) ? s : [])
+        setAggregates(Array.isArray(a) ? a : [])
+        setTrends(Array.isArray(t) ? t : [])
+      } catch (err) {
+        console.error('Error loading sources page:', err)
 
-      setLoading(false)
+        setSources([])
+        setAggregates([])
+        setTrends([])
+      } finally {
+        setLoading(false)
+      }
     }
 
     load()
   }, [])
 
-  if (loading) return <div className="p-10">Loading sources...</div>
+  if (loading) {
+    return <div className="p-10">Loading sources...</div>
+  }
 
   return (
     <div className="p-10 max-w-7xl mx-auto">
+
       <h1 className="text-3xl font-semibold mb-8">Income Sources</h1>
 
       <div className="mb-12">
-        <SourcesList sources={sources} aggregates={aggregates} />
+        <SourcesList 
+          sources={sources} 
+          aggregates={aggregates} 
+        />
       </div>
 
       <div className="mb-12">
-        <SourceAnalyticsChart aggregates={aggregates} trends={trends} />
+        <SourceAnalyticsChart 
+          aggregates={aggregates} 
+          trends={trends} 
+        />
       </div>
+
     </div>
   )
 }
