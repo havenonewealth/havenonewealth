@@ -17,24 +17,24 @@ export async function getSources(): Promise<IncomeSource[]> {
 
 export async function getSourceAggregates(): Promise<PortfolioAggregate[]> {
   const { data, error } = await supabase
-    .from('v_admin_portfolio_aggregates')
-    .select('*')
+    .from('v_user_payout_summary')
+    .select('source_name, total_payout:total_expected')
 
   if (error) {
-    console.error('Error loading aggregates', error)
+    console.error('Error loading source aggregates', error)
     return []
   }
 
-  return data as PortfolioAggregate[]
+  return data as unknown as PortfolioAggregate[]
 }
 
 export async function getSourceTrends(): Promise<MonthlyTrend[]> {
   const { data, error } = await supabase
-    .from('v_admin_monthly_trends')
-    .select('*')
+    .from('v_user_monthly_trends')
+    .select('month, total_payments, total_payout, user_id')
 
   if (error) {
-    console.error('Error loading source trends', error)
+    console.error('Error loading monthly trends', error)
     return []
   }
 
