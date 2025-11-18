@@ -15,22 +15,26 @@ export default function SourcesPage() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    async function load() {
-      setLoading(true)
+  async function load() {
+    setLoading(true)
 
-      const s = await getSources()
-      const a = await getSourceAggregates()
-      const t = await getSourceTrends()
+    const s = await getSources()
+    const a = await getSourceAggregates()
+    const t = await getSourceTrends()
 
-      setSources(s)
-      setAggregates(a)
-      setTrends(t)
+    console.log("SOURCES →", s)
+    console.log("AGGREGATES →", a)
+    console.log("TRENDS →", t)
 
-      setLoading(false)
-    }
+    setSources(s)
+    setAggregates(a)
+    setTrends(t)
+    setLoading(false)
+  }
 
-    load()
-  }, [])
+  load()
+}, [])
+
 
   if (loading) return <div className="p-10">Loading sources...</div>
 
