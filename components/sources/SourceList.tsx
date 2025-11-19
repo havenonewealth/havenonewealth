@@ -1,14 +1,17 @@
 'use client'
 
-import { IncomeSource } from "@/lib/types"
+import { IncomeSource } from '@/lib/types'
+import { Trash2 } from 'lucide-react'
 
 interface Props {
   sources: IncomeSource[]
   onAdd: () => void
   onEdit: (source: IncomeSource) => void
+  onDelete: (id: string) => void
 }
 
-export default function SourceList({ sources, onAdd, onEdit }: Props) {
+export default function SourceList({ sources, onAdd, onEdit, onDelete }: Props) {
+
   return (
     <div>
       <div className="flex justify-between items-center mb-4">
@@ -26,17 +29,27 @@ export default function SourceList({ sources, onAdd, onEdit }: Props) {
         {sources.map((s) => (
           <li
             key={s.id}
-            onClick={() => onEdit(s)}
-            className="p-4 border rounded-lg shadow-sm hover:bg-gray-50 cursor-pointer"
+            className="p-4 border rounded-lg shadow-sm flex justify-between items-center hover:bg-gray-50"
           >
-            <p className="text-lg font-semibold">{s.source_name}</p>
+            <div className="cursor-pointer" onClick={() => onEdit(s)}>
+              <p className="text-lg font-semibold">{s.source_name}</p>
 
-            <p className="text-sm text-gray-600">
-              {s.source_type && <span>{s.source_type} • </span>}
-              {s.frequency && <span>{s.frequency} • </span>}
-              {typeof s.expected_amount === "number" &&
-                <span>${s.expected_amount.toLocaleString()}</span>}
-            </p>
+              <p className="text-sm text-gray-600">
+                {s.source_type && <span>{s.source_type} • </span>}
+                {s.frequency && <span>{s.frequency} • </span>}
+                {s.expected_amount && (
+                  <span>${s.expected_amount.toLocaleString()}</span>
+                )}
+              </p>
+            </div>
+
+            {/* DELETE BUTTON */}
+            <button
+              onClick={() => onDelete(s.id)}
+              className="p-2 rounded-md hover:bg-red-100"
+            >
+              <Trash2 size={18} className="text-red-600" />
+            </button>
           </li>
         ))}
       </ul>
