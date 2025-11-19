@@ -13,7 +13,7 @@ import SourceInsightsTable from "@/components/analytics/SourceInsightsTable"
 
 import SourceList from "@/components/sources/SourceList"
 import SourceSlideOver from "@/components/sources/SourceSlideOver"
-import ConfirmDialog from "@/components/ui/confirm-dialog"
+import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { useToast } from "@/components/ui/use-toast"
 
 export default function DashboardPage() {
@@ -181,8 +181,8 @@ export default function DashboardPage() {
             <button
               onClick={() => setShowArchived(false)}
               className={`px-4 py-2 rounded-md ${!showArchived
-                  ? "bg-[#0A1E2D] text-white"
-                  : "bg-gray-200 text-gray-600"
+                ? "bg-[#0A1E2D] text-white"
+                : "bg-gray-200 text-gray-600"
                 }`}
             >
               Active
@@ -191,8 +191,8 @@ export default function DashboardPage() {
             <button
               onClick={() => setShowArchived(true)}
               className={`px-4 py-2 rounded-md ${showArchived
-                  ? "bg-[#0A1E2D] text-white"
-                  : "bg-gray-200 text-gray-600"
+                ? "bg-[#0A1E2D] text-white"
+                : "bg-gray-200 text-gray-600"
                 }`}
             >
               Archived

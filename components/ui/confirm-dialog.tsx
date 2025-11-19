@@ -1,53 +1,49 @@
 "use client"
 
 import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogFooter,
-    DialogHeader,
-    DialogTitle,
-} from "@/components/ui/dialog"
-
-import { Button } from "@/components/ui/button"
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle
+} from "@/components/ui/alert-dialog"
 
 export interface ConfirmDialogProps {
     open: boolean
     title: string
     description: string
-    onConfirm: () => void
     onCancel: () => void
-    onClose?: () => void   // <— add this optional
+    onConfirm: () => void
 }
 
-export default function ConfirmDialog({
+export function ConfirmDialog({
     open,
-    onClose,
-    onConfirm,
     title,
-    description
+    description,
+    onCancel,
+    onConfirm
 }: ConfirmDialogProps) {
     return (
-        <Dialog open={open} onOpenChange={onClose}>
-            <DialogContent>
-                <DialogHeader>
-                    <DialogTitle>{title}</DialogTitle>
-                    <DialogDescription>{description}</DialogDescription>
-                </DialogHeader>
+        <AlertDialog open={open}>
+            <AlertDialogContent>
+                <AlertDialogHeader>
+                    <AlertDialogTitle>{title}</AlertDialogTitle>
+                    <AlertDialogDescription>{description}</AlertDialogDescription>
+                </AlertDialogHeader>
 
-                <DialogFooter className="flex justify-end gap-3 mt-4">
-                    <Button variant="outline" onClick={onClose}>
+                <AlertDialogFooter>
+                    <AlertDialogCancel onClick={onCancel}>
                         Cancel
-                    </Button>
+                    </AlertDialogCancel>
 
-                    <Button
-                        variant="destructive"
-                        onClick={onConfirm}
-                    >
+                    <AlertDialogAction onClick={onConfirm}>
                         Delete
-                    </Button>
-                </DialogFooter>
-            </DialogContent>
-        </Dialog>
+                    </AlertDialogAction>
+                </AlertDialogFooter>
+            </AlertDialogContent>
+        </AlertDialog>
     )
 }
