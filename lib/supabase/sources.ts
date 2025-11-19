@@ -1,5 +1,3 @@
-"use server"
-
 import { supabase } from "@/lib/supabaseClient"
 import { IncomeSource } from "@/lib/types"
 
