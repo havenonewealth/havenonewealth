@@ -6,6 +6,10 @@ import { supabase } from '@/lib/supabaseClient'
 import { useRouter } from 'next/navigation'
 import * as echarts from 'echarts'
 import { CSVLink } from 'react-csv'
+import KPI from '@/components/analytics/KPI'
+import MonthlyTrendsChart from '@/components/analytics/MonthlyTrendsChart'
+import SourceInsightsTable from '@/components/analytics/SourceInsightsTable'
+
 
 // -------------------------
 // TYPES
@@ -45,6 +49,9 @@ export default function DashboardPage() {
   const [payouts, setPayouts] = useState<Payout[]>([])
   const [analytics, setAnalytics] = useState<AnalyticsRow[]>([])
   const [loading, setLoading] = useState<boolean>(true)
+  const [monthlyTrends, setMonthlyTrends] = useState<AnalyticsRow[]>([])
+  const [insights, setInsights] = useState<any[]>([])
+
 
   // FIX: Properly type chart refs
   const chartRef = useRef<HTMLDivElement | null>(null)
@@ -61,24 +68,42 @@ export default function DashboardPage() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return router.push('/login')
 
-      const [src, pay, ana] = await Promise.all([
-        supabase.from('income_sources').select('*').eq('user_id', user.id),
-        supabase
-          .from('payouts')
-          .select('*, income_sources(source_name)')
-          .eq('user_id', user.id),
-        supabase.rpc('get_user_monthly_trends', { uid: user.id })
-      ])
+      // Fetch sources
+      const { data: src } = await supabase
+        .from('income_sources')
+        .select('*')
+        .eq('user_id', user.id)
 
-      setSources((src.data ?? []) as IncomeSource[])
-      setPayouts((pay.data ?? []) as Payout[])
-      setAnalytics((ana.data ?? []) as AnalyticsRow[])
+      // Fetch payouts
+      const { data: pay } = await supabase
+        .from('payouts')
+        .select('*, income_sources(source_name)')
+        .eq('user_id', user.id)
+
+      // Fetch monthly trends
+      const { data: trends } = await supabase
+        .from('v_user_monthly_trends')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('month')
+
+      // Fetch insights
+      const { data: insightRows } = await supabase
+        .from('v_user_insights')
+        .select('*')
+        .eq('user_id', user.id)
+
+      setSources((src ?? []) as IncomeSource[])
+      setPayouts((pay ?? []) as Payout[])
+      setMonthlyTrends((trends ?? []) as AnalyticsRow[])
+      setInsights((insightRows ?? []) as any[])
 
       setLoading(false)
     }
 
     load()
   }, [router])
+
 
   // -------------------------
   // ANALYTICS CHART
@@ -212,11 +237,18 @@ export default function DashboardPage() {
         <section>
           <h2 className="text-2xl font-semibold mb-4">Analytics</h2>
 
-          {analytics.length === 0 ? (
-            <p>No analytics data available.</p>
+          {/* KPI Summary */}
+          <KPI insights={insights} />
+
+          {/* Monthly Chart */}
+          {monthlyTrends.length === 0 ? (
+            <p className="text-gray-500">No monthly trend data available.</p>
           ) : (
-            <div ref={chartRef} style={{ width: '100%', height: '400px' }} />
+            <MonthlyTrendsChart data={monthlyTrends} />
           )}
+
+          {/* Source Insights Table */}
+          <SourceInsightsTable insights={insights} />
         </section>
       )}
     </div>
