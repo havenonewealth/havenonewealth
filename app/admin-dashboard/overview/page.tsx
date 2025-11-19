@@ -18,7 +18,7 @@ import {
   getAllUsers
 } from '@/lib/supabase/admin'
 
-import KPI from '@/components/KPI'
+import KPI from '@/components/admin-dashboard/KPI'
 import GlobalPayoutChart from '@/components/admin-dashboard/GlobalPayoutChart'
 import MonthlyTrendsChart from '@/components/admin-dashboard/MonthlyTrendsChart'
 import RecentPayoutsTable from '@/components/admin-dashboard/RecentPayoutsTable'

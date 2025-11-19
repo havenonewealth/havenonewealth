@@ -12,7 +12,7 @@ import {
   getAdminMonthlyTrends
 } from '@/lib/supabase/admin'
 
-import KPI from '@/components/KPI'
+import KPI from '@/components/admin-dashboard/KPI'
 import MonthlyTrendsChart from '@/components/admin-dashboard/MonthlyTrendsChart'
 
 export default function TrendsPage() {

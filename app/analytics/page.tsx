@@ -9,7 +9,7 @@ import {
 } from '@/lib/supabase/admin'
 
 import MonthlyPayoutChart from '@/components/analytics/MonthlyPayoutChart'
-import KPI from '@/components/KPI'
+import KPI from '@/components/admin-dashboard/KPI'
 
 export default function AnalyticsPage() {
   const [summary, setSummary] = useState<AdminSummary | null>(null)
