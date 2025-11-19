@@ -25,7 +25,6 @@
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
     "@types/chart.js": "^2.9.41",
-    "@types/echarts": "^4.9.22",
     "@types/file-saver": "^2.0.7",
     "@types/node": "^20",
     "@types/react": "^19",
