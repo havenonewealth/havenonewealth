@@ -184,7 +184,11 @@ export default function SourceForm({
             </div>
 
             {/* SUBMIT */}
-            <Button disabled={loading} className="w-full bg-[#0A1E2D] text-white">
+            <Button
+                type="submit"
+                disabled={loading}
+                className="w-full bg-[#0A1E2D] text-white"
+            >
                 {loading ? "Saving…" : initial ? "Update Source" : "Create Source"}
             </Button>
         </form>
