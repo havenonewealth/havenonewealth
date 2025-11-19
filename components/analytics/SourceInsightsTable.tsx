@@ -2,9 +2,9 @@
 
 interface InsightRow {
   source_name: string
-  total_earned: number
-  avg_payment: number
-  payout_count: number
+  total_earned: number | null
+  avg_payment: number | null
+  payout_count: number | null
   first_payment: string | null
   last_payment: string | null
 }
@@ -14,8 +14,11 @@ export default function SourceInsightsTable({ insights }: { insights: InsightRow
     return <p className="text-gray-500">No insights available.</p>
   }
 
-  const money = (n: number) =>
-    n.toLocaleString('en-US', { style: 'currency', currency: 'USD' })
+  const safe = (n: any) =>
+    typeof n === 'number' && !isNaN(n) ? n : 0
+
+  const money = (n: any) =>
+    safe(n).toLocaleString('en-US', { style: 'currency', currency: 'USD' })
 
   return (
     <div className="mt-10 overflow-x-auto">
@@ -36,9 +39,13 @@ export default function SourceInsightsTable({ insights }: { insights: InsightRow
               <td className="p-3">{i.source_name}</td>
               <td className="p-3">{money(i.total_earned)}</td>
               <td className="p-3">{money(i.avg_payment)}</td>
-              <td className="p-3">{i.payout_count}</td>
-              <td className="p-3">{i.first_payment ? new Date(i.first_payment).toLocaleDateString() : '—'}</td>
-              <td className="p-3">{i.last_payment ? new Date(i.last_payment).toLocaleDateString() : '—'}</td>
+              <td className="p-3">{safe(i.payout_count)}</td>
+              <td className="p-3">
+                {i.first_payment ? new Date(i.first_payment).toLocaleDateString() : '—'}
+              </td>
+              <td className="p-3">
+                {i.last_payment ? new Date(i.last_payment).toLocaleDateString() : '—'}
+              </td>
             </tr>
           ))}
         </tbody>
