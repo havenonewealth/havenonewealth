@@ -1,34 +1,27 @@
 'use client'
 
-import { useEffect, useState } from "react"
-import { useTabs } from "./TabContext"
-import { supabase } from "@/lib/supabaseClient"
-import { useRouter } from "next/navigation"
-import { CSVLink } from "react-csv"
+import { useEffect, useState } from 'react'
+import { useTabs } from './TabContext'
+import { supabase } from '@/lib/supabaseClient'
+import { useRouter } from 'next/navigation'
+import { CSVLink } from 'react-csv'
 import type { IncomeSource } from "@/lib/types"
 
-// UI components
-import KPI from "@/components/analytics/KPI"
-import MonthlyTrendsChart from "@/components/analytics/MonthlyTrendsChart"
-import SourceInsightsTable from "@/components/analytics/SourceInsightsTable"
+// UI
+import KPI from '@/components/analytics/KPI'
+import MonthlyTrendsChart from '@/components/analytics/MonthlyTrendsChart'
+import SourceInsightsTable from '@/components/analytics/SourceInsightsTable'
 
 import SourceList from "@/components/sources/SourceList"
 import SourceSlideOver from "@/components/sources/SourceSlideOver"
-
-import ConfirmDialog from "@/components/ui/confirm-dialog"
 import { useToast } from "@/components/ui/use-toast"
 
-// ------------------------------
-// Types
-// ------------------------------
 interface Payout {
   id: string
   amount: number
   payment_date: string
   status: string
-  income_sources?: {
-    source_name?: string
-  } | null
+  income_sources?: { source_name?: string } | null
 }
 
 interface AnalyticsRow {
@@ -36,8 +29,6 @@ interface AnalyticsRow {
   total_payout: number
   total_payments: number
 }
-
-// ------------------------------
 
 export default function DashboardPage() {
   const router = useRouter()
@@ -55,44 +46,41 @@ export default function DashboardPage() {
   const [slideOverOpen, setSlideOverOpen] = useState(false)
   const [editingSource, setEditingSource] = useState<IncomeSource | null>(null)
 
-  // DELETE dialog
-  const [confirmOpen, setConfirmOpen] = useState(false)
-  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null)
-
   const formatCurrency = (v: number | undefined) =>
-    v ? v.toLocaleString("en-US", { style: "currency", currency: "USD" }) : "$0.00"
+    v ? v.toLocaleString('en-US', { style: 'currency', currency: 'USD' }) : '$0.00'
 
-  // ------------------------------
-  // Load Data
-  // ------------------------------
+  // -------------------------
+  // LOAD DATA (with soft-delete filter)
+  // -------------------------
   useEffect(() => {
     async function load() {
       const { data: { user: loggedIn } } = await supabase.auth.getUser()
-      if (!loggedIn) return router.push("/login")
+      if (!loggedIn) return router.push('/login')
 
       setUser(loggedIn)
       const userId = loggedIn.id
 
       const { data: src } = await supabase
-        .from("income_sources")
-        .select("*")
-        .eq("user_id", userId)
+        .from('income_sources')
+        .select('*')
+        .eq('user_id', userId)
+        .eq("deleted", false)     // <-- SOFT DELETE FILTER
 
       const { data: pay } = await supabase
-        .from("payouts")
-        .select("*, income_sources(source_name)")
-        .eq("user_id", userId)
+        .from('payouts')
+        .select('*, income_sources(source_name)')
+        .eq('user_id', userId)
 
       const { data: trends } = await supabase
-        .from("v_user_monthly_trends")
-        .select("*")
-        .eq("user_id", userId)
-        .order("month")
+        .from('v_user_monthly_trends')
+        .select('*')
+        .eq('user_id', userId)
+        .order('month')
 
       const { data: insightRows } = await supabase
-        .from("v_user_insights")
-        .select("*")
-        .eq("user_id", userId)
+        .from('v_user_insights')
+        .select('*')
+        .eq('user_id', userId)
 
       setSources(src ?? [])
       setPayouts(pay ?? [])
@@ -108,19 +96,22 @@ export default function DashboardPage() {
 
   // CSV export
   const csvData = payouts.map((p) => ({
-    Source: p.income_sources?.source_name || "—",
+    Source: p.income_sources?.source_name || '—',
     Amount: p.amount,
     Date: p.payment_date,
     Status: p.status
   }))
 
-  // ------------------------------
-  // DELETE HANDLER
-  // ------------------------------
-  async function performDelete(id: string) {
+  // -------------------------
+  // SOFT DELETE HANDLER
+  // -------------------------
+  async function handleDelete(id: string) {
     const { error } = await supabase
       .from("income_sources")
-      .delete()
+      .update({
+        deleted: true,
+        deleted_at: new Date().toISOString()
+      })
       .eq("id", id)
 
     if (error) {
@@ -128,39 +119,24 @@ export default function DashboardPage() {
       return
     }
 
+    // Remove from UI list
     setSources(prev => prev.filter(s => s.id !== id))
 
     toast({
       title: "Source deleted",
-      description: "The income source was successfully deleted."
+      description: "The income source has been moved to archive."
     })
   }
 
-  function handleDeleteRequest(id: string) {
-    setPendingDeleteId(id)
-    setConfirmOpen(true)
-  }
-
-  // ------------------------------
   return (
     <div className="mt-6">
 
-      <ConfirmDialog
-        open={confirmOpen}
-        onClose={() => setConfirmOpen(false)}
-        onConfirm={() => {
-          if (pendingDeleteId) performDelete(pendingDeleteId)
-          setConfirmOpen(false)
-        }}
-        title="Delete Income Source"
-        description="Are you sure you want to delete this source? This action cannot be undone."
-      />
-
       {/* SOURCES TAB */}
-      {activeTab === "sources" && (
+      {activeTab === 'sources' && (
         <section>
           <h2 className="text-2xl font-semibold mb-4">Income Sources</h2>
 
+          {/* SlideOver */}
           <SourceSlideOver
             initial={editingSource}
             userId={user?.id ?? ""}
@@ -171,13 +147,16 @@ export default function DashboardPage() {
             }}
             onSaved={async () => {
               const { data } = await supabase
-                .from("income_sources")
-                .select("*")
-                .eq("user_id", user?.id)
+                .from('income_sources')
+                .select('*')
+                .eq('user_id', user?.id)
+                .eq('deleted', false)  // <-- SOFT DELETE FILTER
+
               setSources(data ?? [])
             }}
           />
 
+          {/* Source List */}
           <SourceList
             sources={sources}
             onAdd={() => {
@@ -188,13 +167,13 @@ export default function DashboardPage() {
               setEditingSource(src)
               setSlideOverOpen(true)
             }}
-            onDelete={handleDeleteRequest}
+            onDelete={handleDelete}
           />
         </section>
       )}
 
       {/* PAYOUTS TAB */}
-      {activeTab === "payouts" && (
+      {activeTab === 'payouts' && (
         <section>
           <h2 className="text-2xl font-semibold mb-4">Payouts</h2>
 
@@ -211,7 +190,7 @@ export default function DashboardPage() {
               <tbody>
                 {payouts.map((p) => (
                   <tr key={p.id} className="border-t">
-                    <td className="p-3">{p.income_sources?.source_name || "—"}</td>
+                    <td className="p-3">{p.income_sources?.source_name || '—'}</td>
                     <td className="p-3">{formatCurrency(p.amount)}</td>
                     <td className="p-3">{new Date(p.payment_date).toLocaleDateString()}</td>
                     <td className="p-3">{p.status}</td>
@@ -234,7 +213,7 @@ export default function DashboardPage() {
       )}
 
       {/* ANALYTICS TAB */}
-      {activeTab === "analytics" && (
+      {activeTab === 'analytics' && (
         <section>
           <h2 className="text-2xl font-semibold mb-4">Analytics</h2>
 
