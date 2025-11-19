@@ -128,12 +128,18 @@ export default function DashboardPage() {
               setEditingSource(null)
             }}
             onSaved={async () => {
+              // Re-fetch latest sources
               const { data } = await supabase
-                .from('income_sources')
-                .select('*')
-                .eq('user_id', user?.id)
+                .from("income_sources")
+                .select("*")
+                .eq("user_id", user?.id)
+                .order("created_at", { ascending: false })
 
-              setSources((data ?? []) as IncomeSource[])
+              // Force re-render by cloning array
+              setSources([...(data ?? [])])
+
+              // Clear editing state
+              setEditingSource(null)
             }}
           />
 
