@@ -28,13 +28,18 @@ interface AnalyticsRow {
   total_payments: number
 }
 
-export default function DashboardPage() {
+export default function DashboardPage({
+  activeTab,
+  setActiveTab
+}: {
+  activeTab: 'sources' | 'payouts' | 'analytics'
+  setActiveTab: (tab: 'sources' | 'payouts' | 'analytics') => void
+}) {
   const router = useRouter()
 
   const [sources, setSources] = useState<IncomeSource[]>([])
   const [payouts, setPayouts] = useState<Payout[]>([])
   const [analytics, setAnalytics] = useState<AnalyticsRow[]>([])
-  const [activeTab, setActiveTab] = useState<'sources' | 'payouts' | 'analytics'>('sources')
   const [loading, setLoading] = useState(true)
 
   const chartRef = useRef<HTMLDivElement>(null)
@@ -43,7 +48,6 @@ export default function DashboardPage() {
   const formatCurrency = (v: number | undefined) =>
     v ? v.toLocaleString('en-US', { style: 'currency', currency: 'USD' }) : '$0.00'
 
-  // Load user + data
   useEffect(() => {
     async function load() {
       const { data: { user } } = await supabase.auth.getUser()
@@ -67,7 +71,6 @@ export default function DashboardPage() {
     load()
   }, [router])
 
-  // Render analytics chart
   useEffect(() => {
     if (activeTab !== 'analytics') return
     if (!chartRef.current) return
@@ -118,18 +121,12 @@ export default function DashboardPage() {
 
   if (loading) return <div>Loading...</div>
 
-  // CSV export
   const csvData = payouts.map((p) => ({
     Source: p.income_sources?.source_name || '—',
     Amount: p.amount,
     Date: p.payment_date,
     Status: p.status
   }))
-
-  // -----------------------------------------------------------------------
-  // THE ONLY THING THIS FILE DOES IS RENDER THE PAGE CONTENT UNDER THE TABS
-  // The layout handles the full wrapper, header, and navigation
-  // -----------------------------------------------------------------------
 
   return (
     <div className="mt-6">
@@ -145,10 +142,16 @@ export default function DashboardPage() {
             <ul className="space-y-3">
               {sources.map((s) => (
                 <li key={s.id} className="p-4 border rounded-lg shadow-sm">
+
                   <p className="text-lg font-semibold">{s.source_name}</p>
+
+                  {/* Clean formatting – only show values if present */}
                   <p className="text-sm text-gray-600">
-                    {s.source_type || '—'} • {s.frequency || '—'} • {formatCurrency(s.expected_amount)}
+                    {s.source_type && <span>{s.source_type} • </span>}
+                    {s.frequency && <span>{s.frequency} • </span>}
+                    {formatCurrency(s.expected_amount)}
                   </p>
+
                 </li>
               ))}
             </ul>
@@ -161,35 +164,37 @@ export default function DashboardPage() {
         <section>
           <h2 className="text-2xl font-semibold mb-4">Payouts</h2>
 
-          <table className="min-w-full border">
-            <thead className="bg-gray-100">
-              <tr>
-                <th className="p-3">Source</th>
-                <th className="p-3">Amount</th>
-                <th className="p-3">Date</th>
-                <th className="p-3">Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {payouts.map((p) => (
-                <tr key={p.id}>
-                  <td className="p-3">{p.income_sources?.source_name || '—'}</td>
-                  <td className="p-3">{formatCurrency(p.amount)}</td>
-                  <td className="p-3">{new Date(p.payment_date).toLocaleDateString()}</td>
-                  <td className="p-3">{p.status}</td>
+          <div className="overflow-x-auto">
+            <table className="min-w-full border">
+              <thead className="bg-gray-100">
+                <tr>
+                  <th className="p-3">Source</th>
+                  <th className="p-3">Amount</th>
+                  <th className="p-3">Date</th>
+                  <th className="p-3">Status</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {payouts.map((p) => (
+                  <tr key={p.id} className="border-t">
+                    <td className="p-3">{p.income_sources?.source_name || '—'}</td>
+                    <td className="p-3">{formatCurrency(p.amount)}</td>
+                    <td className="p-3">{new Date(p.payment_date).toLocaleDateString()}</td>
+                    <td className="p-3">{p.status}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
 
-          <div className="mt-4">
-            <CSVLink
-              data={csvData}
-              filename={`HavenOne_Payouts_${new Date().toISOString().slice(0, 10)}.csv`}
-              className="bg-[#C6A664] px-4 py-2 rounded-md text-[#0A1E2D] font-semibold"
-            >
-              Export CSV
-            </CSVLink>
+            <div className="mt-4">
+              <CSVLink
+                data={csvData}
+                filename={`HavenOne_Payouts_${new Date().toISOString().slice(0, 10)}.csv`}
+                className="bg-[#C6A664] px-4 py-2 rounded-md text-[#0A1E2D] font-semibold"
+              >
+                Export CSV
+              </CSVLink>
+            </div>
           </div>
         </section>
       )}
@@ -200,9 +205,12 @@ export default function DashboardPage() {
           <h2 className="text-2xl font-semibold mb-4">Analytics</h2>
 
           {analytics.length === 0 ? (
-            <p>No analytics data.</p>
+            <p>No analytics data available.</p>
           ) : (
-            <div ref={chartRef} style={{ width: '100%', height: '400px' }} />
+            <div
+              ref={chartRef}
+              style={{ width: '100%', height: '400px' }}
+            />
           )}
         </section>
       )}
