@@ -13,10 +13,11 @@ import { Button } from "@/components/ui/button"
 
 export interface ConfirmDialogProps {
     open: boolean
-    onClose: () => void
-    onConfirm: () => void
     title: string
     description: string
+    onConfirm: () => void
+    onCancel: () => void
+    onClose?: () => void   // <— add this optional
 }
 
 export default function ConfirmDialog({

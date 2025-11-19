@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useState } from 'react'
 
-type Tab = 'sources' | 'payouts' | 'analytics'
+type Tab = 'sources' | 'payouts' | 'analytics' | 'archived'
 
 interface TabContextValue {
   activeTab: Tab

@@ -1,17 +1,17 @@
-'use client'
+"use client"
 
-import { useForm } from 'react-hook-form'
-import { z } from 'zod'
-import { zodResolver } from '@hookform/resolvers/zod'
-import type { IncomeSource } from '@/lib/types'
-import { createSource, updateSource } from '@/lib/supabase/sources'
-import { useState } from 'react'
+import { useForm } from "react-hook-form"
+import { z } from "zod"
+import { zodResolver } from "@hookform/resolvers/zod"
+import type { IncomeSource } from "@/lib/types"
+import { createSource, updateSource } from "@/lib/supabase/sources"
+import { useState } from "react"
+import { useToast } from "@/components/ui/use-toast"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
-import { Switch } from "@/components/ui/switch"
 import {
     Select,
     SelectContent,
@@ -20,7 +20,6 @@ import {
     SelectValue
 } from "@/components/ui/select"
 
-
 // Validation schema
 const formSchema = z.object({
     source_name: z.string().min(1, "Required"),
@@ -28,10 +27,9 @@ const formSchema = z.object({
     frequency: z.string().nullable(),
     expected_amount: z.number().nullable(),
     notes: z.string().nullable()
-});
+})
 
 export type SourceFormValues = z.infer<typeof formSchema>
-
 
 export default function SourceForm({
     initial,
@@ -44,7 +42,7 @@ export default function SourceForm({
     onClose: () => void
     onSaved: () => void
 }) {
-
+    const { toast } = useToast()
     const [loading, setLoading] = useState(false)
 
     const form = useForm<SourceFormValues>({
@@ -54,16 +52,14 @@ export default function SourceForm({
             source_type: initial?.source_type ?? "",
             frequency: initial?.frequency ?? "",
             expected_amount: initial?.expected_amount ?? null,
-            notes: initial?.notes ?? "",
-        },
+            notes: initial?.notes ?? ""
+        }
     })
-
 
     async function onSubmit(values: SourceFormValues) {
         try {
             setLoading(true)
 
-            // Payload must match Supabase table structure exactly
             const payload = {
                 user_id: userId,
                 source_name: values.source_name,
@@ -71,20 +67,35 @@ export default function SourceForm({
                 frequency: values.frequency,
                 expected_amount: values.expected_amount,
                 notes: values.notes
-                // REMOVE category, show_on_dashboard, auto_project (NOT in DB)
             }
 
             if (initial?.id) {
                 await updateSource(initial.id, payload)
+
+                toast({
+                    title: "Source Updated",
+                    description: `"${values.source_name}" has been updated successfully.`
+                })
             } else {
                 await createSource(payload)
+
+                toast({
+                    title: "Source Created",
+                    description: `"${values.source_name}" has been added to your income sources.`
+                })
             }
 
             onSaved()
             onClose()
 
-        } catch (err) {
+        } catch (err: any) {
             console.error("Save error:", err)
+
+            toast({
+                title: "Save failed",
+                description: err?.message || "An unexpected error occurred"
+            })
+
         } finally {
             setLoading(false)
         }
