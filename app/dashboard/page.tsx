@@ -153,29 +153,6 @@ export default function DashboardPage() {
               setEditingSource(src)
               setSlideOverOpen(true)
             }}
-            onDelete={async (id) => {
-
-              if (!confirm("Are you sure you want to delete this source?")) return
-
-              const { error } = await supabase
-                .from('income_sources')
-                .delete()
-                .eq('id', id)
-
-              if (error) {
-                console.error("Delete error:", error)
-                alert("Unable to delete source.")
-                return
-              }
-
-              // Refresh list
-              const { data } = await supabase
-                .from('income_sources')
-                .select('*')
-                .eq('user_id', user.id)
-
-              setSources(data ?? [])
-            }}
           />
         </section>
       )}
