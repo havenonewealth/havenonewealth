@@ -1,11 +1,15 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import { useTabs } from './TabContext'
 import { supabase } from '@/lib/supabaseClient'
 import { useRouter } from 'next/navigation'
 import * as echarts from 'echarts'
 import { CSVLink } from 'react-csv'
 
+// -------------------------
+// TYPES
+// -------------------------
 interface IncomeSource {
   id: string
   source_name: string
@@ -19,7 +23,9 @@ interface Payout {
   amount: number
   payment_date: string
   status: string
-  income_sources?: { source_name?: string } | null
+  income_sources?: {
+    source_name?: string
+  } | null
 }
 
 interface AnalyticsRow {
@@ -28,26 +34,28 @@ interface AnalyticsRow {
   total_payments: number
 }
 
-export default function DashboardPage({
-  activeTab,
-  setActiveTab
-}: {
-  activeTab: 'sources' | 'payouts' | 'analytics'
-  setActiveTab: (tab: 'sources' | 'payouts' | 'analytics') => void
-}) {
-  const router = useRouter()
+// -------------------------
 
+export default function DashboardPage() {
+  const router = useRouter()
+  const { activeTab } = useTabs()
+
+  // FIX: Add proper types to avoid never[]
   const [sources, setSources] = useState<IncomeSource[]>([])
   const [payouts, setPayouts] = useState<Payout[]>([])
   const [analytics, setAnalytics] = useState<AnalyticsRow[]>([])
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState<boolean>(true)
 
-  const chartRef = useRef<HTMLDivElement>(null)
+  // FIX: Properly type chart refs
+  const chartRef = useRef<HTMLDivElement | null>(null)
   const chartInstance = useRef<echarts.ECharts | null>(null)
 
-  const formatCurrency = (v: number | undefined) =>
+  const formatCurrency = (v: number | undefined): string =>
     v ? v.toLocaleString('en-US', { style: 'currency', currency: 'USD' }) : '$0.00'
 
+  // -------------------------
+  // LOAD DATA
+  // -------------------------
   useEffect(() => {
     async function load() {
       const { data: { user } } = await supabase.auth.getUser()
@@ -62,19 +70,23 @@ export default function DashboardPage({
         supabase.rpc('get_user_monthly_trends', { uid: user.id })
       ])
 
-      setSources(src.data ?? [])
-      setPayouts(pay.data ?? [])
-      setAnalytics(ana.data ?? [])
+      setSources((src.data ?? []) as IncomeSource[])
+      setPayouts((pay.data ?? []) as Payout[])
+      setAnalytics((ana.data ?? []) as AnalyticsRow[])
+
       setLoading(false)
     }
 
     load()
   }, [router])
 
+  // -------------------------
+  // ANALYTICS CHART
+  // -------------------------
   useEffect(() => {
     if (activeTab !== 'analytics') return
-    if (!chartRef.current) return
     if (!analytics.length) return
+    if (!chartRef.current) return
 
     if (!chartInstance.current) {
       chartInstance.current = echarts.init(chartRef.current)
@@ -82,12 +94,12 @@ export default function DashboardPage({
 
     const chart = chartInstance.current
 
-    const option = {
+    const option: echarts.EChartsOption = {
       tooltip: { trigger: 'axis' },
       legend: { data: ['Total Payout', 'Payments'] },
       xAxis: {
         type: 'category',
-        data: analytics.map((a) => a.month)
+        data: analytics.map((a: AnalyticsRow) => a.month)
       },
       yAxis: [
         { type: 'value', name: 'Total Payout' },
@@ -97,21 +109,20 @@ export default function DashboardPage({
         {
           name: 'Total Payout',
           type: 'bar',
-          data: analytics.map((a) => a.total_payout),
+          data: analytics.map((a: AnalyticsRow) => a.total_payout),
           itemStyle: { color: '#C6A664' }
         },
         {
           name: 'Payments',
           type: 'line',
           yAxisIndex: 1,
-          data: analytics.map((a) => a.total_payments),
+          data: analytics.map((a: AnalyticsRow) => a.total_payments),
           itemStyle: { color: '#0A1E2D' }
         }
       ]
     }
 
-    chart.setOption(option as any)
-    chart.resize()
+    chart.setOption(option)
 
     const resizeHandler = () => chart.resize()
     window.addEventListener('resize', resizeHandler)
@@ -119,6 +130,7 @@ export default function DashboardPage({
     return () => window.removeEventListener('resize', resizeHandler)
   }, [activeTab, analytics])
 
+  // -------------------------
   if (loading) return <div>Loading...</div>
 
   const csvData = payouts.map((p) => ({
@@ -128,38 +140,34 @@ export default function DashboardPage({
     Status: p.status
   }))
 
+  // -------------------------
+  // RENDER
+  // -------------------------
   return (
     <div className="mt-6">
 
-      {/* SOURCES */}
+      {/* SOURCES TAB */}
       {activeTab === 'sources' && (
         <section>
           <h2 className="text-2xl font-semibold mb-4">Income Sources</h2>
 
-          {sources.length === 0 ? (
-            <p>No income sources found.</p>
-          ) : (
-            <ul className="space-y-3">
-              {sources.map((s) => (
-                <li key={s.id} className="p-4 border rounded-lg shadow-sm">
+          <ul className="space-y-3">
+            {sources.map((s: IncomeSource) => (
+              <li key={s.id} className="p-4 border rounded-lg shadow-sm">
+                <p className="text-lg font-semibold">{s.source_name}</p>
 
-                  <p className="text-lg font-semibold">{s.source_name}</p>
-
-                  {/* Clean formatting – only show values if present */}
-                  <p className="text-sm text-gray-600">
-                    {s.source_type && <span>{s.source_type} • </span>}
-                    {s.frequency && <span>{s.frequency} • </span>}
-                    {formatCurrency(s.expected_amount)}
-                  </p>
-
-                </li>
-              ))}
-            </ul>
-          )}
+                <p className="text-sm text-gray-600">
+                  {s.source_type && <span>{s.source_type} • </span>}
+                  {s.frequency && <span>{s.frequency} • </span>}
+                  {formatCurrency(s.expected_amount)}
+                </p>
+              </li>
+            ))}
+          </ul>
         </section>
       )}
 
-      {/* PAYOUTS */}
+      {/* PAYOUTS TAB */}
       {activeTab === 'payouts' && (
         <section>
           <h2 className="text-2xl font-semibold mb-4">Payouts</h2>
@@ -175,7 +183,7 @@ export default function DashboardPage({
                 </tr>
               </thead>
               <tbody>
-                {payouts.map((p) => (
+                {payouts.map((p: Payout) => (
                   <tr key={p.id} className="border-t">
                     <td className="p-3">{p.income_sources?.source_name || '—'}</td>
                     <td className="p-3">{formatCurrency(p.amount)}</td>
@@ -199,7 +207,7 @@ export default function DashboardPage({
         </section>
       )}
 
-      {/* ANALYTICS */}
+      {/* ANALYTICS TAB */}
       {activeTab === 'analytics' && (
         <section>
           <h2 className="text-2xl font-semibold mb-4">Analytics</h2>
@@ -207,10 +215,7 @@ export default function DashboardPage({
           {analytics.length === 0 ? (
             <p>No analytics data available.</p>
           ) : (
-            <div
-              ref={chartRef}
-              style={{ width: '100%', height: '400px' }}
-            />
+            <div ref={chartRef} style={{ width: '100%', height: '400px' }} />
           )}
         </section>
       )}
