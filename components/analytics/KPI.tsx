@@ -1,12 +1,10 @@
 'use client'
 
-import React from 'react'
-
 interface InsightRow {
   source_name: string
-  total_earned: number
-  avg_payment: number
-  payout_count: number
+  total_earned: number | null
+  avg_payment: number | null
+  payout_count: number | null
   first_payment: string | null
   last_payment: string | null
 }
@@ -20,55 +18,52 @@ export default function KPI({ insights }: KPIProps) {
     return <p className="text-gray-500">No insight data available.</p>
   }
 
-  // --- Calculations from rows ---
-  const totalEarned = insights.reduce((sum, i) => sum + i.total_earned, 0)
-  const totalPayments = insights.reduce((sum, i) => sum + i.payout_count, 0)
+  // Safe number helper
+  const safe = (n: any) => (typeof n === 'number' && !isNaN(n) ? n : 0)
+
+  // Format money safely
+  const formatter = (n: any) =>
+    safe(n).toLocaleString('en-US', { style: 'currency', currency: 'USD' })
+
+  // KPI Calculations
+  const totalEarned = insights.reduce((sum, r) => sum + safe(r.total_earned), 0)
+  const totalPayments = insights.reduce((sum, r) => sum + safe(r.payout_count), 0)
+
   const avgPayment =
-    insights.reduce((sum, i) => sum + i.avg_payment, 0) / insights.length
+    insights.reduce((sum, r) => sum + safe(r.avg_payment), 0) /
+    insights.length
 
   const highestSource = insights.reduce((max, row) =>
-    row.total_earned > max.total_earned ? row : max
+    safe(row.total_earned) > safe(max.total_earned) ? row : max
   )
 
-  const firstPaymentDate = insights
-    .map((i) => i.first_payment)
+  const firstPayment = insights
+    .map((r) => r.first_payment)
     .filter(Boolean)
     .sort()[0]
 
-  const lastPaymentDate = insights
-    .map((i) => i.last_payment)
+  const lastPayment = insights
+    .map((r) => r.last_payment)
     .filter(Boolean)
     .sort()
     .reverse()[0]
 
-  const formatter = (n: number) =>
-    n.toLocaleString('en-US', { style: 'currency', currency: 'USD' })
-
-  // --- KPI Cards ---
   const items = [
-    {
-      label: 'Total Earned',
-      value: formatter(totalEarned),
-    },
-    {
-      label: 'Average Payment',
-      value: formatter(avgPayment || 0),
-    },
-    {
-      label: 'Total Payments',
-      value: totalPayments,
-    },
-    {
-      label: 'Top Source',
-      value: highestSource.source_name,
-    },
+    { label: 'Total Earned', value: formatter(totalEarned) },
+    { label: 'Average Payment', value: formatter(avgPayment) },
+    { label: 'Total Payments', value: totalPayments },
+    { label: 'Top Source', value: highestSource.source_name },
     {
       label: 'First Payment',
-      value: firstPaymentDate ? new Date(firstPaymentDate).toLocaleDateString() : '—',
+      value: firstPayment
+        ? new Date(firstPayment).toLocaleDateString()
+        : '—',
     },
     {
       label: 'Last Payment',
-      value: lastPaymentDate ? new Date(lastPaymentDate).toLocaleDateString() : '—',
+      value: lastPayment
+        ? new Date(lastPayment).toLocaleDateString()
+        : '—',
     },
   ]
 
