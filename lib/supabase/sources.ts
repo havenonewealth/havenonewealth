@@ -61,6 +61,8 @@ export async function createSource(payload: Partial<IncomeSource>) {
 // UPDATE SOURCE
 // --------------------------------------------------
 export async function updateSource(id: string, payload: Partial<IncomeSource>) {
+  console.log("UPDATE PAYLOAD:", payload)
+
   const { data, error } = await supabase
     .from("income_sources")
     .update(payload)
@@ -73,6 +75,7 @@ export async function updateSource(id: string, payload: Partial<IncomeSource>) {
     throw new Error(error.message)
   }
 
+  console.log("UPDATE RESULT:", data)
   return data as IncomeSource
 }
 
