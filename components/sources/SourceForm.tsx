@@ -27,11 +27,8 @@ const formSchema = z.object({
     source_type: z.string().nullable(),
     frequency: z.string().nullable(),
     expected_amount: z.number().nullable(),
-    category: z.string().nullable(),
-    notes: z.string().nullable(),
-    show_on_dashboard: z.boolean(),
-    auto_project: z.boolean(),
-})
+    notes: z.string().nullable()
+});
 
 export type SourceFormValues = z.infer<typeof formSchema>
 
@@ -57,10 +54,7 @@ export default function SourceForm({
             source_type: initial?.source_type ?? "",
             frequency: initial?.frequency ?? "",
             expected_amount: initial?.expected_amount ?? null,
-            category: initial?.category ?? "",
             notes: initial?.notes ?? "",
-            show_on_dashboard: initial?.show_on_dashboard ?? true,
-            auto_project: initial?.auto_project ?? false
         },
     })
 
@@ -69,9 +63,15 @@ export default function SourceForm({
         try {
             setLoading(true)
 
+            // Payload must match Supabase table structure exactly
             const payload = {
-                ...values,
-                user_id: userId
+                user_id: userId,
+                source_name: values.source_name,
+                source_type: values.source_type,
+                frequency: values.frequency,
+                expected_amount: values.expected_amount,
+                notes: values.notes
+                // REMOVE category, show_on_dashboard, auto_project (NOT in DB)
             }
 
             if (initial?.id) {
@@ -85,12 +85,10 @@ export default function SourceForm({
 
         } catch (err) {
             console.error("Save error:", err)
-
         } finally {
             setLoading(false)
         }
     }
-
 
     return (
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
@@ -148,38 +146,12 @@ export default function SourceForm({
                 />
             </div>
 
-            {/* CATEGORY */}
-            <div className="space-y-2">
-                <Label>Category</Label>
-                <Input
-                    {...form.register("category")}
-                    placeholder="e.g. Real Estate, Digital Assets"
-                />
-            </div>
-
             {/* NOTES */}
             <div className="space-y-2">
                 <Label>Notes</Label>
                 <Textarea
                     {...form.register("notes")}
                     rows={4}
-                />
-            </div>
-
-            {/* TOGGLES */}
-            <div className="flex items-center justify-between">
-                <Label>Show on Dashboard</Label>
-                <Switch
-                    checked={form.watch("show_on_dashboard")}
-                    onCheckedChange={(v) => form.setValue("show_on_dashboard", v)}
-                />
-            </div>
-
-            <div className="flex items-center justify-between">
-                <Label>Auto Project Earnings</Label>
-                <Switch
-                    checked={form.watch("auto_project")}
-                    onCheckedChange={(v) => form.setValue("auto_project", v)}
                 />
             </div>
 
