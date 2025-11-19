@@ -5,15 +5,19 @@ import * as echarts from 'echarts'
 
 interface Trend {
   month: string
-  total_payout: number
-  total_payments: number
+  total_payout: number | null
+  total_payments: number | null
 }
 
 export default function MonthlyTrendsChart({ data }: { data: Trend[] }) {
   const chartRef = useRef<HTMLDivElement>(null)
 
+  const safe = (n: any) =>
+    typeof n === 'number' && !isNaN(n) ? n : 0
+
   useEffect(() => {
-    if (!chartRef.current || !data.length) return
+    if (!chartRef.current) return
+    if (!data || !data.length) return
 
     const chart = echarts.init(chartRef.current)
 
@@ -22,7 +26,7 @@ export default function MonthlyTrendsChart({ data }: { data: Trend[] }) {
       legend: { data: ['Total Payout', 'Payments'] },
       xAxis: {
         type: 'category',
-        data: data.map(r => r.month)
+        data: data.map(r => r.month ?? 'Unknown')
       },
       yAxis: [
         { type: 'value', name: 'Payout ($)' },
@@ -32,14 +36,14 @@ export default function MonthlyTrendsChart({ data }: { data: Trend[] }) {
         {
           name: 'Total Payout',
           type: 'bar',
-          data: data.map(r => r.total_payout),
+          data: data.map(r => safe(r.total_payout)),
           itemStyle: { color: '#C6A664' }
         },
         {
           name: 'Payments',
           type: 'line',
           yAxisIndex: 1,
-          data: data.map(r => r.total_payments),
+          data: data.map(r => safe(r.total_payments)),
           itemStyle: { color: '#0A1E2D' }
         }
       ]
