@@ -52,11 +52,6 @@ export default function DashboardPage() {
   const [monthlyTrends, setMonthlyTrends] = useState<AnalyticsRow[]>([])
   const [insights, setInsights] = useState<any[]>([])
 
-
-  // FIX: Properly type chart refs
-  const chartRef = useRef<HTMLDivElement | null>(null)
-  const chartInstance = useRef<echarts.ECharts | null>(null)
-
   const formatCurrency = (v: number | undefined): string =>
     v ? v.toLocaleString('en-US', { style: 'currency', currency: 'USD' }) : '$0.00'
 
@@ -104,56 +99,6 @@ export default function DashboardPage() {
     load()
   }, [router])
 
-
-  // -------------------------
-  // ANALYTICS CHART
-  // -------------------------
-  useEffect(() => {
-    if (activeTab !== 'analytics') return
-    if (!analytics.length) return
-    if (!chartRef.current) return
-
-    if (!chartInstance.current) {
-      chartInstance.current = echarts.init(chartRef.current)
-    }
-
-    const chart = chartInstance.current
-
-    const option: echarts.EChartsOption = {
-      tooltip: { trigger: 'axis' },
-      legend: { data: ['Total Payout', 'Payments'] },
-      xAxis: {
-        type: 'category',
-        data: analytics.map((a: AnalyticsRow) => a.month)
-      },
-      yAxis: [
-        { type: 'value', name: 'Total Payout' },
-        { type: 'value', name: 'Payments', position: 'right' }
-      ],
-      series: [
-        {
-          name: 'Total Payout',
-          type: 'bar',
-          data: analytics.map((a: AnalyticsRow) => a.total_payout),
-          itemStyle: { color: '#C6A664' }
-        },
-        {
-          name: 'Payments',
-          type: 'line',
-          yAxisIndex: 1,
-          data: analytics.map((a: AnalyticsRow) => a.total_payments),
-          itemStyle: { color: '#0A1E2D' }
-        }
-      ]
-    }
-
-    chart.setOption(option)
-
-    const resizeHandler = () => chart.resize()
-    window.addEventListener('resize', resizeHandler)
-
-    return () => window.removeEventListener('resize', resizeHandler)
-  }, [activeTab, analytics])
 
   // -------------------------
   if (loading) return <div>Loading...</div>
