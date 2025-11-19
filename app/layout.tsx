@@ -1,21 +1,21 @@
-import "./globals.css";
-import { Geist, Geist_Mono } from "next/font/google";
+import "./globals.css"
+import { Geist, Geist_Mono } from "next/font/google"
+import { ToastProvider } from "@/components/ui/toast-provider"
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],
-});
+})
 
 const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
-});
+})
 
-// ✅ Fix: Remove Metadata type annotation; Turbopack infers this automatically
 export const metadata = {
   title: "Haven One Wealth",
   description: "Track your royalties, residuals, and income sources.",
-};
+}
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -30,8 +30,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           padding: 0,
         }}
       >
-        {children}
+        <ToastProvider>
+          {children}
+        </ToastProvider>
       </body>
     </html>
-  );
+  )
 }
