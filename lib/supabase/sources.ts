@@ -1,42 +1,94 @@
-import { supabase } from '@/lib/supabaseClient'
-import { IncomeSource, PortfolioAggregate, MonthlyTrend } from '@/lib/types'
+"use server"
 
-export async function getSources(): Promise<IncomeSource[]> {
+import { supabase } from "@/lib/supabaseClient"
+import { IncomeSource } from "@/lib/types"
+
+// --------------------------------------------------
+// GET ALL SOURCES FOR USER
+// --------------------------------------------------
+export async function getSources(userId: string): Promise<IncomeSource[]> {
   const { data, error } = await supabase
-    .from('income_sources')
-    .select('*')
-    .order('created_at', { ascending: false })
+    .from("income_sources")
+    .select("*")
+    .eq("user_id", userId)
+    .order("created_at", { ascending: false })
 
   if (error) {
-    console.error('Error loading sources', error)
+    console.error("getSources error:", error)
     return []
   }
 
   return data as IncomeSource[]
 }
 
-export async function getSourceAggregates(): Promise<PortfolioAggregate[]> {
+// --------------------------------------------------
+// GET ONE SOURCE BY ID
+// --------------------------------------------------
+export async function getSourceById(id: string): Promise<IncomeSource | null> {
   const { data, error } = await supabase
-    .from('v_user_payout_summary')
-    .select('source_name, total_payout:total_expected')
+    .from("income_sources")
+    .select("*")
+    .eq("id", id)
+    .single()
 
   if (error) {
-    console.error('Error loading source aggregates', error)
-    return []
+    console.error("getSourceById error:", error)
+    return null
   }
 
-  return data as unknown as PortfolioAggregate[]
+  return data as IncomeSource
 }
 
-export async function getSourceTrends(): Promise<MonthlyTrend[]> {
+// --------------------------------------------------
+// CREATE NEW SOURCE
+// --------------------------------------------------
+export async function createSource(payload: Partial<IncomeSource>) {
   const { data, error } = await supabase
-    .from('v_user_monthly_trends')
-    .select('month, total_payments, total_payout, user_id')
+    .from("income_sources")
+    .insert(payload)
+    .select()
+    .single()
 
   if (error) {
-    console.error('Error loading monthly trends', error)
-    return []
+    console.error("createSource error:", error)
+    throw new Error(error.message)
   }
 
-  return data as MonthlyTrend[]
+  return data as IncomeSource
+}
+
+// --------------------------------------------------
+// UPDATE SOURCE
+// --------------------------------------------------
+export async function updateSource(id: string, payload: Partial<IncomeSource>) {
+  const { data, error } = await supabase
+    .from("income_sources")
+    .update(payload)
+    .eq("id", id)
+    .select()
+    .single()
+
+  if (error) {
+    console.error("updateSource error:", error)
+    throw new Error(error.message)
+  }
+
+  return data as IncomeSource
+}
+
+// --------------------------------------------------
+// DELETE SOURCE
+// --------------------------------------------------
+export async function deleteSource(id: string) {
+  const { error } = await supabase
+    .from("income_sources")
+    .delete()
+    .eq("id", id)
+
+  if (error) {
+    console.error("deleteSource error:", error)
+    throw new Error(error.message)
+  }
+
+  return true
 }

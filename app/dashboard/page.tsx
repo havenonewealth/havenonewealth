@@ -1,35 +1,30 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useTabs } from './TabContext'
 import { supabase } from '@/lib/supabaseClient'
 import { useRouter } from 'next/navigation'
-import * as echarts from 'echarts'
 import { CSVLink } from 'react-csv'
+
+// Canonical type
+import type { IncomeSource } from "@/lib/types"
+
 import KPI from '@/components/analytics/KPI'
 import MonthlyTrendsChart from '@/components/analytics/MonthlyTrendsChart'
 import SourceInsightsTable from '@/components/analytics/SourceInsightsTable'
 
+import SourceList from "@/components/sources/SourceList"
+import SourceSlideOver from "@/components/sources/SourceSlideOver"
 
 // -------------------------
-// TYPES
+// Local Types
 // -------------------------
-interface IncomeSource {
-  id: string
-  source_name: string
-  source_type?: string
-  frequency?: string
-  expected_amount?: number
-}
-
 interface Payout {
   id: string
   amount: number
   payment_date: string
   status: string
-  income_sources?: {
-    source_name?: string
-  } | null
+  income_sources?: { source_name?: string } | null
 }
 
 interface AnalyticsRow {
@@ -44,54 +39,59 @@ export default function DashboardPage() {
   const router = useRouter()
   const { activeTab } = useTabs()
 
-  // FIX: Add proper types to avoid never[]
   const [sources, setSources] = useState<IncomeSource[]>([])
   const [payouts, setPayouts] = useState<Payout[]>([])
-  const [analytics, setAnalytics] = useState<AnalyticsRow[]>([])
-  const [loading, setLoading] = useState<boolean>(true)
-  const [monthlyTrends, setMonthlyTrends] = useState<AnalyticsRow[]>([])
   const [insights, setInsights] = useState<any[]>([])
+  const [monthlyTrends, setMonthlyTrends] = useState<AnalyticsRow[]>([])
+  const [loading, setLoading] = useState(true)
 
-  const formatCurrency = (v: number | undefined): string =>
-    v ? v.toLocaleString('en-US', { style: 'currency', currency: 'USD' }) : '$0.00'
+  const [user, setUser] = useState<any>(null)
+
+  const [slideOverOpen, setSlideOverOpen] = useState(false)
+  const [editingSource, setEditingSource] = useState<IncomeSource | null>(null)
+
+  const formatCurrency = (v: number | null | undefined) =>
+    typeof v === "number"
+      ? v.toLocaleString('en-US', { style: 'currency', currency: 'USD' })
+      : '$0.00'
 
   // -------------------------
   // LOAD DATA
   // -------------------------
   useEffect(() => {
     async function load() {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return router.push('/login')
+      const { data: { user: loggedIn } } = await supabase.auth.getUser()
+      if (!loggedIn) return router.push('/login')
 
-      // Fetch sources
+      setUser(loggedIn)
+
+      const userId = loggedIn.id
+
       const { data: src } = await supabase
         .from('income_sources')
         .select('*')
-        .eq('user_id', user.id)
+        .eq('user_id', userId)
 
-      // Fetch payouts
       const { data: pay } = await supabase
         .from('payouts')
         .select('*, income_sources(source_name)')
-        .eq('user_id', user.id)
+        .eq('user_id', userId)
 
-      // Fetch monthly trends
       const { data: trends } = await supabase
         .from('v_user_monthly_trends')
         .select('*')
-        .eq('user_id', user.id)
+        .eq('user_id', userId)
         .order('month')
 
-      // Fetch insights
       const { data: insightRows } = await supabase
         .from('v_user_insights')
         .select('*')
-        .eq('user_id', user.id)
+        .eq('user_id', userId)
 
       setSources((src ?? []) as IncomeSource[])
-      setPayouts((pay ?? []) as Payout[])
-      setMonthlyTrends((trends ?? []) as AnalyticsRow[])
-      setInsights((insightRows ?? []) as any[])
+      setPayouts(pay ?? [])
+      setMonthlyTrends(trends ?? [])
+      setInsights(insightRows ?? [])
 
       setLoading(false)
     }
@@ -99,8 +99,6 @@ export default function DashboardPage() {
     load()
   }, [router])
 
-
-  // -------------------------
   if (loading) return <div>Loading...</div>
 
   const csvData = payouts.map((p) => ({
@@ -121,19 +119,36 @@ export default function DashboardPage() {
         <section>
           <h2 className="text-2xl font-semibold mb-4">Income Sources</h2>
 
-          <ul className="space-y-3">
-            {sources.map((s: IncomeSource) => (
-              <li key={s.id} className="p-4 border rounded-lg shadow-sm">
-                <p className="text-lg font-semibold">{s.source_name}</p>
+          <SourceSlideOver
+            initial={editingSource}
+            userId={user?.id ?? ""}
+            open={slideOverOpen}
+            onClose={() => {
+              setSlideOverOpen(false)
+              setEditingSource(null)
+            }}
+            onSaved={async () => {
+              const { data } = await supabase
+                .from('income_sources')
+                .select('*')
+                .eq('user_id', user?.id)
 
-                <p className="text-sm text-gray-600">
-                  {s.source_type && <span>{s.source_type} • </span>}
-                  {s.frequency && <span>{s.frequency} • </span>}
-                  {formatCurrency(s.expected_amount)}
-                </p>
-              </li>
-            ))}
-          </ul>
+              setSources((data ?? []) as IncomeSource[])
+            }}
+          />
+
+          <SourceList
+            sources={sources}
+            onAdd={() => {
+              setEditingSource(null)
+              setSlideOverOpen(true)
+            }}
+            onEdit={(src) => {
+              // ensure src matches canonical type
+              setEditingSource({ ...src })
+              setSlideOverOpen(true)
+            }}
+          />
         </section>
       )}
 
@@ -153,7 +168,7 @@ export default function DashboardPage() {
                 </tr>
               </thead>
               <tbody>
-                {payouts.map((p: Payout) => (
+                {payouts.map((p) => (
                   <tr key={p.id} className="border-t">
                     <td className="p-3">{p.income_sources?.source_name || '—'}</td>
                     <td className="p-3">{formatCurrency(p.amount)}</td>
@@ -182,17 +197,14 @@ export default function DashboardPage() {
         <section>
           <h2 className="text-2xl font-semibold mb-4">Analytics</h2>
 
-          {/* KPI Summary */}
           <KPI insights={insights} />
 
-          {/* Monthly Chart */}
           {monthlyTrends.length === 0 ? (
             <p className="text-gray-500">No monthly trend data available.</p>
           ) : (
             <MonthlyTrendsChart data={monthlyTrends} />
           )}
 
-          {/* Source Insights Table */}
           <SourceInsightsTable insights={insights} />
         </section>
       )}
