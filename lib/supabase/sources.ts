@@ -4,30 +4,29 @@ import { supabase } from "@/lib/supabaseClient"
 import type { IncomeSource } from "@/lib/types"
 
 // Fetch active sources
-export async function getActiveSources(userId: string): Promise<IncomeSource[]> {
-  const { data, error } = await supabase
+export async function getActiveSources(userId: string) {
+  const { data } = await supabase
     .from("income_sources")
     .select("*")
     .eq("user_id", userId)
-    .is("archived_at", null)
+    .eq("archived", false)
     .eq("deleted", false)
-    .order("created_at", { ascending: false })
 
   return data ?? []
 }
 
 // Fetch archived sources
-export async function getArchivedSources(userId: string): Promise<IncomeSource[]> {
+export async function getArchivedSources(userId: string) {
   const { data } = await supabase
     .from("income_sources")
     .select("*")
     .eq("user_id", userId)
-    .not("archived_at", "is", null)
+    .eq("archived", true)
     .eq("deleted", false)
-    .order("archived_at", { ascending: false })
 
   return data ?? []
 }
+
 
 // Save or update source
 export async function saveSource(payload: any) {
@@ -45,24 +44,32 @@ export async function saveSource(payload: any) {
 
 // Archive
 export async function archiveSource(id: string) {
-  await supabase
+  const { error } = await supabase
     .from("income_sources")
     .update({
-      archived_at: new Date().toISOString(),
       archived: true,
-      deleted: false
+      archived_at: new Date().toISOString(),
+      deleted: false,
+      deleted_at: null,
+      ready_for_delete: false
     })
     .eq("id", id)
+
+  if (error) throw new Error(error.message)
 }
 
 // Unarchive
 export async function unarchiveSource(id: string) {
-  await supabase
+  const { error } = await supabase
     .from("income_sources")
     .update({
-      archived_at: null,
       archived: false,
-      deleted: false
+      archived_at: null,
+      deleted: false,
+      deleted_at: null
     })
     .eq("id", id)
+
+  if (error) throw new Error(error.message)
 }
+

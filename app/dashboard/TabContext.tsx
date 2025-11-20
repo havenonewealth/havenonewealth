@@ -1,8 +1,8 @@
-'use client'
+"use client"
 
-import { createContext, useContext, useState } from 'react'
+import { createContext, useContext, useState } from "react"
 
-type Tab = 'sources' | 'payouts' | 'analytics' | 'archived'
+type Tab = "sources" | "archived" | "payouts" | "analytics"
 
 interface TabContextValue {
   activeTab: Tab
@@ -12,7 +12,7 @@ interface TabContextValue {
 const TabContext = createContext<TabContextValue | undefined>(undefined)
 
 export function TabProvider({ children }: { children: React.ReactNode }) {
-  const [activeTab, setActiveTab] = useState<Tab>('sources')
+  const [activeTab, setActiveTab] = useState<Tab>("sources")
 
   return (
     <TabContext.Provider value={{ activeTab, setActiveTab }}>
@@ -23,6 +23,6 @@ export function TabProvider({ children }: { children: React.ReactNode }) {
 
 export function useTabs() {
   const ctx = useContext(TabContext)
-  if (!ctx) throw new Error('useTabs must be used inside <TabProvider>')
+  if (!ctx) throw new Error("useTabs must be used inside <TabProvider>")
   return ctx
 }

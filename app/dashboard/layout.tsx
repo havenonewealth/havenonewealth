@@ -29,6 +29,13 @@ function Header() {
           Sources
         </button>
 
+        <button
+          className={activeTab === "archived" ? "active-tab" : ""}
+          onClick={() => setActiveTab("archived")}
+        >
+          Archived
+        </button>
+
         <button onClick={() => setActiveTab('payouts')} className={`px-4 py-2 rounded-md font-semibold ${tabStyle('payouts')}`}>
           Payouts
         </button>
