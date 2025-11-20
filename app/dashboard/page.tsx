@@ -19,7 +19,7 @@ import SourceSlideOver from "@/components/sources/SourceSlideOver"
 import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { useToast } from "@/components/ui/use-toast"
 
-// Supabase source functions
+// Supabase functions
 import {
   getActiveSources,
   getArchivedSources,
@@ -70,16 +70,16 @@ export default function DashboardPage() {
       setSources(await getActiveSources(userId))
       setArchivedSources(await getArchivedSources(userId))
 
-      // Payouts (no joins)
-      const { data: pay, error: payErr } = await supabase
+      // Payouts
+      const { data: pay } = await supabase
         .from("payouts")
         .select("*")
         .eq("user_id", userId)
         .order("payment_date", { ascending: false })
 
-      if (!payErr) setPayouts(pay ?? [])
+      setPayouts(pay ?? [])
 
-      // Monthly analytics
+      // Monthly trends (analytics)
       const { data: trends } = await supabase
         .from("v_user_monthly_trends")
         .select("*")
@@ -95,6 +95,7 @@ export default function DashboardPage() {
         .eq("user_id", userId)
 
       setInsights(insightRows ?? [])
+
       setLoading(false)
     }
 
@@ -112,6 +113,7 @@ export default function DashboardPage() {
 
     await archiveSource(pendingArchiveId)
 
+    // Refresh lists
     const active = await getActiveSources(user.id)
     const archived = await getArchivedSources(user.id)
 
@@ -122,6 +124,7 @@ export default function DashboardPage() {
     setConfirmOpen(false)
     setPendingArchiveId(null)
   }
+
 
   // ---------------------------------------------------------------------
   // Unarchive logic
@@ -144,18 +147,19 @@ export default function DashboardPage() {
 
 
   // ---------------------------------------------------------------------
-  // Payout CSV export
+  // CSV export for payouts
   // ---------------------------------------------------------------------
   const csvData = payouts.map((p) => ({
-    Source: "—",          // Option B: No join
+    Source: sources.find((s) => s.id === p.source_id)?.source_name || "—",
     Amount: p.amount,
     Date: p.payment_date,
     Status: p.status
   }))
 
 
+
   // ---------------------------------------------------------------------
-  // Render UI
+  // Render
   // ---------------------------------------------------------------------
   return (
     <div className="mt-6">
@@ -194,7 +198,7 @@ export default function DashboardPage() {
       />
 
 
-      {/* ACTIVE SOURCES TAB */}
+      {/* ACTIVE SOURCES */}
       {activeTab === "sources" && (
         <SourceList
           sources={sources}
@@ -207,7 +211,7 @@ export default function DashboardPage() {
         />
       )}
 
-      {/* ARCHIVED SOURCES TAB */}
+      {/* ARCHIVED SOURCES */}
       {activeTab === "archived" && (
         <ArchivedList
           sources={archivedSources}
@@ -218,30 +222,53 @@ export default function DashboardPage() {
         />
       )}
 
-      {/* PAYOUTS TAB */}
+      {/* PAYOUTS */}
       {activeTab === "payouts" && (
-        <section>
-          <h2 className="text-2xl font-semibold mb-4">Payouts</h2>
+        <section className="mt-8">
+          <h2 className="text-2xl font-semibold mb-6 text-[#0A1E2D]">
+            Payouts
+          </h2>
 
-          <div className="overflow-x-auto">
-            <table className="min-w-full border">
-              <thead className="bg-gray-100">
-                <tr>
-                  <th className="p-3">Source</th>
-                  <th className="p-3">Amount</th>
-                  <th className="p-3">Date</th>
-                  <th className="p-3">Status</th>
+          <div className="overflow-x-auto rounded-xl border border-gray-200 shadow-md bg-white">
+            <table className="min-w-full text-sm">
+              <thead>
+                <tr className="bg-gray-100 border-b">
+                  <th className="py-3 px-4 text-left font-semibold text-gray-700">Source</th>
+                  <th className="py-3 px-4 text-left font-semibold text-gray-700">Amount</th>
+                  <th className="py-3 px-4 text-left font-semibold text-gray-700">Date</th>
+                  <th className="py-3 px-4 text-left font-semibold text-gray-700">Status</th>
                 </tr>
               </thead>
+
               <tbody>
-                {payouts.map((p) => (
-                  <tr key={p.id} className="border-t">
-                    <td className="p-3">—</td>
-                    <td className="p-3">${p.amount.toLocaleString()}</td>
-                    <td className="p-3">{new Date(p.payment_date).toLocaleDateString()}</td>
-                    <td className="p-3">{p.status}</td>
-                  </tr>
-                ))}
+                {payouts.map((p) => {
+                  const src = sources.find((s) => s.id === p.source_id)
+
+                  return (
+                    <tr key={p.id} className="border-b hover:bg-gray-50 transition">
+                      <td className="py-3 px-4">{src?.source_name || "—"}</td>
+                      <td className="py-3 px-4 font-medium text-[#0A1E2D]">
+                        ${p.amount.toLocaleString()}
+                      </td>
+                      <td className="py-3 px-4">
+                        {new Date(p.payment_date).toLocaleDateString()}
+                      </td>
+                      <td className="py-3 px-4">
+                        <span
+                          className={
+                            p.status === "Paid"
+                              ? "text-green-700 font-semibold"
+                              : p.status === "Pending"
+                                ? "text-red-600 font-semibold"
+                                : "text-yellow-700 font-semibold"
+                          }
+                        >
+                          {p.status}
+                        </span>
+                      </td>
+                    </tr>
+                  )
+                })}
               </tbody>
             </table>
           </div>
@@ -249,14 +276,14 @@ export default function DashboardPage() {
           <CSVLink
             data={csvData}
             filename="HavenOne_Payouts.csv"
-            className="mt-4 inline-block bg-[#C6A664] px-4 py-2 rounded-md text-[#0A1E2D]"
+            className="mt-4 inline-block bg-[#C6A664] px-4 py-2 rounded-md text-[#0A1E2D] font-medium shadow-sm hover:bg-[#b79b56]"
           >
             Export CSV
           </CSVLink>
         </section>
       )}
 
-      {/* ANALYTICS TAB */}
+      {/* ANALYTICS */}
       {activeTab === "analytics" && (
         <section>
           <KPI insights={insights} />
