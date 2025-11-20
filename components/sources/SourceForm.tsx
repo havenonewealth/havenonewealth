@@ -4,9 +4,8 @@ import { useForm } from "react-hook-form"
 import { z } from "zod"
 import { zodResolver } from "@hookform/resolvers/zod"
 import type { IncomeSource } from "@/lib/types"
-import { createSource, updateSource } from "@/lib/supabase/sources"
+import { saveSource } from "@/lib/supabase/sources"
 import { useState } from "react"
-import { useToast } from "@/components/ui/use-toast"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -20,7 +19,9 @@ import {
     SelectValue
 } from "@/components/ui/select"
 
-// Validation schema
+// --------------------------------------------------
+//  VALIDATION SCHEMA (matches your DB schema now)
+// --------------------------------------------------
 const formSchema = z.object({
     source_name: z.string().min(1, "Required"),
     source_type: z.string().nullable(),
@@ -31,6 +32,9 @@ const formSchema = z.object({
 
 export type SourceFormValues = z.infer<typeof formSchema>
 
+// --------------------------------------------------
+//  COMPONENT
+// --------------------------------------------------
 export default function SourceForm({
     initial,
     userId,
@@ -42,7 +46,6 @@ export default function SourceForm({
     onClose: () => void
     onSaved: () => void
 }) {
-    const { toast } = useToast()
     const [loading, setLoading] = useState(false)
 
     const form = useForm<SourceFormValues>({
@@ -56,12 +59,14 @@ export default function SourceForm({
         }
     })
 
+    // --------------------------------------------------
+    //  SUBMIT HANDLER
+    // --------------------------------------------------
     async function onSubmit(values: SourceFormValues) {
         try {
             setLoading(true)
 
             const payload = {
-                user_id: userId,
                 source_name: values.source_name,
                 source_type: values.source_type,
                 frequency: values.frequency,
@@ -69,33 +74,13 @@ export default function SourceForm({
                 notes: values.notes
             }
 
-            if (initial?.id) {
-                await updateSource(initial.id, payload)
-
-                toast({
-                    title: "Source Updated",
-                    description: `"${values.source_name}" has been updated successfully.`
-                })
-            } else {
-                await createSource(payload)
-
-                toast({
-                    title: "Source Created",
-                    description: `"${values.source_name}" has been added to your income sources.`
-                })
-            }
+            await saveSource(userId, initial?.id ?? null, payload)
 
             onSaved()
             onClose()
 
-        } catch (err: any) {
+        } catch (err) {
             console.error("Save error:", err)
-
-            toast({
-                title: "Save failed",
-                description: err?.message || "An unexpected error occurred"
-            })
-
         } finally {
             setLoading(false)
         }
@@ -109,7 +94,7 @@ export default function SourceForm({
                 <Label>Source Name</Label>
                 <Input
                     {...form.register("source_name")}
-                    placeholder="e.g. Dividends, Rental Income"
+                    placeholder="e.g. Amazon KDP, Rental Income"
                 />
             </div>
 

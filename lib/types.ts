@@ -52,20 +52,17 @@ export interface RecentPayout {
 export interface IncomeSource {
    id: string
    user_id: string
-
-   // Core fields
    source_name: string
    source_type: string | null
    frequency: string | null
    expected_amount: number | null
+   expected_monthly: number | null
    notes: string | null
-
-   // Archive fields
-   archived: boolean
+   created_at: string
    archived_at: string | null
-
-   created_at?: string
+   deleted: boolean
 }
+
 
 /* -----------------------------
    Payouts
