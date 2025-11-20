@@ -1,31 +1,16 @@
 "use client"
 
-import {
-    AlertDialog,
-    AlertDialogAction,
-    AlertDialogCancel,
-    AlertDialogContent,
-    AlertDialogDescription,
-    AlertDialogFooter,
-    AlertDialogHeader,
-    AlertDialogTitle
-} from "@/components/ui/alert-dialog"
+import { AlertDialog, AlertDialogTrigger, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction } from "@/components/ui/alert-dialog"
 
 export interface ConfirmDialogProps {
     open: boolean
     title: string
     description: string
-    onCancel: () => void
     onConfirm: () => void
+    onCancel: () => void
 }
 
-export function ConfirmDialog({
-    open,
-    title,
-    description,
-    onCancel,
-    onConfirm
-}: ConfirmDialogProps) {
+export function ConfirmDialog({ open, title, description, onConfirm, onCancel }: ConfirmDialogProps) {
     return (
         <AlertDialog open={open}>
             <AlertDialogContent>
@@ -39,7 +24,10 @@ export function ConfirmDialog({
                         Cancel
                     </AlertDialogCancel>
 
-                    <AlertDialogAction onClick={onConfirm}>
+                    <AlertDialogAction
+                        className="bg-red-600 text-white hover:bg-red-700"
+                        onClick={onConfirm}
+                    >
                         Delete
                     </AlertDialogAction>
                 </AlertDialogFooter>

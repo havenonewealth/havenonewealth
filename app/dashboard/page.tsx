@@ -4,8 +4,8 @@ import { useEffect, useState } from "react"
 import { useTabs } from "./TabContext"
 import { supabase } from "@/lib/supabaseClient"
 import { useRouter } from "next/navigation"
-import type { IncomeSource } from "@/lib/types"
 import { CSVLink } from "react-csv"
+import type { IncomeSource } from "@/lib/types"
 
 import KPI from "@/components/analytics/KPI"
 import MonthlyTrendsChart from "@/components/analytics/MonthlyTrendsChart"
@@ -13,80 +13,78 @@ import SourceInsightsTable from "@/components/analytics/SourceInsightsTable"
 
 import SourceList from "@/components/sources/SourceList"
 import SourceSlideOver from "@/components/sources/SourceSlideOver"
-import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { useToast } from "@/components/ui/use-toast"
+import { ConfirmDialog } from "@/components/ui/confirm-dialog"
+
+// Local client-side delete (soft delete)
+async function softDeleteSource(id: string) {
+  return supabase
+    .from("income_sources")
+    .update({ deleted: true, deleted_at: new Date().toISOString() })
+    .eq("id", id)
+}
+
+async function undoSoftDelete(id: string) {
+  return supabase
+    .from("income_sources")
+    .update({ deleted: false, deleted_at: null })
+    .eq("id", id)
+}
 
 export default function DashboardPage() {
   const router = useRouter()
   const { activeTab } = useTabs()
   const { toast } = useToast()
 
-  const [user, setUser] = useState<any>(null)
+  const [sources, setSources] = useState<IncomeSource[]>([])
+  const [payouts, setPayouts] = useState<any[]>([])
+  const [insights, setInsights] = useState<any[]>([])
+  const [monthlyTrends, setMonthlyTrends] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
 
-  const [sources, setSources] = useState<IncomeSource[]>([])
-  const [archivedSources, setArchivedSources] = useState<IncomeSource[]>([])
-
-  const [payouts, setPayouts] = useState<any[]>([])
-  const [monthlyTrends, setMonthlyTrends] = useState<any[]>([])
-  const [insights, setInsights] = useState<any[]>([])
+  const [user, setUser] = useState<any>(null)
 
   const [slideOverOpen, setSlideOverOpen] = useState(false)
   const [editingSource, setEditingSource] = useState<IncomeSource | null>(null)
 
-  // NEW — Archived toggle
-  const [showArchived, setShowArchived] = useState(false)
-
-  // Confirm dialog state
-  const [confirmOpen, setConfirmOpen] = useState(false)
-  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null)
+  // Confirm delete dialog
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
+  const [deleteId, setDeleteId] = useState<string | null>(null)
 
   const formatCurrency = (v: number | undefined) =>
     v ? v.toLocaleString("en-US", { style: "currency", currency: "USD" }) : "$0.00"
 
-  // Load all dashboard data
   useEffect(() => {
     async function load() {
       const { data: { user: loggedIn } } = await supabase.auth.getUser()
       if (!loggedIn) return router.push("/login")
-      setUser(loggedIn)
 
+      setUser(loggedIn)
       const userId = loggedIn.id
 
-      // Load sources
-      const { data: activeSrc } = await supabase
+      const { data: src } = await supabase
         .from("income_sources")
         .select("*")
         .eq("user_id", userId)
-        .eq("archived", false)
+        .eq("deleted", false)
 
-      const { data: archivedSrc } = await supabase
-        .from("income_sources")
-        .select("*")
-        .eq("user_id", userId)
-        .eq("archived", true)
-
-      // Load payouts
       const { data: pay } = await supabase
         .from("payouts")
         .select("*, income_sources(source_name)")
         .eq("user_id", userId)
 
-      // Load monthly trends
       const { data: trends } = await supabase
         .from("v_user_monthly_trends")
         .select("*")
         .eq("user_id", userId)
         .order("month")
 
-      // Load insights
       const { data: insightRows } = await supabase
         .from("v_user_insights")
         .select("*")
         .eq("user_id", userId)
 
-      setSources(activeSrc ?? [])
-      setArchivedSources(archivedSrc ?? [])
+      setSources(src ?? [])
       setPayouts(pay ?? [])
       setMonthlyTrends(trends ?? [])
       setInsights(insightRows ?? [])
@@ -98,161 +96,112 @@ export default function DashboardPage() {
 
   if (loading) return <div>Loading...</div>
 
-  // CSV export
-  const csvData = payouts.map((p) => ({
-    Source: p.income_sources?.source_name || "—",
+  const csvData = payouts.map(p => ({
+    Source: p.income_sources?.source_name || "-",
     Amount: p.amount,
     Date: p.payment_date,
-    Status: p.status,
+    Status: p.status
   }))
 
-  // -----------------------------
-  // ARCHIVE / RESTORE HANDLER
-  // -----------------------------
-  async function archiveOrRestore(id: string, restore = false) {
-    const { error } = await supabase
-      .from("income_sources")
-      .update({ archived: restore ? false : true })
-      .eq("id", id)
+  // Delete Handler
+  function requestDelete(id: string) {
+    setDeleteId(id)
+    setDeleteConfirmOpen(true)
+  }
+
+  async function confirmDelete() {
+    if (!deleteId) return
+
+    const id = deleteId
+    setDeleteConfirmOpen(false)
+
+    const { error } = await softDeleteSource(id)
 
     if (error) {
-      toast({ title: "Error", description: error.message })
+      toast({ title: "Delete failed", description: error.message })
       return
     }
 
-    // Refresh
-    const { data: active } = await supabase
-      .from("income_sources")
-      .select("*")
-      .eq("user_id", user.id)
-      .eq("archived", false)
-
-    const { data: archived } = await supabase
-      .from("income_sources")
-      .select("*")
-      .eq("user_id", user.id)
-      .eq("archived", true)
-
-    setSources(active ?? [])
-    setArchivedSources(archived ?? [])
+    setSources(prev => prev.filter(s => s.id !== id))
 
     toast({
-      title: restore ? "Source Restored" : "Source Archived",
-      description: restore
-        ? "This item has been moved back to Active."
-        : "This item is now in Archived.",
-    })
-  }
+      title: "Source deleted",
+      description: "Undo is available for a few seconds.",
+      action: {
+        label: "Undo",
+        onClick: async () => {
+          const { error: undoError } = await undoSoftDelete(id)
 
-  // -----------------------------
-  // CONFIRM DELETE EVENT
-  // -----------------------------
-  function handleDelete(id: string) {
-    setPendingDeleteId(id)
-    setConfirmOpen(true)
+          if (undoError) {
+            toast({ title: "Undo failed", description: undoError.message })
+            return
+          }
+
+          const { data: restored } = await supabase
+            .from("income_sources")
+            .select("*")
+            .eq("id", id)
+            .single()
+
+          setSources(prev => [...prev, restored])
+          toast({ title: "Restored", description: "The source has been restored." })
+        }
+      }
+    })
   }
 
   return (
     <div className="mt-6">
 
-      {/* CONFIRM DIALOG */}
+      {/* Confirm Delete Dialog */}
       <ConfirmDialog
-        open={confirmOpen}
-        title="Archive Source?"
-        description="You can restore it anytime from the Archived tab."
-        onCancel={() => {
-          setConfirmOpen(false)
-          setPendingDeleteId(null)
-        }}
-        onConfirm={() => {
-          if (pendingDeleteId) archiveOrRestore(pendingDeleteId, false)
-          setConfirmOpen(false)
-          setPendingDeleteId(null)
-        }}
+        open={deleteConfirmOpen}
+        title="Delete Source?"
+        description="This will hide the source but you can undo for a short time."
+        onConfirm={confirmDelete}
+        onCancel={() => setDeleteConfirmOpen(false)}
       />
 
-      {/* SOURCES TAB */}
+      {/* Sources */}
       {activeTab === "sources" && (
         <section>
           <h2 className="text-2xl font-semibold mb-4">Income Sources</h2>
 
-          {/* Toggle */}
-          <div className="flex items-center gap-4 mb-4">
-            <button
-              onClick={() => setShowArchived(false)}
-              className={`px-4 py-2 rounded-md ${!showArchived
-                ? "bg-[#0A1E2D] text-white"
-                : "bg-gray-200 text-gray-600"
-                }`}
-            >
-              Active
-            </button>
-
-            <button
-              onClick={() => setShowArchived(true)}
-              className={`px-4 py-2 rounded-md ${showArchived
-                ? "bg-[#0A1E2D] text-white"
-                : "bg-gray-200 text-gray-600"
-                }`}
-            >
-              Archived
-            </button>
-          </div>
-
-          {/* SlideOver */}
-          {!showArchived && (
-            <SourceSlideOver
-              initial={editingSource}
-              userId={user?.id ?? ""}
-              open={slideOverOpen}
-              onClose={() => {
-                setSlideOverOpen(false)
-                setEditingSource(null)
-              }}
-              onSaved={async () => {
-                const { data: active } = await supabase
-                  .from("income_sources")
-                  .select("*")
-                  .eq("user_id", user?.id)
-                  .eq("archived", false)
-
-                setSources(active ?? [])
-              }}
-            />
-          )}
-
-          {/* LIST */}
-          <SourceList
-            sources={showArchived ? archivedSources : sources}
-            archivedMode={showArchived}
-            onAdd={
-              showArchived
-                ? undefined
-                : () => {
-                  setEditingSource(null)
-                  setSlideOverOpen(true)
-                }
-            }
-            onEdit={
-              showArchived
-                ? undefined
-                : (src) => {
-                  setEditingSource(src)
-                  setSlideOverOpen(true)
-                }
-            }
-            onDelete={(id) => {
-              if (showArchived) {
-                archiveOrRestore(id, true)
-              } else {
-                handleDelete(id)
-              }
+          <SourceSlideOver
+            initial={editingSource}
+            userId={user?.id ?? ""}
+            open={slideOverOpen}
+            onClose={() => {
+              setSlideOverOpen(false)
+              setEditingSource(null)
             }}
+            onSaved={async () => {
+              const { data } = await supabase
+                .from("income_sources")
+                .select("*")
+                .eq("user_id", user?.id)
+                .eq("deleted", false)
+
+              setSources(data ?? [])
+            }}
+          />
+
+          <SourceList
+            sources={sources}
+            onAdd={() => {
+              setEditingSource(null)
+              setSlideOverOpen(true)
+            }}
+            onEdit={src => {
+              setEditingSource(src)
+              setSlideOverOpen(true)
+            }}
+            onDelete={requestDelete}
           />
         </section>
       )}
 
-      {/* PAYOUTS TAB */}
+      {/* Payouts */}
       {activeTab === "payouts" && (
         <section>
           <h2 className="text-2xl font-semibold mb-4">Payouts</h2>
@@ -268,13 +217,11 @@ export default function DashboardPage() {
                 </tr>
               </thead>
               <tbody>
-                {payouts.map((p) => (
+                {payouts.map(p => (
                   <tr key={p.id} className="border-t">
-                    <td className="p-3">{p.income_sources?.source_name || "—"}</td>
+                    <td className="p-3">{p.income_sources?.source_name || "-"}</td>
                     <td className="p-3">{formatCurrency(p.amount)}</td>
-                    <td className="p-3">
-                      {new Date(p.payment_date).toLocaleDateString()}
-                    </td>
+                    <td className="p-3">{new Date(p.payment_date).toLocaleDateString()}</td>
                     <td className="p-3">{p.status}</td>
                   </tr>
                 ))}
@@ -284,9 +231,7 @@ export default function DashboardPage() {
             <div className="mt-4">
               <CSVLink
                 data={csvData}
-                filename={`HavenOne_Payouts_${new Date()
-                  .toISOString()
-                  .slice(0, 10)}.csv`}
+                filename={`HavenOne_Payouts_${new Date().toISOString().slice(0, 10)}.csv`}
                 className="bg-[#C6A664] px-4 py-2 rounded-md text-[#0A1E2D] font-semibold"
               >
                 Export CSV
@@ -296,13 +241,11 @@ export default function DashboardPage() {
         </section>
       )}
 
-      {/* ANALYTICS TAB */}
+      {/* Analytics */}
       {activeTab === "analytics" && (
         <section>
           <h2 className="text-2xl font-semibold mb-4">Analytics</h2>
-
           <KPI insights={insights} />
-
           {monthlyTrends.length === 0 ? (
             <p className="text-gray-500">No monthly trend data available.</p>
           ) : (
