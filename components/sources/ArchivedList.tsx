@@ -10,40 +10,47 @@ interface Props {
 
 export default function ArchivedList({ sources, onUnarchive }: Props) {
     return (
-        <div>
-            <h2 className="text-2xl font-semibold mb-4">Archived Sources</h2>
+        <div className="space-y-6">
+            {/* Header */}
+            <h2 className="text-2xl font-semibold">Archived Sources</h2>
 
-            {sources.length === 0 && (
-                <p className="text-gray-500">No archived sources.</p>
-            )}
-
-            <ul className="space-y-3">
+            {/* List */}
+            <div className="space-y-3">
                 {sources.map((s) => (
-                    <li
+                    <div
                         key={s.id}
-                        className="p-4 border rounded-lg shadow-sm hover:bg-gray-50 transition"
+                        className="p-4 border rounded-lg shadow-sm bg-gray-50"
                     >
-                        <div className="flex justify-between items-start">
+                        <div className="flex justify-between items-center">
+
+                            {/* NAME */}
                             <div className="flex-1">
-                                <p className="text-lg font-semibold">{s.source_name}</p>
+                                <p className="text-lg font-semibold text-[#0A1E2D]">
+                                    {s.source_name}
+                                </p>
 
                                 {s.archived_at && (
                                     <p className="text-xs text-gray-500 mt-1">
-                                        Archived {new Date(s.archived_at).toLocaleDateString()}
+                                        Archived on {new Date(s.archived_at).toLocaleDateString()}
                                     </p>
                                 )}
                             </div>
 
+                            {/* UNARCHIVE BUTTON */}
                             <button
                                 onClick={() => onUnarchive(s.id)}
-                                className="ml-4 text-blue-600 hover:text-blue-800 font-medium"
+                                className="ml-4 px-3 py-1.5 text-sm bg-blue-100 text-blue-700 border border-blue-300 rounded hover:bg-blue-200 transition"
                             >
                                 Unarchive
                             </button>
                         </div>
-                    </li>
+                    </div>
                 ))}
-            </ul>
+
+                {sources.length === 0 && (
+                    <p className="text-gray-500 italic">No archived sources.</p>
+                )}
+            </div>
         </div>
     )
 }

@@ -10,46 +10,75 @@ interface Props {
   onArchive: (id: string) => void
 }
 
-export default function SourceList({ sources, onAdd, onEdit, onArchive }: Props) {
+export default function SourceList({
+  sources,
+  onAdd,
+  onEdit,
+  onArchive
+}: Props) {
   return (
-    <div>
-      <div className="flex justify-between items-center mb-4">
+    <div className="space-y-6">
+
+      {/* Header */}
+      <div className="flex justify-between items-center">
         <h2 className="text-2xl font-semibold">Income Sources</h2>
 
         <button
           onClick={onAdd}
-          className="px-4 py-2 bg-[#0A1E2D] text-white rounded-md hover:bg-[#C6A664] transition"
+          className="px-4 py-2 bg-[#0A1E2D] text-white rounded-md hover:bg-[#C6A664] hover:text-[#0A1E2D] transition"
         >
           Add Source
         </button>
       </div>
 
-      <ul className="space-y-3">
+      {/* List */}
+      <div className="space-y-3">
         {sources.map((s) => (
-          <li
+          <div
             key={s.id}
-            className="p-4 border rounded-lg shadow-sm hover:bg-gray-50 transition"
+            className="p-4 border rounded-lg shadow-sm hover:bg-gray-50 transition cursor-pointer"
           >
-            <div className="flex justify-between items-start">
-              <div onClick={() => onEdit(s)} className="cursor-pointer flex-1">
-                <p className="text-lg font-semibold">{s.source_name}</p>
-                {s.expected_monthly !== null && (
-                  <p className="text-sm text-gray-600">
-                    Est. Monthly: ${s.expected_monthly.toLocaleString()}
-                  </p>
-                )}
+            <div className="flex justify-between items-center">
+
+              {/* NAME + CLICK TO EDIT */}
+              <div
+                className="flex-1"
+                onClick={() => onEdit(s)}
+              >
+                <p className="text-lg font-semibold text-[#0A1E2D]">
+                  {s.source_name}
+                </p>
+
+                <p className="text-sm text-gray-600">
+                  {(s.source_type || s.frequency) && (
+                    <>
+                      {s.source_type ? `${s.source_type} • ` : ""}
+                      {s.frequency ? `${s.frequency} • ` : ""}
+                    </>
+                  )}
+                  {s.expected_amount !== null &&
+                    `$${s.expected_amount.toLocaleString()}`}
+                </p>
               </div>
 
+              {/* ARCHIVE BUTTON */}
               <button
-                onClick={() => onArchive(s.id)}
-                className="ml-4 text-red-600 hover:text-red-800 font-medium"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onArchive(s.id)
+                }}
+                className="ml-4 px-3 py-1.5 text-sm bg-red-100 text-red-700 border border-red-300 rounded hover:bg-red-200 transition"
               >
                 Archive
               </button>
             </div>
-          </li>
+          </div>
         ))}
-      </ul>
+
+        {sources.length === 0 && (
+          <p className="text-gray-500 italic">No active sources found.</p>
+        )}
+      </div>
     </div>
   )
 }

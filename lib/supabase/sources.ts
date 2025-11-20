@@ -3,73 +3,128 @@
 import { supabase } from "@/lib/supabaseClient"
 import type { IncomeSource } from "@/lib/types"
 
-// Fetch active sources
-export async function getActiveSources(userId: string) {
-  const { data } = await supabase
+export type SourcePayload = {
+  user_id: string
+  source_name: string
+  source_type: string | null
+  frequency: string | null
+  expected_amount: number | null
+  expected_monthly: number | null
+  notes: string | null
+}
+
+// ------------------------------------------------------------
+// GET ACTIVE SOURCES
+// ------------------------------------------------------------
+export async function getActiveSources(userId: string): Promise<IncomeSource[]> {
+  const { data, error } = await supabase
     .from("income_sources")
     .select("*")
     .eq("user_id", userId)
     .eq("archived", false)
     .eq("deleted", false)
+    .order("created_at", { ascending: false })
 
-  return data ?? []
+  if (error) {
+    console.error("getActiveSources error:", error)
+    return []
+  }
+
+  return data as IncomeSource[]
 }
 
-// Fetch archived sources
-export async function getArchivedSources(userId: string) {
-  const { data } = await supabase
+// ------------------------------------------------------------
+// GET ARCHIVED SOURCES
+// ------------------------------------------------------------
+export async function getArchivedSources(userId: string): Promise<IncomeSource[]> {
+  const { data, error } = await supabase
     .from("income_sources")
     .select("*")
     .eq("user_id", userId)
     .eq("archived", true)
     .eq("deleted", false)
+    .order("archived_at", { ascending: false })
 
-  return data ?? []
-}
-
-
-// Save or update source
-export async function saveSource(payload: any) {
-  if (payload.id) {
-    await supabase
-      .from("income_sources")
-      .update(payload)
-      .eq("id", payload.id)
-  } else {
-    await supabase.from("income_sources").insert(payload)
+  if (error) {
+    console.error("getArchivedSources error:", error)
+    return []
   }
 
-  return true
+  return data as IncomeSource[]
 }
 
-// Archive
+// ------------------------------------------------------------
+// CREATE or UPDATE SOURCE
+// ------------------------------------------------------------
+export async function saveSource(id: string | null, payload: SourcePayload) {
+  if (id) {
+    // UPDATE
+    const { data, error } = await supabase
+      .from("income_sources")
+      .update(payload)
+      .eq("id", id)
+      .select()
+      .single()
+
+    if (error) {
+      console.error("saveSource update error:", error)
+      throw new Error(error.message)
+    }
+
+    return data
+  } else {
+    // CREATE NEW
+    const { data, error } = await supabase
+      .from("income_sources")
+      .insert(payload)
+      .select()
+      .single()
+
+    if (error) {
+      console.error("saveSource create error:", error)
+      throw new Error(error.message)
+    }
+
+    return data
+  }
+}
+
+// ------------------------------------------------------------
+// ARCHIVE SOURCE
+// ------------------------------------------------------------
 export async function archiveSource(id: string) {
   const { error } = await supabase
     .from("income_sources")
     .update({
       archived: true,
       archived_at: new Date().toISOString(),
-      deleted: false,
-      deleted_at: null,
-      ready_for_delete: false
     })
     .eq("id", id)
 
-  if (error) throw new Error(error.message)
+  if (error) {
+    console.error("archiveSource error:", error)
+    throw new Error(error.message)
+  }
+
+  return true
 }
 
-// Unarchive
+// ------------------------------------------------------------
+// UNARCHIVE SOURCE
+// ------------------------------------------------------------
 export async function unarchiveSource(id: string) {
   const { error } = await supabase
     .from("income_sources")
     .update({
       archived: false,
       archived_at: null,
-      deleted: false,
-      deleted_at: null
     })
     .eq("id", id)
 
-  if (error) throw new Error(error.message)
-}
+  if (error) {
+    console.error("unarchiveSource error:", error)
+    throw new Error(error.message)
+  }
 
+  return true
+}

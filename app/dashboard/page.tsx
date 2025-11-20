@@ -8,7 +8,6 @@ import { CSVLink } from "react-csv"
 
 import type { IncomeSource, Payout, MonthlyTrend } from "@/lib/types"
 
-// UI components
 import KPI from "@/components/analytics/KPI"
 import MonthlyTrendsChart from "@/components/analytics/MonthlyTrendsChart"
 import SourceInsightsTable from "@/components/analytics/SourceInsightsTable"
@@ -19,7 +18,6 @@ import SourceSlideOver from "@/components/sources/SourceSlideOver"
 import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { useToast } from "@/components/ui/use-toast"
 
-// Supabase functions
 import {
   getActiveSources,
   getArchivedSources,
@@ -42,22 +40,16 @@ export default function DashboardPage() {
 
   const [user, setUser] = useState<any>(null)
 
-  // SlideOver
   const [slideOverOpen, setSlideOverOpen] = useState(false)
   const [editingSource, setEditingSource] = useState<IncomeSource | null>(null)
 
-  // Archive confirmation
   const [confirmOpen, setConfirmOpen] = useState(false)
   const [pendingArchiveId, setPendingArchiveId] = useState<string | null>(null)
 
-  // Unarchive confirmation
   const [confirmUnarchiveOpen, setConfirmUnarchiveOpen] = useState(false)
   const [pendingUnarchiveId, setPendingUnarchiveId] = useState<string | null>(null)
 
 
-  // ---------------------------------------------------------------------
-  // Load all dashboard data
-  // ---------------------------------------------------------------------
   useEffect(() => {
     async function load() {
       const { data: { user: loggedIn } } = await supabase.auth.getUser()
@@ -66,11 +58,9 @@ export default function DashboardPage() {
       setUser(loggedIn)
       const userId = loggedIn.id
 
-      // Sources
       setSources(await getActiveSources(userId))
       setArchivedSources(await getArchivedSources(userId))
 
-      // Payouts
       const { data: pay } = await supabase
         .from("payouts")
         .select("*")
@@ -79,16 +69,13 @@ export default function DashboardPage() {
 
       setPayouts(pay ?? [])
 
-      // Monthly trends (analytics)
       const { data: trends } = await supabase
         .from("v_user_monthly_trends")
         .select("*")
         .eq("user_id", userId)
-        .order("month")
 
       setMonthlyTrends(trends ?? [])
 
-      // Insights
       const { data: insightRows } = await supabase
         .from("v_user_insights")
         .select("*")
@@ -102,33 +89,27 @@ export default function DashboardPage() {
     load()
   }, [router])
 
+
   if (loading) return <div>Loading...</div>
 
 
-  // ---------------------------------------------------------------------
-  // Archive logic
-  // ---------------------------------------------------------------------
   async function confirmArchive() {
     if (!pendingArchiveId) return
 
     await archiveSource(pendingArchiveId)
 
-    // Refresh lists
     const active = await getActiveSources(user.id)
     const archived = await getArchivedSources(user.id)
 
     setSources(active)
     setArchivedSources(archived)
 
-    toast({ title: "Archived", description: "Source has been archived." })
+    toast({ title: "Archived", description: "Source archived." })
     setConfirmOpen(false)
     setPendingArchiveId(null)
   }
 
 
-  // ---------------------------------------------------------------------
-  // Unarchive logic
-  // ---------------------------------------------------------------------
   async function confirmUnarchive() {
     if (!pendingUnarchiveId) return
 
@@ -146,34 +127,25 @@ export default function DashboardPage() {
   }
 
 
-  // ---------------------------------------------------------------------
-  // CSV export for payouts
-  // ---------------------------------------------------------------------
   const csvData = payouts.map((p) => ({
-    Source: sources.find((s) => s.id === p.source_id)?.source_name || "—",
+    Source: "—",
     Amount: p.amount,
     Date: p.payment_date,
     Status: p.status
   }))
 
 
-
-  // ---------------------------------------------------------------------
-  // Render
-  // ---------------------------------------------------------------------
   return (
     <div className="mt-6">
 
-      {/* Confirm Archive */}
       <ConfirmDialog
         open={confirmOpen}
         title="Archive Source"
-        description="Are you sure you want to archive this source?"
+        description="Are you sure?"
         onCancel={() => setConfirmOpen(false)}
         onConfirm={confirmArchive}
       />
 
-      {/* Confirm Unarchive */}
       <ConfirmDialog
         open={confirmUnarchiveOpen}
         title="Unarchive Source"
@@ -182,7 +154,6 @@ export default function DashboardPage() {
         onConfirm={confirmUnarchive}
       />
 
-      {/* Slide-over editor */}
       <SourceSlideOver
         initial={editingSource}
         userId={user?.id ?? ""}
@@ -197,8 +168,6 @@ export default function DashboardPage() {
         }}
       />
 
-
-      {/* ACTIVE SOURCES */}
       {activeTab === "sources" && (
         <SourceList
           sources={sources}
@@ -211,7 +180,6 @@ export default function DashboardPage() {
         />
       )}
 
-      {/* ARCHIVED SOURCES */}
       {activeTab === "archived" && (
         <ArchivedList
           sources={archivedSources}
@@ -222,53 +190,30 @@ export default function DashboardPage() {
         />
       )}
 
-      {/* PAYOUTS */}
       {activeTab === "payouts" && (
-        <section className="mt-8">
-          <h2 className="text-2xl font-semibold mb-6 text-[#0A1E2D]">
-            Payouts
-          </h2>
+        <section>
+          <h2 className="text-2xl font-semibold mb-4">Payouts</h2>
 
-          <div className="overflow-x-auto rounded-xl border border-gray-200 shadow-md bg-white">
-            <table className="min-w-full text-sm">
-              <thead>
-                <tr className="bg-gray-100 border-b">
-                  <th className="py-3 px-4 text-left font-semibold text-gray-700">Source</th>
-                  <th className="py-3 px-4 text-left font-semibold text-gray-700">Amount</th>
-                  <th className="py-3 px-4 text-left font-semibold text-gray-700">Date</th>
-                  <th className="py-3 px-4 text-left font-semibold text-gray-700">Status</th>
+          <div className="overflow-x-auto">
+            <table className="min-w-full border">
+              <thead className="bg-gray-100">
+                <tr>
+                  <th className="p-3">Source</th>
+                  <th className="p-3">Amount</th>
+                  <th className="p-3">Date</th>
+                  <th className="p-3">Status</th>
                 </tr>
               </thead>
 
               <tbody>
-                {payouts.map((p) => {
-                  const src = sources.find((s) => s.id === p.source_id)
-
-                  return (
-                    <tr key={p.id} className="border-b hover:bg-gray-50 transition">
-                      <td className="py-3 px-4">{src?.source_name || "—"}</td>
-                      <td className="py-3 px-4 font-medium text-[#0A1E2D]">
-                        ${p.amount.toLocaleString()}
-                      </td>
-                      <td className="py-3 px-4">
-                        {new Date(p.payment_date).toLocaleDateString()}
-                      </td>
-                      <td className="py-3 px-4">
-                        <span
-                          className={
-                            p.status === "Paid"
-                              ? "text-green-700 font-semibold"
-                              : p.status === "Pending"
-                                ? "text-red-600 font-semibold"
-                                : "text-yellow-700 font-semibold"
-                          }
-                        >
-                          {p.status}
-                        </span>
-                      </td>
-                    </tr>
-                  )
-                })}
+                {payouts.map((p) => (
+                  <tr key={p.id} className="border-t">
+                    <td className="p-3">—</td>
+                    <td className="p-3">${p.amount.toLocaleString()}</td>
+                    <td className="p-3">{new Date(p.payment_date).toLocaleDateString()}</td>
+                    <td className="p-3">{p.status}</td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           </div>
@@ -276,14 +221,13 @@ export default function DashboardPage() {
           <CSVLink
             data={csvData}
             filename="HavenOne_Payouts.csv"
-            className="mt-4 inline-block bg-[#C6A664] px-4 py-2 rounded-md text-[#0A1E2D] font-medium shadow-sm hover:bg-[#b79b56]"
+            className="mt-4 inline-block bg-[#C6A664] px-4 py-2 rounded-md text-[#0A1E2D]"
           >
             Export CSV
           </CSVLink>
         </section>
       )}
 
-      {/* ANALYTICS */}
       {activeTab === "analytics" && (
         <section>
           <KPI insights={insights} />
