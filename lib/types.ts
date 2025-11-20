@@ -87,7 +87,12 @@ export interface Payout {
    status: string
    notes?: string | null
    created_at: string
+
+   income_sources?: {
+      source_name?: string
+   } | null
 }
+
 
 
 /* -----------------------------

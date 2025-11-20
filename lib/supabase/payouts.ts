@@ -4,7 +4,7 @@ import { supabase } from "@/lib/supabaseClient"
 import type { Payout } from "@/lib/types"
 
 // ---------------------------------------------------------
-// Fetch payouts with source name joined
+// Fetch payouts with source name joined (normalized)
 // ---------------------------------------------------------
 export async function getPayouts(userId: string): Promise<Payout[]> {
   const { data, error } = await supabase
@@ -30,17 +30,25 @@ export async function getPayouts(userId: string): Promise<Payout[]> {
     return []
   }
 
-  return (data || []).map((p: any) => ({
-    id: p.id,
-    user_id: p.user_id,
-    source_id: p.source_id,
-    amount: p.amount,
-    payment_date: p.payment_date,            // real column
-    status: p.status,
-    notes: p.notes ?? null,
-    created_at: p.created_at,
-    income_sources: p.income_sources
-      ? { source_name: p.income_sources.source_name ?? undefined }
-      : null
-  }))
+  return (data || []).map((p: any) => {
+    // Supabase returns an array for joins, so normalize it:
+    const source =
+      Array.isArray(p.income_sources) && p.income_sources.length > 0
+        ? p.income_sources[0]
+        : p.income_sources || null
+
+    return {
+      id: p.id,
+      user_id: p.user_id,
+      source_id: p.source_id,
+      amount: p.amount,
+      payment_date: p.payment_date,
+      status: p.status,
+      notes: p.notes ?? null,
+      created_at: p.created_at,
+      income_sources: source
+        ? { source_name: source.source_name ?? undefined }
+        : null
+    } as Payout
+  })
 }
