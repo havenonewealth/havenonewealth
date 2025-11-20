@@ -8,10 +8,10 @@
    ----------------------------- */
 
 export interface AdminSummary {
-  total_sources: number
-  total_payouts: number
-  total_payout_amount: number
-  avg_payout_amount: number
+   total_sources: number
+   total_payouts: number
+   total_payout_amount: number
+   avg_payout_amount: number
 }
 
 /* -----------------------------
@@ -19,8 +19,8 @@ export interface AdminSummary {
    ----------------------------- */
 
 export interface PortfolioAggregate {
-  source_name: string
-  total_expected: number
+   source_name: string
+   total_expected: number
 }
 
 /* -----------------------------
@@ -28,10 +28,10 @@ export interface PortfolioAggregate {
    ----------------------------- */
 
 export interface MonthlyTrend {
-  month: string
-  total_payments: number
-  total_payout: number
-  user_id: string
+   month: string
+   total_payments: number
+   total_payout: number
+   user_id: string
 }
 
 /* -----------------------------
@@ -39,10 +39,10 @@ export interface MonthlyTrend {
    ----------------------------- */
 
 export interface RecentPayout {
-  source_name: string
-  amount: number
-  status: string
-  payout_date: string
+   source_name: string
+   amount: number
+   status: string
+   payout_date: string
 }
 
 /* -----------------------------
@@ -50,22 +50,21 @@ export interface RecentPayout {
    ----------------------------- */
 
 export interface IncomeSource {
-  id: string
-  user_id: string
+   id: string
+   user_id: string
 
-  // Core fields
-  source_name: string
-  source_type: string | null
-  frequency: string | null
-  expected_amount: number | null
+   // Core fields
+   source_name: string
+   source_type: string | null
+   frequency: string | null
+   expected_amount: number | null
+   notes: string | null
 
-  // Option E additions
-  category: string | null
-  notes: string | null
-  show_on_dashboard: boolean
-  auto_project: boolean
+   // Archive fields
+   archived: boolean
+   archived_at: string | null
 
-  created_at?: string
+   created_at?: string
 }
 
 /* -----------------------------
@@ -73,15 +72,15 @@ export interface IncomeSource {
    ----------------------------- */
 
 export interface Payout {
-  id: string
-  user_id: string
-  source_id: string
-  source_name?: string
-  amount: number
-  payout_date: string
-  status: string
-  notes?: string | null
-  created_at: string
+   id: string
+   user_id: string
+   source_id: string
+   source_name?: string
+   amount: number
+   payout_date: string
+   status: string
+   notes?: string | null
+   created_at: string
 }
 
 /* -----------------------------
@@ -89,8 +88,8 @@ export interface Payout {
    ----------------------------- */
 
 export interface AppUser {
-  id: string
-  email: string
-  role?: string
-  created_at: string
+   id: string
+   email: string
+   role?: string
+   created_at: string
 }

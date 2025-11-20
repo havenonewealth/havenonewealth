@@ -7,39 +7,40 @@ import { useRouter } from "next/navigation"
 import { CSVLink } from "react-csv"
 import type { IncomeSource } from "@/lib/types"
 
+// UI + components
 import KPI from "@/components/analytics/KPI"
 import MonthlyTrendsChart from "@/components/analytics/MonthlyTrendsChart"
 import SourceInsightsTable from "@/components/analytics/SourceInsightsTable"
 
 import SourceList from "@/components/sources/SourceList"
+import ArchivedList from "@/components/sources/ArchivedList"
 import SourceSlideOver from "@/components/sources/SourceSlideOver"
-import { useToast } from "@/components/ui/use-toast"
+
 import { ConfirmDialog } from "@/components/ui/confirm-dialog"
+import { useToast } from "@/components/ui/use-toast"
 
-// Local client-side delete (soft delete)
-async function softDeleteSource(id: string) {
-  return supabase
-    .from("income_sources")
-    .update({ deleted: true, deleted_at: new Date().toISOString() })
-    .eq("id", id)
-}
+import type { Payout, MonthlyTrend as AnalyticsRow } from "@/lib/types"
+import type { MonthlyTrend } from "@/lib/types"
 
-async function undoSoftDelete(id: string) {
-  return supabase
-    .from("income_sources")
-    .update({ deleted: false, deleted_at: null })
-    .eq("id", id)
-}
+// Supabase functions
+import {
+  getActiveSources,
+  getArchivedSources,
+  archiveSource,
+  unarchiveSource
+} from "@/lib/supabase/sources"
 
 export default function DashboardPage() {
   const router = useRouter()
-  const { activeTab } = useTabs()
+  const { activeTab, setActiveTab } = useTabs()
   const { toast } = useToast()
 
   const [sources, setSources] = useState<IncomeSource[]>([])
-  const [payouts, setPayouts] = useState<any[]>([])
+  const [archivedSources, setArchivedSources] = useState<IncomeSource[]>([])
+  const [payouts, setPayouts] = useState<Payout[]>([])
   const [insights, setInsights] = useState<any[]>([])
-  const [monthlyTrends, setMonthlyTrends] = useState<any[]>([])
+  const [monthlyTrends, setMonthlyTrends] = useState<MonthlyTrend[]>([])
+
   const [loading, setLoading] = useState(true)
 
   const [user, setUser] = useState<any>(null)
@@ -47,13 +48,17 @@ export default function DashboardPage() {
   const [slideOverOpen, setSlideOverOpen] = useState(false)
   const [editingSource, setEditingSource] = useState<IncomeSource | null>(null)
 
-  // Confirm delete dialog
-  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
-  const [deleteId, setDeleteId] = useState<string | null>(null)
+  // Archive confirmation
+  const [confirmOpen, setConfirmOpen] = useState(false)
+  const [pendingArchiveId, setPendingArchiveId] = useState<string | null>(null)
 
-  const formatCurrency = (v: number | undefined) =>
-    v ? v.toLocaleString("en-US", { style: "currency", currency: "USD" }) : "$0.00"
+  // Unarchive confirmation
+  const [confirmUnarchiveOpen, setConfirmUnarchiveOpen] = useState(false)
+  const [pendingUnarchiveId, setPendingUnarchiveId] = useState<string | null>(null)
 
+  // -----------------------------
+  // Load all dashboard data
+  // -----------------------------
   useEffect(() => {
     async function load() {
       const { data: { user: loggedIn } } = await supabase.auth.getUser()
@@ -62,11 +67,8 @@ export default function DashboardPage() {
       setUser(loggedIn)
       const userId = loggedIn.id
 
-      const { data: src } = await supabase
-        .from("income_sources")
-        .select("*")
-        .eq("user_id", userId)
-        .eq("deleted", false)
+      setSources(await getActiveSources(userId))
+      setArchivedSources(await getArchivedSources(userId))
 
       const { data: pay } = await supabase
         .from("payouts")
@@ -84,7 +86,6 @@ export default function DashboardPage() {
         .select("*")
         .eq("user_id", userId)
 
-      setSources(src ?? [])
       setPayouts(pay ?? [])
       setMonthlyTrends(trends ?? [])
       setInsights(insightRows ?? [])
@@ -96,158 +97,121 @@ export default function DashboardPage() {
 
   if (loading) return <div>Loading...</div>
 
-  const csvData = payouts.map(p => ({
-    Source: p.income_sources?.source_name || "-",
+  // -----------------------------
+  // Archive logic
+  // -----------------------------
+  async function confirmArchive() {
+    if (!pendingArchiveId || !user) return
+
+    await archiveSource(pendingArchiveId)
+
+    setSources(prev => prev.filter(s => s.id !== pendingArchiveId))
+
+    const refreshed = await getArchivedSources(user.id)
+    setArchivedSources(refreshed)
+
+    toast({ title: "Archived", description: "Source has been archived." })
+    setConfirmOpen(false)
+    setPendingArchiveId(null)
+  }
+
+  async function confirmUnarchive() {
+    if (!pendingUnarchiveId || !user) return
+
+    await unarchiveSource(pendingUnarchiveId)
+
+    const refreshedActive = await getActiveSources(user.id)
+    const refreshedArchived = await getArchivedSources(user.id)
+
+    setSources(refreshedActive)
+    setArchivedSources(refreshedArchived)
+
+    toast({ title: "Restored", description: "Source is active again." })
+    setConfirmUnarchiveOpen(false)
+    setPendingUnarchiveId(null)
+  }
+
+  const csvData = payouts.map((p: any) => ({
+    Source: p.income_sources?.source_name || "—",
     Amount: p.amount,
     Date: p.payment_date,
     Status: p.status
   }))
 
-  // Delete Handler
-  function requestDelete(id: string) {
-    setDeleteId(id)
-    setDeleteConfirmOpen(true)
-  }
-
-  async function confirmDelete() {
-    if (!deleteId) return
-
-    const id = deleteId
-    setDeleteConfirmOpen(false)
-
-    const { error } = await softDeleteSource(id)
-
-    if (error) {
-      toast({ title: "Delete failed", description: error.message })
-      return
-    }
-
-    setSources(prev => prev.filter(s => s.id !== id))
-
-    toast({
-      title: "Source deleted",
-      description: "Undo is available for a few seconds.",
-      action: {
-        label: "Undo",
-        onClick: async () => {
-          const { error: undoError } = await undoSoftDelete(id)
-
-          if (undoError) {
-            toast({ title: "Undo failed", description: undoError.message })
-            return
-          }
-
-          const { data: restored } = await supabase
-            .from("income_sources")
-            .select("*")
-            .eq("id", id)
-            .single()
-
-          setSources(prev => [...prev, restored])
-          toast({ title: "Restored", description: "The source has been restored." })
-        }
-      }
-    })
-  }
-
   return (
     <div className="mt-6">
 
-      {/* Confirm Delete Dialog */}
+      {/* Confirm Archive */}
       <ConfirmDialog
-        open={deleteConfirmOpen}
-        title="Delete Source?"
-        description="This will hide the source but you can undo for a short time."
-        onConfirm={confirmDelete}
-        onCancel={() => setDeleteConfirmOpen(false)}
+        open={confirmOpen}
+        title="Archive Source"
+        description="Are you sure you want to archive this source?"
+        onCancel={() => setConfirmOpen(false)}
+        onConfirm={confirmArchive}
       />
 
-      {/* Sources */}
+      {/* Confirm Unarchive */}
+      <ConfirmDialog
+        open={confirmUnarchiveOpen}
+        title="Unarchive Source"
+        description="Restore this source?"
+        onCancel={() => setConfirmUnarchiveOpen(false)}
+        onConfirm={confirmUnarchive}
+      />
+
+      {/* Slide-over editor */}
+      <SourceSlideOver
+        initial={editingSource}
+        userId={user?.id ?? ""}
+        open={slideOverOpen}
+        onClose={() => { setSlideOverOpen(false); setEditingSource(null) }}
+        onSaved={async () => {
+          setSources(await getActiveSources(user.id))
+          setArchivedSources(await getArchivedSources(user.id))
+        }}
+      />
+
       {activeTab === "sources" && (
-        <section>
-          <h2 className="text-2xl font-semibold mb-4">Income Sources</h2>
-
-          <SourceSlideOver
-            initial={editingSource}
-            userId={user?.id ?? ""}
-            open={slideOverOpen}
-            onClose={() => {
-              setSlideOverOpen(false)
-              setEditingSource(null)
-            }}
-            onSaved={async () => {
-              const { data } = await supabase
-                .from("income_sources")
-                .select("*")
-                .eq("user_id", user?.id)
-                .eq("deleted", false)
-
-              setSources(data ?? [])
-            }}
-          />
-
-          <SourceList
-            sources={sources}
-            onAdd={() => {
-              setEditingSource(null)
-              setSlideOverOpen(true)
-            }}
-            onEdit={src => {
-              setEditingSource(src)
-              setSlideOverOpen(true)
-            }}
-            onDelete={requestDelete}
-          />
-        </section>
+        <SourceList
+          sources={sources}
+          onAdd={() => { setEditingSource(null); setSlideOverOpen(true) }}
+          onEdit={(s) => { setEditingSource(s); setSlideOverOpen(true) }}
+          onArchive={(id) => {
+            setPendingArchiveId(id)
+            setConfirmOpen(true)
+          }}
+        />
       )}
 
-      {/* Payouts */}
+      {activeTab === "archived" && (
+        <ArchivedList
+          sources={archivedSources}
+          onUnarchive={(id) => {
+            setPendingUnarchiveId(id)
+            setConfirmUnarchiveOpen(true)
+          }}
+        />
+      )}
+
       {activeTab === "payouts" && (
         <section>
           <h2 className="text-2xl font-semibold mb-4">Payouts</h2>
-
-          <div className="overflow-x-auto">
-            <table className="min-w-full border">
-              <thead className="bg-gray-100">
-                <tr>
-                  <th className="p-3">Source</th>
-                  <th className="p-3">Amount</th>
-                  <th className="p-3">Date</th>
-                  <th className="p-3">Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {payouts.map(p => (
-                  <tr key={p.id} className="border-t">
-                    <td className="p-3">{p.income_sources?.source_name || "-"}</td>
-                    <td className="p-3">{formatCurrency(p.amount)}</td>
-                    <td className="p-3">{new Date(p.payment_date).toLocaleDateString()}</td>
-                    <td className="p-3">{p.status}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-
-            <div className="mt-4">
-              <CSVLink
-                data={csvData}
-                filename={`HavenOne_Payouts_${new Date().toISOString().slice(0, 10)}.csv`}
-                className="bg-[#C6A664] px-4 py-2 rounded-md text-[#0A1E2D] font-semibold"
-              >
-                Export CSV
-              </CSVLink>
-            </div>
-          </div>
+          <CSVLink
+            data={csvData}
+            filename="HavenOne_Payouts.csv"
+            className="bg-[#C6A664] px-4 py-2 rounded-md text-[#0A1E2D]"
+          >
+            Export CSV
+          </CSVLink>
         </section>
       )}
 
-      {/* Analytics */}
       {activeTab === "analytics" && (
         <section>
-          <h2 className="text-2xl font-semibold mb-4">Analytics</h2>
           <KPI insights={insights} />
+
           {monthlyTrends.length === 0 ? (
-            <p className="text-gray-500">No monthly trend data available.</p>
+            <p className="text-gray-500">No data available.</p>
           ) : (
             <MonthlyTrendsChart data={monthlyTrends} />
           )}

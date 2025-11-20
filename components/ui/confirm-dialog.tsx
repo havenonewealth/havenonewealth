@@ -1,6 +1,7 @@
 "use client"
 
-import { AlertDialog, AlertDialogTrigger, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction } from "@/components/ui/alert-dialog"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Button } from "@/components/ui/button"
 
 export interface ConfirmDialogProps {
     open: boolean
@@ -10,28 +11,26 @@ export interface ConfirmDialogProps {
     onCancel: () => void
 }
 
-export function ConfirmDialog({ open, title, description, onConfirm, onCancel }: ConfirmDialogProps) {
+export function ConfirmDialog({
+    open,
+    title,
+    description,
+    onConfirm,
+    onCancel
+}: ConfirmDialogProps) {
     return (
-        <AlertDialog open={open}>
-            <AlertDialogContent>
-                <AlertDialogHeader>
-                    <AlertDialogTitle>{title}</AlertDialogTitle>
-                    <AlertDialogDescription>{description}</AlertDialogDescription>
-                </AlertDialogHeader>
+        <Dialog open={open} onOpenChange={onCancel}>
+            <DialogContent className="max-w-sm">
+                <DialogHeader>
+                    <DialogTitle>{title}</DialogTitle>
+                    <DialogDescription>{description}</DialogDescription>
+                </DialogHeader>
 
-                <AlertDialogFooter>
-                    <AlertDialogCancel onClick={onCancel}>
-                        Cancel
-                    </AlertDialogCancel>
-
-                    <AlertDialogAction
-                        className="bg-red-600 text-white hover:bg-red-700"
-                        onClick={onConfirm}
-                    >
-                        Delete
-                    </AlertDialogAction>
-                </AlertDialogFooter>
-            </AlertDialogContent>
-        </AlertDialog>
+                <div className="mt-6 flex justify-end gap-4">
+                    <Button variant="outline" onClick={onCancel}>Cancel</Button>
+                    <Button className="bg-red-600 text-white" onClick={onConfirm}>Confirm</Button>
+                </div>
+            </DialogContent>
+        </Dialog>
     )
 }
