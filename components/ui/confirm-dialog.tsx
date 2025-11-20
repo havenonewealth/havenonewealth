@@ -3,9 +3,9 @@
 import {
     Dialog,
     DialogContent,
+    DialogDescription,
     DialogHeader,
-    DialogTitle,
-    DialogDescription
+    DialogTitle
 } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 
@@ -26,25 +26,15 @@ export function ConfirmDialog({
 }: ConfirmDialogProps) {
     return (
         <Dialog open={open} onOpenChange={onCancel}>
-            <DialogContent className="max-w-sm p-6">
+            <DialogContent className="max-w-sm">
                 <DialogHeader>
                     <DialogTitle>{title}</DialogTitle>
                     <DialogDescription>{description}</DialogDescription>
                 </DialogHeader>
 
-                <div className="mt-6 flex justify-end gap-3">
-                    <Button
-                        variant="outline"
-                        onClick={onCancel}
-                        className="border-gray-300"
-                    >
-                        Cancel
-                    </Button>
-
-                    <Button
-                        onClick={onConfirm}
-                        className="bg-red-600 text-white hover:bg-red-700"
-                    >
+                <div className="flex justify-end gap-4 mt-6">
+                    <Button variant="outline" onClick={onCancel}>Cancel</Button>
+                    <Button className="bg-red-600 text-white" onClick={onConfirm}>
                         Confirm
                     </Button>
                 </div>

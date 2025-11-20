@@ -3,19 +3,26 @@
 import { supabase } from "@/lib/supabaseClient"
 import type { IncomeSource } from "@/lib/types"
 
-export type SourcePayload = {
-  user_id: string
-  source_name: string
-  source_type: string | null
-  frequency: string | null
-  expected_amount: number | null
-  expected_monthly: number | null
-  notes: string | null
+// Map raw DB row → strong typed object
+function mapRow(row: any): IncomeSource {
+  return {
+    id: row.id,
+    user_id: row.user_id,
+    source_name: row.source_name,
+    source_type: row.source_type,
+    frequency: row.frequency,
+    expected_amount: row.expected_amount,
+    expected_monthly: row.expected_monthly,
+    notes: row.notes,
+    archived: row.archived,
+    archived_at: row.archived_at,
+    deleted: row.deleted,
+    deleted_at: row.deleted_at,
+    ready_for_delete: row.ready_for_delete,
+    created_at: row.created_at
+  }
 }
 
-// ------------------------------------------------------------
-// GET ACTIVE SOURCES
-// ------------------------------------------------------------
 export async function getActiveSources(userId: string): Promise<IncomeSource[]> {
   const { data, error } = await supabase
     .from("income_sources")
@@ -30,12 +37,9 @@ export async function getActiveSources(userId: string): Promise<IncomeSource[]> 
     return []
   }
 
-  return data as IncomeSource[]
+  return (data || []).map(mapRow)
 }
 
-// ------------------------------------------------------------
-// GET ARCHIVED SOURCES
-// ------------------------------------------------------------
 export async function getArchivedSources(userId: string): Promise<IncomeSource[]> {
   const { data, error } = await supabase
     .from("income_sources")
@@ -50,80 +54,69 @@ export async function getArchivedSources(userId: string): Promise<IncomeSource[]
     return []
   }
 
-  return data as IncomeSource[]
+  return (data || []).map(mapRow)
 }
 
-// ------------------------------------------------------------
-// CREATE or UPDATE SOURCE
-// ------------------------------------------------------------
-export async function saveSource(id: string | null, payload: SourcePayload) {
+// Create or update
+export async function saveSource(id: string | null, payload: Partial<IncomeSource>) {
+  if (!payload.source_name) return false
+
   if (id) {
-    // UPDATE
-    const { data, error } = await supabase
+    // Update
+    const { error } = await supabase
       .from("income_sources")
-      .update(payload)
+      .update({ ...payload })
       .eq("id", id)
-      .select()
-      .single()
 
     if (error) {
       console.error("saveSource update error:", error)
-      throw new Error(error.message)
+      return false
     }
-
-    return data
-  } else {
-    // CREATE NEW
-    const { data, error } = await supabase
-      .from("income_sources")
-      .insert(payload)
-      .select()
-      .single()
-
-    if (error) {
-      console.error("saveSource create error:", error)
-      throw new Error(error.message)
-    }
-
-    return data
+    return true
   }
+
+  // Create
+  const { error } = await supabase
+    .from("income_sources")
+    .insert([{ ...payload }])
+
+  if (error) {
+    console.error("saveSource create error:", error)
+    return false
+  }
+
+  return true
 }
 
-// ------------------------------------------------------------
-// ARCHIVE SOURCE
-// ------------------------------------------------------------
 export async function archiveSource(id: string) {
   const { error } = await supabase
     .from("income_sources")
     .update({
       archived: true,
       archived_at: new Date().toISOString(),
+      deleted: false
     })
     .eq("id", id)
 
   if (error) {
     console.error("archiveSource error:", error)
-    throw new Error(error.message)
+    return false
   }
-
   return true
 }
 
-// ------------------------------------------------------------
-// UNARCHIVE SOURCE
-// ------------------------------------------------------------
 export async function unarchiveSource(id: string) {
   const { error } = await supabase
     .from("income_sources")
     .update({
       archived: false,
-      archived_at: null,
+      archived_at: null
     })
     .eq("id", id)
 
   if (error) {
     console.error("unarchiveSource error:", error)
-    throw new Error(error.message)
+    return false
   }
 
   return true

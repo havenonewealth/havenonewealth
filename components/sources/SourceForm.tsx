@@ -22,13 +22,11 @@ const Schema = z.object({
 export type SourceFormValues = z.infer<typeof Schema>
 
 interface Props {
-    initial?: IncomeSource | null
-    userId: string
+    initial: IncomeSource | null
     onSubmit: (values: SourceFormValues) => void
 }
 
 export default function SourceForm({ initial, onSubmit }: Props) {
-
     const form = useForm<SourceFormValues>({
         resolver: zodResolver(Schema),
         defaultValues: {
@@ -64,62 +62,42 @@ export default function SourceForm({ initial, onSubmit }: Props) {
     }, [initial])
 
     return (
-        <form
-            className="space-y-6"
-            onSubmit={form.handleSubmit(onSubmit)}
-        >
+        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
 
-            {/* NAME */}
             <div>
                 <Label>Source Name</Label>
-                <Input {...form.register("source_name")} placeholder="Business, Rental, Royalties" />
+                <Input {...form.register("source_name")} />
             </div>
 
-            {/* TYPE */}
             <div>
                 <Label>Type</Label>
-                <Input {...form.register("source_type")} placeholder="Commission, Royalty, Rent..." />
+                <Input {...form.register("source_type")} />
             </div>
 
-            {/* FREQUENCY */}
             <div>
                 <Label>Frequency</Label>
-                <Input {...form.register("frequency")} placeholder="Monthly, Quarterly..." />
+                <Input {...form.register("frequency")} />
             </div>
 
-            {/* EXPECTED AMOUNT */}
             <div>
                 <Label>Expected Amount</Label>
-                <Input
-                    type="number"
-                    step="0.01"
-                    {...form.register("expected_amount", { valueAsNumber: true })}
-                />
+                <Input type="number" step="0.01" {...form.register("expected_amount", { valueAsNumber: true })} />
             </div>
 
-            {/* EXPECTED MONTHLY */}
             <div>
                 <Label>Expected Monthly</Label>
-                <Input
-                    type="number"
-                    step="0.01"
-                    {...form.register("expected_monthly", { valueAsNumber: true })}
-                />
+                <Input type="number" step="0.01" {...form.register("expected_monthly", { valueAsNumber: true })} />
             </div>
 
-            {/* NOTES */}
             <div>
                 <Label>Notes</Label>
                 <Textarea rows={4} {...form.register("notes")} />
             </div>
 
-            {/* SUBMIT */}
-            <button
-                type="submit"
-                className="w-full mt-4 px-4 py-2 rounded bg-[#0A1E2D] text-white hover:bg-[#C6A664]"
-            >
+            <button type="submit" className="w-full bg-[#0A1E2D] text-white py-2 rounded">
                 Save
             </button>
+
         </form>
     )
 }
