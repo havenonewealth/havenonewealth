@@ -3,116 +3,66 @@
 import { supabase } from "@/lib/supabaseClient"
 import type { IncomeSource } from "@/lib/types"
 
-// ---------------------------------------------------------------------------
-// ACTIVE SOURCES (not archived & not deleted)
-// ---------------------------------------------------------------------------
+// Fetch active sources
 export async function getActiveSources(userId: string): Promise<IncomeSource[]> {
   const { data, error } = await supabase
     .from("income_sources")
     .select("*")
     .eq("user_id", userId)
-    .eq("archived", false)
+    .is("archived_at", null)
     .eq("deleted", false)
     .order("created_at", { ascending: false })
 
-  if (error) {
-    console.error("getActiveSources error:", error)
-    return []
-  }
-
-  return data as IncomeSource[]
+  return data ?? []
 }
 
-// ---------------------------------------------------------------------------
-// ARCHIVED SOURCES
-// ---------------------------------------------------------------------------
+// Fetch archived sources
 export async function getArchivedSources(userId: string): Promise<IncomeSource[]> {
-  const { data, error } = await supabase
+  const { data } = await supabase
     .from("income_sources")
     .select("*")
     .eq("user_id", userId)
-    .eq("archived", true)
+    .not("archived_at", "is", null)
     .eq("deleted", false)
     .order("archived_at", { ascending: false })
 
-  if (error) {
-    console.error("getArchivedSources error:", error)
-    return []
-  }
-
-  return data as IncomeSource[]
+  return data ?? []
 }
 
-// ---------------------------------------------------------------------------
-// CREATE OR UPDATE SOURCE
-// ---------------------------------------------------------------------------
-export async function saveSource(values: Partial<IncomeSource>, id?: string) {
-  if (id) {
-    // UPDATE
-    const { data, error } = await supabase
+// Save or update source
+export async function saveSource(payload: any) {
+  if (payload.id) {
+    await supabase
       .from("income_sources")
-      .update(values)
-      .eq("id", id)
-      .select()
-      .single()
-
-    if (error) throw new Error(error.message)
-    return data
+      .update(payload)
+      .eq("id", payload.id)
+  } else {
+    await supabase.from("income_sources").insert(payload)
   }
 
-  // INSERT
-  const { data, error } = await supabase
-    .from("income_sources")
-    .insert(values)
-    .select()
-    .single()
-
-  if (error) throw new Error(error.message)
-  return data
+  return true
 }
 
-// ---------------------------------------------------------------------------
-// ARCHIVE
-// ---------------------------------------------------------------------------
+// Archive
 export async function archiveSource(id: string) {
-  const { error } = await supabase
+  await supabase
     .from("income_sources")
     .update({
+      archived_at: new Date().toISOString(),
       archived: true,
-      archived_at: new Date().toISOString()
+      deleted: false
     })
     .eq("id", id)
-
-  if (error) throw new Error(error.message)
 }
 
-// ---------------------------------------------------------------------------
-// UNARCHIVE
-// ---------------------------------------------------------------------------
+// Unarchive
 export async function unarchiveSource(id: string) {
-  const { error } = await supabase
+  await supabase
     .from("income_sources")
     .update({
+      archived_at: null,
       archived: false,
-      archived_at: null
+      deleted: false
     })
     .eq("id", id)
-
-  if (error) throw new Error(error.message)
-}
-
-// ---------------------------------------------------------------------------
-// SOFT DELETE (mark for purge)
-// ---------------------------------------------------------------------------
-export async function softDeleteSource(id: string) {
-  const { error } = await supabase
-    .from("income_sources")
-    .update({
-      deleted: true,
-      deleted_at: new Date().toISOString(),
-      ready_for_delete: true
-    })
-    .eq("id", id)
-
-  if (error) throw new Error(error.message)
 }

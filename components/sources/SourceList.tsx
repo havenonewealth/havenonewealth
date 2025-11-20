@@ -18,7 +18,7 @@ export default function SourceList({ sources, onAdd, onEdit, onArchive }: Props)
 
         <button
           onClick={onAdd}
-          className="px-4 py-2 bg-[#0A1E2D] text-white rounded-md"
+          className="px-4 py-2 bg-[#0A1E2D] text-white rounded-md hover:bg-[#C6A664] transition"
         >
           Add Source
         </button>
@@ -26,15 +26,23 @@ export default function SourceList({ sources, onAdd, onEdit, onArchive }: Props)
 
       <ul className="space-y-3">
         {sources.map((s) => (
-          <li key={s.id} className="p-4 border rounded-lg shadow-sm">
+          <li
+            key={s.id}
+            className="p-4 border rounded-lg shadow-sm hover:bg-gray-50 transition"
+          >
             <div className="flex justify-between items-start">
               <div onClick={() => onEdit(s)} className="cursor-pointer flex-1">
                 <p className="text-lg font-semibold">{s.source_name}</p>
+                {s.expected_monthly !== null && (
+                  <p className="text-sm text-gray-600">
+                    Est. Monthly: ${s.expected_monthly.toLocaleString()}
+                  </p>
+                )}
               </div>
 
               <button
                 onClick={() => onArchive(s.id)}
-                className="text-red-600 hover:text-red-800 ml-4"
+                className="ml-4 text-red-600 hover:text-red-800 font-medium"
               >
                 Archive
               </button>

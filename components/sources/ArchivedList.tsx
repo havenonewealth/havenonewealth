@@ -1,5 +1,6 @@
 "use client"
 
+import React from "react"
 import { IncomeSource } from "@/lib/types"
 
 interface Props {
@@ -18,23 +19,28 @@ export default function ArchivedList({ sources, onUnarchive }: Props) {
 
             <ul className="space-y-3">
                 {sources.map((s) => (
-                    <li key={s.id} className="p-4 border rounded-lg shadow-sm">
+                    <li
+                        key={s.id}
+                        className="p-4 border rounded-lg shadow-sm hover:bg-gray-50 transition"
+                    >
                         <div className="flex justify-between items-start">
-                            <p className="text-lg font-semibold">{s.source_name}</p>
+                            <div className="flex-1">
+                                <p className="text-lg font-semibold">{s.source_name}</p>
+
+                                {s.archived_at && (
+                                    <p className="text-xs text-gray-500 mt-1">
+                                        Archived {new Date(s.archived_at).toLocaleDateString()}
+                                    </p>
+                                )}
+                            </div>
 
                             <button
                                 onClick={() => onUnarchive(s.id)}
-                                className="text-blue-600 hover:text-blue-800 ml-4"
+                                className="ml-4 text-blue-600 hover:text-blue-800 font-medium"
                             >
                                 Unarchive
                             </button>
                         </div>
-
-                        {s.archived_at && (
-                            <p className="text-xs text-gray-500 mt-1">
-                                Archived {new Date(s.archived_at).toLocaleDateString()}
-                            </p>
-                        )}
                     </li>
                 ))}
             </ul>
