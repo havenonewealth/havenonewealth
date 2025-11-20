@@ -11,17 +11,8 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue
-} from "@/components/ui/select"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
-// --------------------------------------------------
-//  VALIDATION SCHEMA (matches your DB schema now)
-// --------------------------------------------------
 const formSchema = z.object({
     source_name: z.string().min(1, "Required"),
     source_type: z.string().nullable(),
@@ -32,9 +23,6 @@ const formSchema = z.object({
 
 export type SourceFormValues = z.infer<typeof formSchema>
 
-// --------------------------------------------------
-//  COMPONENT
-// --------------------------------------------------
 export default function SourceForm({
     initial,
     userId,
@@ -59,46 +47,28 @@ export default function SourceForm({
         }
     })
 
-    // --------------------------------------------------
-    //  SUBMIT HANDLER
-    // --------------------------------------------------
     async function onSubmit(values: SourceFormValues) {
-        try {
-            setLoading(true)
+        setLoading(true)
 
-            const payload = {
-                source_name: values.source_name,
-                source_type: values.source_type,
-                frequency: values.frequency,
-                expected_amount: values.expected_amount,
-                notes: values.notes
-            }
-
-            await saveSource(userId, initial?.id ?? null, payload)
-
-            onSaved()
-            onClose()
-
-        } catch (err) {
-            console.error("Save error:", err)
-        } finally {
-            setLoading(false)
+        const payload = {
+            user_id: userId,
+            ...values
         }
+
+        await saveSource(payload, initial?.id)
+
+        onSaved()
+        onClose()
+        setLoading(false)
     }
 
     return (
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-
-            {/* NAME */}
             <div className="space-y-2">
                 <Label>Source Name</Label>
-                <Input
-                    {...form.register("source_name")}
-                    placeholder="e.g. Amazon KDP, Rental Income"
-                />
+                <Input {...form.register("source_name")} />
             </div>
 
-            {/* TYPE */}
             <div className="space-y-2">
                 <Label>Type</Label>
                 <Select
@@ -115,7 +85,6 @@ export default function SourceForm({
                 </Select>
             </div>
 
-            {/* FREQUENCY */}
             <div className="space-y-2">
                 <Label>Frequency</Label>
                 <Select
@@ -132,31 +101,17 @@ export default function SourceForm({
                 </Select>
             </div>
 
-            {/* EXPECTED AMOUNT */}
             <div className="space-y-2">
                 <Label>Expected Amount</Label>
-                <Input
-                    type="number"
-                    step="0.01"
-                    {...form.register("expected_amount", { valueAsNumber: true })}
-                />
+                <Input type="number" step="0.01" {...form.register("expected_amount", { valueAsNumber: true })} />
             </div>
 
-            {/* NOTES */}
             <div className="space-y-2">
                 <Label>Notes</Label>
-                <Textarea
-                    {...form.register("notes")}
-                    rows={4}
-                />
+                <Textarea rows={4} {...form.register("notes")} />
             </div>
 
-            {/* SUBMIT */}
-            <Button
-                type="submit"
-                disabled={loading}
-                className="w-full bg-[#0A1E2D] text-white"
-            >
+            <Button className="w-full bg-[#0A1E2D] text-white" disabled={loading}>
                 {loading ? "Saving…" : initial ? "Update Source" : "Create Source"}
             </Button>
         </form>
