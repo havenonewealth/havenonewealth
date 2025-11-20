@@ -1,6 +1,13 @@
 "use client"
 
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogHeader,
+    DialogTitle
+} from "@/components/ui/dialog"
+
 import { Button } from "@/components/ui/button"
 
 export interface ConfirmDialogProps {
@@ -19,7 +26,13 @@ export function ConfirmDialog({
     onCancel
 }: ConfirmDialogProps) {
     return (
-        <Dialog open={open} onOpenChange={onCancel}>
+        <Dialog
+            open={open}
+            onOpenChange={(isOpen) => {
+                // Only fire cancel when user closes dialog manually
+                if (!isOpen) onCancel()
+            }}
+        >
             <DialogContent className="max-w-sm">
                 <DialogHeader>
                     <DialogTitle>{title}</DialogTitle>
@@ -27,8 +40,15 @@ export function ConfirmDialog({
                 </DialogHeader>
 
                 <div className="mt-6 flex justify-end gap-4">
-                    <Button variant="outline" onClick={onCancel}>Cancel</Button>
-                    <Button className="bg-red-600 text-white" onClick={onConfirm}>Confirm</Button>
+                    <Button variant="outline" onClick={onCancel}>
+                        Cancel
+                    </Button>
+                    <Button
+                        className="bg-red-600 text-white"
+                        onClick={onConfirm}
+                    >
+                        Confirm
+                    </Button>
                 </div>
             </DialogContent>
         </Dialog>
