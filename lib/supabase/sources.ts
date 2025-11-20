@@ -3,32 +3,15 @@
 import { supabase } from "@/lib/supabaseClient"
 import type { IncomeSource } from "@/lib/types"
 
-// Map raw DB row → strong typed object
-function mapRow(row: any): IncomeSource {
-  return {
-    id: row.id,
-    user_id: row.user_id,
-    source_name: row.source_name,
-    source_type: row.source_type,
-    frequency: row.frequency,
-    expected_amount: row.expected_amount,
-    expected_monthly: row.expected_monthly,
-    notes: row.notes,
-    archived: row.archived,
-    archived_at: row.archived_at,
-    deleted: row.deleted,
-    deleted_at: row.deleted_at,
-    ready_for_delete: row.ready_for_delete,
-    created_at: row.created_at
-  }
-}
-
+// -------------------------
+// Get Active Sources
+// -------------------------
 export async function getActiveSources(userId: string): Promise<IncomeSource[]> {
   const { data, error } = await supabase
     .from("income_sources")
     .select("*")
     .eq("user_id", userId)
-    .eq("archived", false)
+    .is("archived_at", null)
     .eq("deleted", false)
     .order("created_at", { ascending: false })
 
@@ -37,15 +20,18 @@ export async function getActiveSources(userId: string): Promise<IncomeSource[]> 
     return []
   }
 
-  return (data || []).map(mapRow)
+  return data as IncomeSource[]
 }
 
+// -------------------------
+// Get Archived Sources
+// -------------------------
 export async function getArchivedSources(userId: string): Promise<IncomeSource[]> {
   const { data, error } = await supabase
     .from("income_sources")
     .select("*")
     .eq("user_id", userId)
-    .eq("archived", true)
+    .not("archived_at", "is", null)
     .eq("deleted", false)
     .order("archived_at", { ascending: false })
 
@@ -54,18 +40,17 @@ export async function getArchivedSources(userId: string): Promise<IncomeSource[]
     return []
   }
 
-  return (data || []).map(mapRow)
+  return data as IncomeSource[]
 }
 
-// Create or update
+// -------------------------
+// Save (Create / Update)
+// -------------------------
 export async function saveSource(id: string | null, payload: Partial<IncomeSource>) {
-  if (!payload.source_name) return false
-
   if (id) {
-    // Update
     const { error } = await supabase
       .from("income_sources")
-      .update({ ...payload })
+      .update(payload)
       .eq("id", id)
 
     if (error) {
@@ -75,10 +60,9 @@ export async function saveSource(id: string | null, payload: Partial<IncomeSourc
     return true
   }
 
-  // Create
   const { error } = await supabase
     .from("income_sources")
-    .insert([{ ...payload }])
+    .insert(payload)
 
   if (error) {
     console.error("saveSource create error:", error)
@@ -88,36 +72,47 @@ export async function saveSource(id: string | null, payload: Partial<IncomeSourc
   return true
 }
 
+// ---------------------------------------------------------------------------
+// ARCHIVE SOURCE
+// ---------------------------------------------------------------------------
 export async function archiveSource(id: string) {
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("income_sources")
     .update({
       archived: true,
-      archived_at: new Date().toISOString(),
-      deleted: false
+      archived_at: new Date().toISOString()
     })
     .eq("id", id)
+    .select()   // <- forces Supabase to actually return updated row
+    .single()
 
   if (error) {
     console.error("archiveSource error:", error)
-    return false
+    throw new Error(error.message)
   }
-  return true
+
+  return data
 }
 
+// ---------------------------------------------------------------------------
+// UNARCHIVE SOURCE
+// ---------------------------------------------------------------------------
 export async function unarchiveSource(id: string) {
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("income_sources")
     .update({
       archived: false,
       archived_at: null
     })
     .eq("id", id)
+    .select()
+    .single()
 
   if (error) {
     console.error("unarchiveSource error:", error)
-    return false
+    throw new Error(error.message)
   }
 
-  return true
+  return data
 }
+

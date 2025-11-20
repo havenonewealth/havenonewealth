@@ -1,103 +1,115 @@
 "use client"
 
-import { useEffect } from "react"
-import { useForm } from "react-hook-form"
-import { z } from "zod"
-import { zodResolver } from "@hookform/resolvers/zod"
-import type { IncomeSource } from "@/lib/types"
-
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
-
-const Schema = z.object({
-    source_name: z.string().min(1, "Required"),
-    source_type: z.string().nullable(),
-    frequency: z.string().nullable(),
-    expected_amount: z.number().nullable(),
-    expected_monthly: z.number().nullable(),
-    notes: z.string().nullable()
-})
-
-export type SourceFormValues = z.infer<typeof Schema>
+import React from "react"
+import { IncomeSource } from "@/lib/types"
 
 interface Props {
-    initial: IncomeSource | null
-    onSubmit: (values: SourceFormValues) => void
+    data: Partial<IncomeSource>
+    onChange: (values: Partial<IncomeSource>) => void
 }
 
-export default function SourceForm({ initial, onSubmit }: Props) {
-    const form = useForm<SourceFormValues>({
-        resolver: zodResolver(Schema),
-        defaultValues: {
-            source_name: "",
-            source_type: null,
-            frequency: null,
-            expected_amount: null,
-            expected_monthly: null,
-            notes: null
-        }
-    })
-
-    useEffect(() => {
-        if (initial) {
-            form.reset({
-                source_name: initial.source_name,
-                source_type: initial.source_type,
-                frequency: initial.frequency,
-                expected_amount: initial.expected_amount,
-                expected_monthly: initial.expected_monthly,
-                notes: initial.notes
-            })
-        } else {
-            form.reset({
-                source_name: "",
-                source_type: null,
-                frequency: null,
-                expected_amount: null,
-                expected_monthly: null,
-                notes: null
-            })
-        }
-    }, [initial])
+export default function SourceForm({ data, onChange }: Props) {
+    function update<K extends keyof IncomeSource>(key: K, value: IncomeSource[K]) {
+        onChange({
+            ...data,
+            [key]: value
+        })
+    }
 
     return (
-        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+        <div className="space-y-5">
 
+            {/* Source Name */}
             <div>
-                <Label>Source Name</Label>
-                <Input {...form.register("source_name")} />
+                <label className="block text-sm font-medium text-gray-700">
+                    Source Name *
+                </label>
+                <input
+                    type="text"
+                    value={data.source_name ?? ""}
+                    onChange={(e) => update("source_name", e.target.value)}
+                    className="mt-1 block w-full rounded border-gray-300 focus:ring-[#C6A664] focus:border-[#C6A664]"
+                    placeholder="Example: Amazon KDP, Udemy, YouTube"
+                />
             </div>
 
+            {/* Source Type */}
             <div>
-                <Label>Type</Label>
-                <Input {...form.register("source_type")} />
+                <label className="block text-sm font-medium text-gray-700">
+                    Source Type
+                </label>
+                <input
+                    type="text"
+                    value={data.source_type ?? ""}
+                    onChange={(e) => update("source_type", e.target.value)}
+                    className="mt-1 block w-full rounded border-gray-300 focus:ring-[#C6A664] focus:border-[#C6A664]"
+                    placeholder="e.g. Royalty, Affiliate, Rental"
+                />
             </div>
 
+            {/* Frequency */}
             <div>
-                <Label>Frequency</Label>
-                <Input {...form.register("frequency")} />
+                <label className="block text-sm font-medium text-gray-700">
+                    Frequency
+                </label>
+                <select
+                    value={data.frequency ?? ""}
+                    onChange={(e) => update("frequency", e.target.value || null)}
+                    className="mt-1 block w-full rounded border-gray-300 focus:ring-[#C6A664] focus:border-[#C6A664]"
+                >
+                    <option value="">Select...</option>
+                    <option value="Monthly">Monthly</option>
+                    <option value="Weekly">Weekly</option>
+                    <option value="Quarterly">Quarterly</option>
+                    <option value="Annual">Annual</option>
+                </select>
             </div>
 
+            {/* Expected Amount */}
             <div>
-                <Label>Expected Amount</Label>
-                <Input type="number" step="0.01" {...form.register("expected_amount", { valueAsNumber: true })} />
+                <label className="block text-sm font-medium text-gray-700">
+                    Expected Amount
+                </label>
+                <input
+                    type="number"
+                    value={data.expected_amount ?? ""}
+                    onChange={(e) =>
+                        update("expected_amount", e.target.value ? Number(e.target.value) : null)
+                    }
+                    className="mt-1 block w-full rounded border-gray-300 focus:ring-[#C6A664] focus:border-[#C6A664]"
+                    placeholder="Amount based on frequency"
+                />
             </div>
 
+            {/* Expected Monthly */}
             <div>
-                <Label>Expected Monthly</Label>
-                <Input type="number" step="0.01" {...form.register("expected_monthly", { valueAsNumber: true })} />
+                <label className="block text-sm font-medium text-gray-700">
+                    Expected Monthly Value
+                </label>
+                <input
+                    type="number"
+                    value={data.expected_monthly ?? ""}
+                    onChange={(e) =>
+                        update("expected_monthly", e.target.value ? Number(e.target.value) : null)
+                    }
+                    className="mt-1 block w-full rounded border-gray-300 focus:ring-[#C6A664] focus:border-[#C6A664]"
+                    placeholder="Auto-calculated or manual"
+                />
             </div>
 
+            {/* Notes */}
             <div>
-                <Label>Notes</Label>
-                <Textarea rows={4} {...form.register("notes")} />
+                <label className="block text-sm font-medium text-gray-700">
+                    Notes
+                </label>
+                <textarea
+                    value={data.notes ?? ""}
+                    onChange={(e) => update("notes", e.target.value)}
+                    className="mt-1 block w-full rounded border-gray-300 focus:ring-[#C6A664] focus:border-[#C6A664]"
+                    rows={3}
+                    placeholder="Optional notes about this source..."
+                />
             </div>
-
-            <button type="submit" className="w-full bg-[#0A1E2D] text-white py-2 rounded">
-                Save
-            </button>
-
-        </form>
+        </div>
     )
 }

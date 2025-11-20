@@ -7,7 +7,7 @@ interface Props {
   sources: IncomeSource[]
   onAdd: () => void
   onEdit: (s: IncomeSource) => void
-  onArchive: (id: string) => void   // FIX: accept ID only
+  onArchive: (s: IncomeSource) => void
 }
 
 export default function SourceList({ sources, onAdd, onEdit, onArchive }: Props) {
@@ -15,7 +15,9 @@ export default function SourceList({ sources, onAdd, onEdit, onArchive }: Props)
     <div>
       {/* Header */}
       <div className="flex justify-between items-center mb-4">
-        <h2 className="text-2xl font-semibold">Income Sources</h2>
+        <h2 className="text-2xl font-semibold text-[#0A1E2D]">
+          Income Sources
+        </h2>
 
         <button
           onClick={onAdd}
@@ -30,35 +32,32 @@ export default function SourceList({ sources, onAdd, onEdit, onArchive }: Props)
         {sources.map((s) => (
           <li
             key={s.id}
-            className="p-4 border rounded-lg shadow-sm hover:bg-gray-50 transition"
+            className="p-4 border rounded-lg shadow-sm bg-white"
           >
-            <div className="flex justify-between items-start">
+            <div className="flex justify-between items-center">
 
-              {/* Edit clickable area */}
+              {/* Left side – Click to edit */}
               <div
                 onClick={() => onEdit(s)}
-                className="cursor-pointer flex-1"
+                className="cursor-pointer"
               >
-                <p className="text-lg font-semibold">{s.source_name}</p>
+                <p className="text-lg font-semibold text-[#0A1E2D]">
+                  {s.source_name}
+                </p>
 
                 <p className="text-sm text-gray-600">
-                  {s.source_type && <span>{s.source_type} • </span>}
-                  {s.frequency && <span>{s.frequency} • </span>}
-                  {s.expected_monthly
-                    ? <span>${s.expected_monthly.toLocaleString()}/mo</span>
-                    : s.expected_amount
-                      ? <span>${s.expected_amount.toLocaleString()}</span>
-                      : null}
+                  {s.source_type || "Unknown Type"}
                 </p>
               </div>
 
-              {/* Archive button (fixed styling) */}
+              {/* Right side – Archive button */}
               <button
-                onClick={() => onArchive(s.id)}
-                className="ml-4 px-3 py-1 rounded bg-[#0A1E2D] text-white hover:bg-[#C6A664] transition"
+                onClick={() => onArchive(s)}
+                className="px-3 py-1 rounded-md bg-[#0A1E2D] text-white hover:bg-[#C6A664] transition"
               >
                 Archive
               </button>
+
             </div>
           </li>
         ))}
