@@ -53,11 +53,10 @@ export default function SourceList({ sources, onAdd, onEdit, onArchive }: Props)
               {/* Right side – Archive button */}
               <button
                 onClick={() => onArchive(s)}
-                className="px-3 py-1 rounded-md bg-[#0A1E2D] text-white hover:bg-[#C6A664] transition"
+                className="px-3 py-1 rounded bg-[#0A1E2D] text-white hover:bg-[#C6A664] transition ml-4"
               >
                 Archive
               </button>
-
             </div>
           </li>
         ))}

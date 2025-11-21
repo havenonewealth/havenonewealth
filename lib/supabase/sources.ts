@@ -86,41 +86,41 @@ export async function saveSource(id: string | null, payload: Partial<IncomeSourc
 // ---------------------------------------------------------
 // ARCHIVE SOURCE — FIXED
 // ---------------------------------------------------------
-export async function archiveSource(id: string) {
-  const { data, error } = await supabase
+export async function archiveSource(source: string | IncomeSource) {
+  const id = typeof source === "string" ? source : source.id
+
+  const { error } = await supabase
     .from("income_sources")
     .update({
       archived_at: new Date().toISOString()
     })
     .eq("id", id)
-    .select()
-    .single()
 
   if (error) {
     console.error("archiveSource error:", error)
-    return null
+    throw new Error(error.message)
   }
 
-  return data
+  return true
 }
 
 // ---------------------------------------------------------
 // UNARCHIVE SOURCE — FIXED
 // ---------------------------------------------------------
-export async function unarchiveSource(id: string) {
-  const { data, error } = await supabase
+export async function unarchiveSource(source: string | IncomeSource) {
+  const id = typeof source === "string" ? source : source.id
+
+  const { error } = await supabase
     .from("income_sources")
     .update({
       archived_at: null
     })
     .eq("id", id)
-    .select()
-    .single()
 
   if (error) {
     console.error("unarchiveSource error:", error)
-    return null
+    throw new Error(error.message)
   }
 
-  return data
+  return true
 }

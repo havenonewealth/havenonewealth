@@ -3,6 +3,8 @@
 import { supabase } from "@/lib/supabaseClient"
 import type { Payout } from "@/lib/types"
 
+// payouts.ts FIXED
+
 export async function getPayouts(userId: string): Promise<Payout[]> {
   const { data, error } = await supabase
     .from("payouts")
@@ -27,22 +29,17 @@ export async function getPayouts(userId: string): Promise<Payout[]> {
     return []
   }
 
-  return (data || []).map((p: any) => {
-    const src =
-      Array.isArray(p.income_sources) && p.income_sources.length > 0
-        ? p.income_sources[0].source_name
-        : null
-
-    return {
-      id: p.id,
-      user_id: p.user_id,
-      source_id: p.source_id,
-      amount: p.amount,
-      payment_date: p.payment_date,
-      status: p.status,
-      notes: p.notes ?? null,
-      created_at: p.created_at,
-      income_sources: src ? { source_name: src } : null
-    }
-  })
+  return (data || []).map((p: any) => ({
+    id: p.id,
+    user_id: p.user_id,
+    source_id: p.source_id,
+    amount: p.amount,
+    payment_date: p.payment_date,
+    status: p.status,
+    notes: p.notes ?? null,
+    created_at: p.created_at,
+    income_sources: Array.isArray(p.income_sources)
+      ? { source_name: p.income_sources[0]?.source_name ?? undefined }
+      : null
+  }))
 }

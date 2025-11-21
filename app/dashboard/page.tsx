@@ -17,16 +17,13 @@ import ArchivedList from "@/components/sources/ArchivedList"
 import SourceSlideOver from "@/components/sources/SourceSlideOver"
 import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { useToast } from "@/components/ui/use-toast"
-
-// Supabase functions
+import { getPayouts } from "@/lib/supabase/payouts"
 import {
   getActiveSources,
   getArchivedSources,
   archiveSource,
   unarchiveSource
 } from "@/lib/supabase/sources"
-
-import { getPayouts } from "@/lib/supabase/payouts"
 
 export default function DashboardPage() {
   const router = useRouter()
@@ -42,16 +39,14 @@ export default function DashboardPage() {
 
   const [user, setUser] = useState<any>(null)
 
-  const [slideOverOpen, setSlideOverOpen] = useState(false)
+  const [slideOpen, setSlideOpen] = useState(false)
   const [editingSource, setEditingSource] = useState<IncomeSource | null>(null)
 
-  // Archive confirmation modal
-  const [confirmOpen, setConfirmOpen] = useState(false)
-  const [pendingArchive, setPendingArchive] = useState<IncomeSource | null>(null)
+  const [confirmArchive, setConfirmArchive] = useState(false)
+  const [archiveTarget, setArchiveTarget] = useState<IncomeSource | null>(null)
 
-  // Unarchive confirmation modal
-  const [confirmUnarchiveOpen, setConfirmUnarchiveOpen] = useState(false)
-  const [pendingUnarchive, setPendingUnarchive] = useState<IncomeSource | null>(null)
+  const [confirmUnarchive, setConfirmUnarchive] = useState(false)
+  const [unarchiveTarget, setUnarchiveTarget] = useState<IncomeSource | null>(null)
 
   useEffect(() => {
     async function load() {
@@ -79,57 +74,37 @@ export default function DashboardPage() {
 
       setLoading(false)
     }
-
     load()
   }, [router])
 
   if (loading) return <div>Loading...</div>
 
-  // ---------------------------------------------------------------------
-  // Archive Confirm
-  // ---------------------------------------------------------------------
-  async function handleArchiveConfirm() {
-    if (!pendingArchive) return
+  async function doArchive() {
+    if (!archiveTarget) return
+    await archiveSource(archiveTarget.id)
 
-    await archiveSource(pendingArchive.id)
+    const uid = user.id
+    setSources(await getActiveSources(uid))
+    setArchivedSources(await getArchivedSources(uid))
 
-    const userId = user.id
-    setSources(await getActiveSources(userId))
-    setArchivedSources(await getArchivedSources(userId))
-
-    toast({
-      title: "Archived",
-      description: `${pendingArchive.source_name} was archived.`
-    })
-
-    setConfirmOpen(false)
-    setPendingArchive(null)
+    toast({ title: "Archived", description: `${archiveTarget.source_name} archived.` })
+    setConfirmArchive(false)
+    setArchiveTarget(null)
   }
 
-  // ---------------------------------------------------------------------
-  // Unarchive Confirm
-  // ---------------------------------------------------------------------
-  async function handleUnarchiveConfirm() {
-    if (!pendingUnarchive) return
+  async function doUnarchive() {
+    if (!unarchiveTarget) return
+    await unarchiveSource(unarchiveTarget.id)
 
-    await unarchiveSource(pendingUnarchive.id)
+    const uid = user.id
+    setSources(await getActiveSources(uid))
+    setArchivedSources(await getArchivedSources(uid))
 
-    const userId = user.id
-    setSources(await getActiveSources(userId))
-    setArchivedSources(await getArchivedSources(userId))
-
-    toast({
-      title: "Restored",
-      description: `${pendingUnarchive.source_name} is active again.`
-    })
-
-    setConfirmUnarchiveOpen(false)
-    setPendingUnarchive(null)
+    toast({ title: "Restored", description: `${unarchiveTarget.source_name} restored.` })
+    setConfirmUnarchive(false)
+    setUnarchiveTarget(null)
   }
 
-  // ---------------------------------------------------------------------
-  // CSV Export
-  // ---------------------------------------------------------------------
   const csvData = payouts.map((p) => ({
     Source: p.income_sources?.source_name || "—",
     Amount: p.amount,
@@ -140,70 +115,49 @@ export default function DashboardPage() {
   return (
     <div className="mt-6">
 
-      {/* Archive Confirmation */}
       <ConfirmDialog
-        open={confirmOpen}
+        open={confirmArchive}
         title="Archive Source"
-        description="This will move the source to Archived. Continue?"
-        onCancel={() => setConfirmOpen(false)}
-        onConfirm={handleArchiveConfirm}
+        description="Move this source to Archived?"
+        onCancel={() => setConfirmArchive(false)}
+        onConfirm={doArchive}
       />
 
-      {/* Unarchive Confirmation */}
       <ConfirmDialog
-        open={confirmUnarchiveOpen}
+        open={confirmUnarchive}
         title="Unarchive Source"
         description="Restore this source?"
-        onCancel={() => setConfirmUnarchiveOpen(false)}
-        onConfirm={handleUnarchiveConfirm}
+        onCancel={() => setConfirmUnarchive(false)}
+        onConfirm={doUnarchive}
       />
 
-      {/* SlideOver */}
       <SourceSlideOver
         initial={editingSource}
         userId={user?.id}
-        open={slideOverOpen}
-        onClose={() => {
-          setSlideOverOpen(false)
-          setEditingSource(null)
-        }}
+        open={slideOpen}
+        onClose={() => { setSlideOpen(false); setEditingSource(null) }}
         onSaved={async () => {
           setSources(await getActiveSources(user.id))
           setArchivedSources(await getArchivedSources(user.id))
         }}
       />
 
-      {/* ACTIVE SOURCES */}
       {activeTab === "sources" && (
         <SourceList
           sources={sources}
-          onAdd={() => {
-            setEditingSource(null)
-            setSlideOverOpen(true)
-          }}
-          onEdit={(s) => {
-            setEditingSource(s)
-            setSlideOverOpen(true)
-          }}
-          onArchive={(s) => {
-            setPendingArchive(s)
-            setConfirmOpen(true)
-          }}
+          onAdd={() => { setEditingSource(null); setSlideOpen(true) }}
+          onEdit={(s) => { setEditingSource(s); setSlideOpen(true) }}
+          onArchive={(s) => { setArchiveTarget(s); setConfirmArchive(true) }}
         />
       )}
 
-      {/* ARCHIVED SOURCES */}
       {activeTab === "archived" && (
         <ArchivedList
           sources={archivedSources}
-          onUnarchive={(s) => {
-            setPendingUnarchive(s)
-            setConfirmUnarchiveOpen(true)
-          }}
+          onUnarchive={(s) => { setUnarchiveTarget(s); setConfirmUnarchive(true) }}
         />
       )}
 
-      {/* PAYOUTS */}
       {activeTab === "payouts" && (
         <section>
           <h2 className="text-2xl font-semibold mb-4">Payouts</h2>
@@ -218,15 +172,12 @@ export default function DashboardPage() {
                   <th className="p-3">Status</th>
                 </tr>
               </thead>
-
               <tbody>
                 {payouts.map((p) => (
                   <tr key={p.id} className="border-t">
                     <td className="p-3">{p.income_sources?.source_name || "—"}</td>
                     <td className="p-3">${p.amount.toLocaleString()}</td>
-                    <td className="p-3">
-                      {new Date(p.payment_date).toLocaleDateString()}
-                    </td>
+                    <td className="p-3">{new Date(p.payment_date).toLocaleDateString()}</td>
                     <td className="p-3">{p.status}</td>
                   </tr>
                 ))}
@@ -244,17 +195,13 @@ export default function DashboardPage() {
         </section>
       )}
 
-      {/* ANALYTICS */}
       {activeTab === "analytics" && (
         <section>
           <KPI insights={insights} />
-
-          {monthlyTrends.length === 0 ? (
-            <p className="text-gray-500">No trend data.</p>
-          ) : (
-            <MonthlyTrendsChart data={monthlyTrends} />
-          )}
-
+          {monthlyTrends.length === 0
+            ? <p className="text-gray-500">No trend data.</p>
+            : <MonthlyTrendsChart data={monthlyTrends} />
+          }
           <SourceInsightsTable insights={insights} />
         </section>
       )}

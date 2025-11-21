@@ -1,3 +1,38 @@
+/* ============================================================
+   GLOBAL TYPE DEFINITIONS — HAVEN ONE WEALTH
+   ============================================================ */
+
+/* Admin Summary */
+export interface AdminSummary {
+   total_sources: number
+   total_payouts: number
+   total_payout_amount: number
+   avg_payout_amount: number
+}
+
+/* Portfolio Aggregates */
+export interface PortfolioAggregate {
+   source_name: string
+   total_expected: number
+}
+
+/* Monthly Trends (Required by Dashboard) */
+export interface MonthlyTrend {
+   month: string
+   total_payments: number
+   total_payout: number
+   user_id: string
+}
+
+/* Recent Payouts */
+export interface RecentPayout {
+   source_name: string
+   amount: number
+   status: string
+   payout_date: string
+}
+
+/* Income Sources */
 export interface IncomeSource {
    id: string
    user_id: string
@@ -18,6 +53,7 @@ export interface IncomeSource {
    created_at: string
 }
 
+/* Payouts */
 export interface Payout {
    id: string
    user_id: string
@@ -31,4 +67,12 @@ export interface Payout {
    income_sources?: {
       source_name?: string
    } | null
+}
+
+/* Users */
+export interface AppUser {
+   id: string
+   email: string
+   role?: string
+   created_at: string
 }
