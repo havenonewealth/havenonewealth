@@ -12,8 +12,14 @@ export interface ConfirmDialogProps {
 }
 
 export function ConfirmDialog({ open, title, description, onConfirm, onCancel }: ConfirmDialogProps) {
+
+    // IMPORTANT: Only close when user explicitly presses cancel
+    function handleChange(isOpen: boolean) {
+        if (!isOpen) onCancel()
+    }
+
     return (
-        <Dialog open={open} onOpenChange={onCancel}>
+        <Dialog open={open} onOpenChange={handleChange}>
             <DialogContent className="max-w-sm">
                 <DialogHeader>
                     <DialogTitle>{title}</DialogTitle>
@@ -21,8 +27,13 @@ export function ConfirmDialog({ open, title, description, onConfirm, onCancel }:
                 </DialogHeader>
 
                 <div className="mt-6 flex justify-end gap-4">
-                    <Button variant="outline" onClick={onCancel}>Cancel</Button>
-                    <Button className="bg-red-600 text-white" onClick={onConfirm}>Confirm</Button>
+                    <Button variant="outline" onClick={onCancel}>
+                        Cancel
+                    </Button>
+
+                    <Button className="bg-red-600 text-white" onClick={onConfirm}>
+                        Confirm
+                    </Button>
                 </div>
             </DialogContent>
         </Dialog>
