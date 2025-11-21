@@ -10,10 +10,18 @@ function Header() {
   const router = useRouter()
   const { activeTab, setActiveTab } = useTabs()
 
-  const tabStyle = (tab: string) =>
-    activeTab === tab
-      ? 'bg-[#C6A664] text-[#0A1E2D]'
-      : 'bg-gray-200 text-gray-800'
+  // Unified tab styling
+  const tabBase =
+    'px-4 py-2 rounded-md font-semibold border transition text-sm'
+
+  const active =
+    'bg-[#C6A664] text-[#0A1E2D] border-[#C6A664]'
+
+  const inactive =
+    'bg-gray-200 text-gray-800 border-gray-300 hover:bg-gray-300'
+
+  const tabClass = (tab: string) =>
+    `${tabBase} ${activeTab === tab ? active : inactive}`
 
   const handleLogout = async () => {
     await supabase.auth.signOut()
@@ -22,25 +30,40 @@ function Header() {
 
   return (
     <div className="flex justify-between items-center mb-6">
-      <Image src="/HOW2Logo.png" width={150} height={50} alt="Haven One Wealth Logo" />
+      <Image
+        src="/HOW2Logo.png"
+        width={150}
+        height={50}
+        alt="Haven One Wealth Logo"
+      />
 
       <div className="flex gap-3">
-        <button onClick={() => setActiveTab('sources')} className={`px-4 py-2 rounded-md font-semibold ${tabStyle('sources')}`}>
+
+        <button
+          onClick={() => setActiveTab('sources')}
+          className={tabClass('sources')}
+        >
           Sources
         </button>
 
         <button
-          className={activeTab === "archived" ? "active-tab" : ""}
-          onClick={() => setActiveTab("archived")}
+          onClick={() => setActiveTab('archived')}
+          className={tabClass('archived')}
         >
           Archived
         </button>
 
-        <button onClick={() => setActiveTab('payouts')} className={`px-4 py-2 rounded-md font-semibold ${tabStyle('payouts')}`}>
+        <button
+          onClick={() => setActiveTab('payouts')}
+          className={tabClass('payouts')}
+        >
           Payouts
         </button>
 
-        <button onClick={() => setActiveTab('analytics')} className={`px-4 py-2 rounded-md font-semibold ${tabStyle('analytics')}`}>
+        <button
+          onClick={() => setActiveTab('analytics')}
+          className={tabClass('analytics')}
+        >
           Analytics
         </button>
 
@@ -71,18 +94,20 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   }, [router])
 
   if (loading) {
-    return <main className="flex items-center justify-center min-h-screen">Loading...</main>
+    return (
+      <main className="flex items-center justify-center min-h-screen">
+        Loading...
+      </main>
+    )
   }
 
   return (
     <main className="min-h-screen bg-[#f8f9fa] text-[#0A1E2D] px-6 py-10 font-[Lato]">
       <div className="max-w-6xl mx-auto bg-white p-10 rounded-2xl shadow-md border border-gray-100">
-
         <TabProvider>
           <Header />
           {children}
         </TabProvider>
-
       </div>
     </main>
   )
