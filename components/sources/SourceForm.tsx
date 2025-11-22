@@ -4,15 +4,23 @@ import React from "react"
 import { IncomeSource } from "@/lib/types"
 
 interface Props {
-    data: Partial<IncomeSource>
-    onChange: (values: Partial<IncomeSource>) => void
+    data: {
+        source_name: string
+        source_type: string | null
+        frequency: string | null
+        expected_amount: number | null
+        expected_monthly: number | null
+        notes: string | null
+    }
+    onChange: (values: any) => void
 }
 
 export default function SourceForm({ data, onChange }: Props) {
-    function update<K extends keyof IncomeSource>(key: K, value: IncomeSource[K]) {
+
+    function update(field: keyof typeof data, value: any) {
         onChange({
             ...data,
-            [key]: value
+            [field]: value ?? null
         })
     }
 
@@ -26,7 +34,7 @@ export default function SourceForm({ data, onChange }: Props) {
                 </label>
                 <input
                     type="text"
-                    value={data.source_name ?? ""}
+                    value={data.source_name}
                     onChange={(e) => update("source_name", e.target.value)}
                     className="mt-1 block w-full rounded border-gray-300 focus:ring-[#C6A664] focus:border-[#C6A664]"
                     placeholder="Example: Amazon KDP, Udemy, YouTube"
@@ -41,7 +49,7 @@ export default function SourceForm({ data, onChange }: Props) {
                 <input
                     type="text"
                     value={data.source_type ?? ""}
-                    onChange={(e) => update("source_type", e.target.value)}
+                    onChange={(e) => update("source_type", e.target.value || null)}
                     className="mt-1 block w-full rounded border-gray-300 focus:ring-[#C6A664] focus:border-[#C6A664]"
                     placeholder="e.g. Royalty, Affiliate, Rental"
                 />
@@ -104,12 +112,13 @@ export default function SourceForm({ data, onChange }: Props) {
                 </label>
                 <textarea
                     value={data.notes ?? ""}
-                    onChange={(e) => update("notes", e.target.value)}
+                    onChange={(e) => update("notes", e.target.value || null)}
                     className="mt-1 block w-full rounded border-gray-300 focus:ring-[#C6A664] focus:border-[#C6A664]"
                     rows={3}
-                    placeholder="Optional notes about this source..."
+                    placeholder="Optional notes..."
                 />
             </div>
+
         </div>
     )
 }

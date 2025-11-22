@@ -21,10 +21,18 @@ export default function SourceSlideOver({
     onClose,
     onSaved
 }: Props) {
+
     const { toast } = useToast()
 
-    // Local form state
-    const [data, setData] = useState<Partial<IncomeSource>>({
+    // Local form state (safe, all nullable)
+    const [data, setData] = useState<{
+        source_name: string
+        source_type: string | null
+        frequency: string | null
+        expected_amount: number | null
+        expected_monthly: number | null
+        notes: string | null
+    }>({
         source_name: "",
         source_type: null,
         frequency: null,
@@ -33,7 +41,7 @@ export default function SourceSlideOver({
         notes: null
     })
 
-    // Load values when editing OR reset for new entry
+    // Load existing values when editing
     useEffect(() => {
         if (initial) {
             setData({
@@ -59,18 +67,23 @@ export default function SourceSlideOver({
     if (!open) return null
 
     async function handleSave() {
-        // Validate required fields
+
         if (!data.source_name || data.source_name.trim() === "") {
             toast({
                 title: "Missing name",
-                description: "Source name is required"
+                description: "Source name is required."
             })
             return
         }
 
+        // Final payload — safe for DB
         const payload = {
-            ...data,
             source_name: data.source_name.trim(),
+            source_type: data.source_type ?? null,
+            frequency: data.frequency ?? null,
+            expected_amount: data.expected_amount ?? null,
+            expected_monthly: data.expected_monthly ?? null,
+            notes: data.notes ?? null,
             user_id: userId
         }
 
@@ -79,7 +92,7 @@ export default function SourceSlideOver({
         if (!success) {
             toast({
                 title: "Error",
-                description: "Unable to save the source"
+                description: "Unable to save the source."
             })
             return
         }
@@ -111,10 +124,10 @@ export default function SourceSlideOver({
                     </button>
                 </div>
 
-                {/* Form */}
+                {/* FORM */}
                 <SourceForm data={data} onChange={setData} />
 
-                {/* Actions */}
+                {/* ACTIONS */}
                 <div className="mt-8 flex justify-end gap-3">
                     <button
                         onClick={onClose}
