@@ -25,11 +25,14 @@ export function ConfirmDialog({
     onConfirm,
     onCancel
 }: ConfirmDialogProps) {
+
     return (
         <Dialog
             open={open}
-            // prevent auto-close so Confirm can fire properly
-            onOpenChange={() => { }}
+            // IMPORTANT: do NOT immediately cancel when open state changes
+            onOpenChange={(state) => {
+                if (!state) onCancel()
+            }}
         >
             <DialogContent className="max-w-sm">
                 <DialogHeader>
@@ -48,6 +51,7 @@ export function ConfirmDialog({
                     <Button
                         className="bg-red-600 text-white"
                         onClick={() => {
+                            // ENSURE confirm executes first
                             onConfirm()
                         }}
                     >
