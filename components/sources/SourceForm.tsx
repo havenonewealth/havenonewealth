@@ -16,29 +16,48 @@ export default function SourceForm({ data, onChange }: Props) {
         })
     }
 
-    // Auto-calc expected_monthly
-    useEffect(() => {
-        if (!data.frequency || !data.expected_amount) return
+    // Convert formatted currency → number
+    function parseCurrency(input: string): number | null {
+        if (!input) return null
+        const cleaned = input.replace(/[^0-9.-]/g, "")
+        const num = Number(cleaned)
+        return isNaN(num) ? null : num
+    }
 
-        const freq = data.frequency
-        let monthly = null
-
-        if (freq === "Monthly") monthly = data.expected_amount
-        if (freq === "Weekly") monthly = Number((data.expected_amount * 4).toFixed(2))
-        if (freq === "Quarterly") monthly = Number((data.expected_amount / 3).toFixed(2))
-        if (freq === "Annual") monthly = Number((data.expected_amount / 12).toFixed(2))
-
-        update("expected_monthly", monthly as any)
-    }, [data.frequency, data.expected_amount])
-
-    // Currency formatting
-    function currency(n: number | null | undefined) {
-        if (n == null) return ""
-        return n.toLocaleString("en-US", {
+    // Format number → currency
+    function formatCurrency(num: number | null | undefined): string {
+        if (num == null) return ""
+        return num.toLocaleString("en-US", {
             style: "currency",
             currency: "USD"
         })
     }
+
+    // Auto-calc expected_monthly
+    useEffect(() => {
+        if (!data.frequency || !data.expected_amount) return
+
+        let monthly = null
+
+        switch (data.frequency) {
+            case "Monthly":
+                monthly = data.expected_amount
+                break
+            case "Weekly":
+                monthly = Number((data.expected_amount * 4).toFixed(2))
+                break
+            case "Quarterly":
+                monthly = Number((data.expected_amount / 3).toFixed(2))
+                break
+            case "Annual":
+                monthly = Number((data.expected_amount / 12).toFixed(2))
+                break
+            default:
+                monthly = null
+        }
+
+        update("expected_monthly", monthly as any)
+    }, [data.frequency, data.expected_amount])
 
     return (
         <div className="space-y-5">
@@ -51,7 +70,6 @@ export default function SourceForm({ data, onChange }: Props) {
                     value={data.source_name ?? ""}
                     onChange={(e) => update("source_name", e.target.value)}
                     className="mt-1 block w-full rounded border-gray-300"
-                    placeholder="Amazon KDP, Udemy, YouTube"
                 />
             </div>
 
@@ -88,40 +106,30 @@ export default function SourceForm({ data, onChange }: Props) {
             <div>
                 <label className="text-sm font-medium">Expected Amount</label>
                 <input
-                    type="number"
-                    value={data.expected_amount ?? ""}
+                    type="text"
+                    value={formatCurrency(data.expected_amount)}
                     onChange={(e) => {
-                        const val = e.target.value ? Number(e.target.value) : null
-                        update("expected_amount", val as any)
+                        const parsed = parseCurrency(e.target.value)
+                        update("expected_amount", parsed as any)
                     }}
                     className="mt-1 block w-full rounded border-gray-300"
-                    placeholder="Amount based on frequency"
+                    placeholder="$0.00"
                 />
-                {data.expected_amount != null && (
-                    <p className="text-xs text-gray-500 mt-1">
-                        {currency(data.expected_amount)}
-                    </p>
-                )}
             </div>
 
             {/* Expected Monthly */}
             <div>
-                <label className="text-sm font-medium">Expected Monthly Value</label>
+                <label className="text-sm font-medium">Expected Monthly</label>
                 <input
-                    type="number"
-                    value={data.expected_monthly ?? ""}
+                    type="text"
+                    value={formatCurrency(data.expected_monthly)}
                     onChange={(e) => {
-                        const val = e.target.value ? Number(e.target.value) : null
-                        update("expected_monthly", val as any)
+                        const parsed = parseCurrency(e.target.value)
+                        update("expected_monthly", parsed as any)
                     }}
                     className="mt-1 block w-full rounded border-gray-300"
-                    placeholder="Auto-calculated or manual"
+                    placeholder="$0.00"
                 />
-                {data.expected_monthly != null && (
-                    <p className="text-xs text-gray-500 mt-1">
-                        {currency(data.expected_monthly)}
-                    </p>
-                )}
             </div>
 
             {/* Notes */}
@@ -132,9 +140,9 @@ export default function SourceForm({ data, onChange }: Props) {
                     onChange={(e) => update("notes", e.target.value)}
                     className="mt-1 block w-full rounded border-gray-300"
                     rows={3}
-                    placeholder="Optional notes about this source..."
                 />
             </div>
+
         </div>
     )
 }

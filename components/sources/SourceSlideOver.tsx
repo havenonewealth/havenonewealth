@@ -23,14 +23,7 @@ export default function SourceSlideOver({
 }: Props) {
     const { toast } = useToast()
 
-    const [data, setData] = useState<Partial<IncomeSource>>({
-        source_name: "",
-        source_type: null,
-        frequency: null,
-        expected_amount: null,
-        expected_monthly: null,
-        notes: null
-    })
+    const [data, setData] = useState<Partial<IncomeSource>>({})
 
     useEffect(() => {
         if (initial) {
@@ -57,7 +50,7 @@ export default function SourceSlideOver({
     if (!open) return null
 
     async function handleSave() {
-        if (!data.source_name || data.source_name.trim() === "") {
+        if (!data.source_name?.trim()) {
             toast({
                 title: "Missing name",
                 description: "Source name is required"
@@ -92,6 +85,7 @@ export default function SourceSlideOver({
     return (
         <div className="fixed inset-0 bg-black/40 z-40 flex justify-end">
             <div className="bg-white w-full max-w-md h-full shadow-xl p-6 overflow-y-auto">
+
                 <div className="flex justify-between items-center mb-6">
                     <h2 className="text-xl font-semibold text-[#0A1E2D]">
                         {initial ? "Edit Source" : "New Source"}
@@ -118,6 +112,7 @@ export default function SourceSlideOver({
                         Save
                     </button>
                 </div>
+
             </div>
         </div>
     )
