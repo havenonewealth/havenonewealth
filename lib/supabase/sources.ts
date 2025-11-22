@@ -45,40 +45,30 @@ export async function getArchivedSources(userId: string): Promise<IncomeSource[]
 // SAVE SOURCE (CREATE / UPDATE) — FIXED
 // ---------------------------------------------------------
 export async function saveSource(id: string | null, payload: Partial<IncomeSource>) {
-
-  // Build ONLY the fields that the user actually edits
-  const safePayload: any = {}
-
-  if (payload.source_name !== undefined) safePayload.source_name = payload.source_name
-  if (payload.source_type !== undefined) safePayload.source_type = payload.source_type
-  if (payload.frequency !== undefined) safePayload.frequency = payload.frequency
-  if (payload.expected_amount !== undefined) safePayload.expected_amount = payload.expected_amount
-  if (payload.expected_monthly !== undefined) safePayload.expected_monthly = payload.expected_monthly
-  if (payload.notes !== undefined) safePayload.notes = payload.notes
-  if (payload.user_id) safePayload.user_id = payload.user_id
+  console.log("SAVESOURCE: called with id =", id)
+  console.log("SAVESOURCE: payload =", payload)
 
   if (id) {
-    const { error } = await supabase
+    const { error, data } = await supabase
       .from("income_sources")
-      .update(safePayload)
+      .update(payload)
       .eq("id", id)
+      .select()
 
-    if (error) {
-      console.error("saveSource update error:", error)
-      return false
-    }
+    console.log("SAVESOURCE: UPDATE RESULT =", { error, data })
+
+    if (error) return false
     return true
   }
 
-  const { error } = await supabase
+  const { error, data } = await supabase
     .from("income_sources")
-    .insert(safePayload)
+    .insert(payload)
+    .select()
 
-  if (error) {
-    console.error("saveSource create error:", error)
-    return false
-  }
+  console.log("SAVESOURCE: INSERT RESULT =", { error, data })
 
+  if (error) return false
   return true
 }
 

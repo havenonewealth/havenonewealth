@@ -227,9 +227,16 @@ export default function DashboardPage() {
         open={slideOpen}
         onClose={() => { setSlideOpen(false); setEditingSource(null) }}
         onSaved={async () => {
-          const uid = user.id
-          setSources(await getActiveSources(uid))
-          setArchivedSources(await getArchivedSources(uid))
+          console.log("DASHBOARD: onSaved() triggered")
+
+          const active = await getActiveSources(user.id)
+          const archived = await getArchivedSources(user.id)
+
+          console.log("DASHBOARD: refreshed active =", active)
+          console.log("DASHBOARD: refreshed archived =", archived)
+
+          setSources(active)
+          setArchivedSources(archived)
         }}
       />
 
