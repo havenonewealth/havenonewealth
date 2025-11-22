@@ -3,15 +3,16 @@
 import { supabase } from "@/lib/supabaseClient"
 import type { IncomeSource } from "@/lib/types"
 
+// ---------------------------------------------------------
 // ACTIVE SOURCES
+// ---------------------------------------------------------
 export async function getActiveSources(userId: string): Promise<IncomeSource[]> {
   const { data, error } = await supabase
     .from("income_sources")
     .select("*")
     .eq("user_id", userId)
-    .is("archived_at", null)
+    .eq("archived", false)
     .eq("deleted", false)
-    .order("created_at", { ascending: false })
 
   if (error) {
     console.error("getActiveSources error:", error)
@@ -21,15 +22,16 @@ export async function getActiveSources(userId: string): Promise<IncomeSource[]> 
   return data as IncomeSource[]
 }
 
+// ---------------------------------------------------------
 // ARCHIVED SOURCES
+// ---------------------------------------------------------
 export async function getArchivedSources(userId: string): Promise<IncomeSource[]> {
   const { data, error } = await supabase
     .from("income_sources")
     .select("*")
     .eq("user_id", userId)
-    .not("archived_at", "is", null)
+    .eq("archived", true)
     .eq("deleted", false)
-    .order("archived_at", { ascending: false })
 
   if (error) {
     console.error("getArchivedSources error:", error)
@@ -39,7 +41,9 @@ export async function getArchivedSources(userId: string): Promise<IncomeSource[]
   return data as IncomeSource[]
 }
 
+// ---------------------------------------------------------
 // SAVE SOURCE
+// ---------------------------------------------------------
 export async function saveSource(id: string | null, payload: Partial<IncomeSource>) {
   const safePayload = {
     source_name: payload.source_name,
@@ -77,9 +81,11 @@ export async function saveSource(id: string | null, payload: Partial<IncomeSourc
   return true
 }
 
-// ARCHIVE SOURCE — FIXED 100%
+// ---------------------------------------------------------
+// ARCHIVE SOURCE — FIXED & VERIFIED
+// ---------------------------------------------------------
 export async function archiveSource(id: string) {
-  console.log("SERVER: archiveSource CALLED with ID:", id)
+  console.log("ARCHIVE: Calling Supabase update with id =", id)
 
   const { data, error } = await supabase
     .from("income_sources")
@@ -90,24 +96,28 @@ export async function archiveSource(id: string) {
     .eq("id", id)
     .select()
 
+  console.log("ARCHIVE: result from supabase =", data, error)
+
   if (error) {
-    console.error("SERVER: archiveSource ERROR:", error)
+    console.error("archiveSource error:", error)
     throw new Error(error.message)
   }
 
-  console.log("SERVER: archiveSource SUCCESS. Return data:", data)
-  return data
+  return true
 }
 
-
-// UNARCHIVE SOURCE — FIXED 100%
+// ---------------------------------------------------------
+// UNARCHIVE SOURCE — FIXED
+// ---------------------------------------------------------
 export async function unarchiveSource(id: string) {
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("income_sources")
     .update({
+      archived: false,
       archived_at: null
     })
     .eq("id", id)
+    .select()
 
   if (error) {
     console.error("unarchiveSource error:", error)
