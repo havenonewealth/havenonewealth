@@ -23,11 +23,9 @@ export default function SourceSlideOver({
 }: Props) {
     const { toast } = useToast()
 
-    // ------------------------------------------------------------------
-    // LOCAL FORM STATE
-    // ------------------------------------------------------------------
     const [data, setData] = useState<Partial<IncomeSource>>({})
 
+    // Load values when editing OR reset for new entry
     useEffect(() => {
         if (initial) {
             setData({
@@ -53,19 +51,17 @@ export default function SourceSlideOver({
 
     if (!open) return null
 
-    // ------------------------------------------------------------------
-    // SAVE HANDLER
-    // ------------------------------------------------------------------
     async function handleSave() {
         if (!data.source_name || data.source_name.trim() === "") {
             toast({
                 title: "Source name required",
-                description: "Please enter a valid source name."
+                description: "Please enter a name before saving."
             })
             return
         }
 
-        const recordId = initial?.id ?? null
+        // THE KEY FIX — ensure ID is passed for updates
+        const id = initial?.id ?? null
 
         const payload = {
             source_name: data.source_name?.trim() ?? "",
@@ -77,22 +73,22 @@ export default function SourceSlideOver({
             user_id: userId
         }
 
-        console.log("SAVE — id=", recordId)
-        console.log("SAVE — payload=", payload)
+        console.log("SAVE SOURCE → id:", id)
+        console.log("SAVE SOURCE → payload:", payload)
 
-        const ok = await saveSource(recordId, payload)
+        const success = await saveSource(id, payload)
 
-        if (!ok) {
+        if (!success) {
             toast({
-                title: "Save failed",
-                description: "Unable to save changes. Please retry."
+                title: "Error",
+                description: "Unable to save the source. Try again."
             })
             return
         }
 
         toast({
             title: initial ? "Updated" : "Created",
-            description: "Source saved successfully."
+            description: "Your source has been saved."
         })
 
         onSaved()
@@ -100,37 +96,37 @@ export default function SourceSlideOver({
     }
 
     return (
-        <div className="fixed inset-0 bg-black/30 flex justify-end z-50">
+        <div className="fixed inset-0 bg-black/40 z-40 flex justify-end">
             <div className="bg-white w-full max-w-md h-full shadow-xl p-6 overflow-y-auto">
 
-                {/* HEADER */}
+                {/* Header */}
                 <div className="flex justify-between items-center mb-6">
                     <h2 className="text-xl font-semibold text-[#0A1E2D]">
                         {initial ? "Edit Source" : "New Source"}
                     </h2>
                     <button
-                        className="text-gray-500 hover:text-gray-700"
                         onClick={onClose}
+                        className="text-gray-500 hover:text-gray-700"
                     >
                         ✕
                     </button>
                 </div>
 
-                {/* FORM */}
+                {/* Form */}
                 <SourceForm data={data} onChange={setData} />
 
-                {/* ACTIONS */}
+                {/* Save / Cancel Buttons */}
                 <div className="mt-8 flex justify-end gap-3">
                     <button
                         onClick={onClose}
-                        className="px-4 py-2 border rounded text-gray-700 hover:bg-gray-100"
+                        className="px-4 py-2 border border-gray-300 rounded text-gray-700 hover:bg-gray-100"
                     >
                         Cancel
                     </button>
 
                     <button
                         onClick={handleSave}
-                        className="px-4 py-2 bg-[#0A1E2D] text-white rounded hover:bg-[#C6A664]"
+                        className="px-4 py-2 rounded bg-[#0A1E2D] text-white hover:bg-[#C6A664]"
                     >
                         Save
                     </button>
