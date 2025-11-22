@@ -21,7 +21,6 @@ export default function SourceSlideOver({
     onClose,
     onSaved
 }: Props) {
-
     const { toast } = useToast()
 
     const [data, setData] = useState<Partial<IncomeSource>>({
@@ -33,7 +32,6 @@ export default function SourceSlideOver({
         notes: null
     })
 
-    // Load existing values on edit
     useEffect(() => {
         if (initial) {
             setData({
@@ -61,19 +59,14 @@ export default function SourceSlideOver({
     async function handleSave() {
         if (!data.source_name || data.source_name.trim() === "") {
             toast({
-                title: "Missing Name",
+                title: "Missing name",
                 description: "Source name is required"
             })
             return
         }
 
         const payload = {
-            source_name: data.source_name.trim(),
-            source_type: data.source_type ?? null,
-            frequency: data.frequency ?? null,
-            expected_amount: data.expected_amount ?? null,
-            expected_monthly: data.expected_monthly ?? null,
-            notes: data.notes ?? null,
+            ...data,
             user_id: userId
         }
 
@@ -82,14 +75,14 @@ export default function SourceSlideOver({
         if (!success) {
             toast({
                 title: "Error",
-                description: "Could not save source."
+                description: "Unable to save the source"
             })
             return
         }
 
         toast({
             title: initial ? "Updated" : "Created",
-            description: "Source saved successfully."
+            description: "Your income source has been saved."
         })
 
         onSaved()
@@ -99,19 +92,17 @@ export default function SourceSlideOver({
     return (
         <div className="fixed inset-0 bg-black/40 z-40 flex justify-end">
             <div className="bg-white w-full max-w-md h-full shadow-xl p-6 overflow-y-auto">
-
-                {/* Header */}
                 <div className="flex justify-between items-center mb-6">
                     <h2 className="text-xl font-semibold text-[#0A1E2D]">
                         {initial ? "Edit Source" : "New Source"}
                     </h2>
-                    <button onClick={onClose} className="text-gray-500 hover:text-gray-700">✕</button>
+                    <button onClick={onClose} className="text-gray-500 hover:text-gray-700">
+                        ✕
+                    </button>
                 </div>
 
-                {/* Form */}
                 <SourceForm data={data} onChange={setData} />
 
-                {/* Actions */}
                 <div className="mt-8 flex justify-end gap-3">
                     <button
                         onClick={onClose}
@@ -127,7 +118,6 @@ export default function SourceSlideOver({
                         Save
                     </button>
                 </div>
-
             </div>
         </div>
     )
