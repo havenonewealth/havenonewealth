@@ -11,7 +11,7 @@ export async function getActiveSources(userId: string): Promise<IncomeSource[]> 
     .from("income_sources")
     .select("*")
     .eq("user_id", userId)
-    .is("archived_at", null)
+    .eq("archived", false)
     .eq("deleted", false)
     .order("created_at", { ascending: false })
 
@@ -30,8 +30,8 @@ export async function getArchivedSources(userId: string): Promise<IncomeSource[]
   const { data, error } = await supabase
     .from("income_sources")
     .select("*")
-    .not("archived_at", "is", null)
     .eq("user_id", userId)
+    .eq("archived", true)
     .eq("deleted", false)
     .order("archived_at", { ascending: false })
 
@@ -44,7 +44,7 @@ export async function getArchivedSources(userId: string): Promise<IncomeSource[]
 }
 
 // ---------------------------------------------------------
-// SAVE — CREATE OR UPDATE
+// SAVE (CREATE / UPDATE)
 // ---------------------------------------------------------
 export async function saveSource(id: string | null, payload: Partial<IncomeSource>) {
   const safePayload = {
@@ -84,12 +84,13 @@ export async function saveSource(id: string | null, payload: Partial<IncomeSourc
 }
 
 // ---------------------------------------------------------
-// ARCHIVE SOURCE — FIXED
+// ARCHIVE SOURCE
 // ---------------------------------------------------------
 export async function archiveSource(id: string) {
   const { error } = await supabase
     .from("income_sources")
     .update({
+      archived: true,
       archived_at: new Date().toISOString()
     })
     .eq("id", id)
@@ -103,12 +104,13 @@ export async function archiveSource(id: string) {
 }
 
 // ---------------------------------------------------------
-// UNARCHIVE SOURCE — FIXED
+// UNARCHIVE SOURCE
 // ---------------------------------------------------------
 export async function unarchiveSource(id: string) {
   const { error } = await supabase
     .from("income_sources")
     .update({
+      archived: false,
       archived_at: null
     })
     .eq("id", id)
