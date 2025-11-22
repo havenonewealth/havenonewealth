@@ -86,19 +86,28 @@ export default function DashboardPage() {
 
   // Archive action
   async function doArchive() {
-    if (!archiveTarget) return
+    console.log("ARCHIVE: Confirm clicked")
+    console.log("ARCHIVE: archiveTarget =", archiveTarget)
 
-    await archiveSource(archiveTarget.id)
+    if (!archiveTarget) {
+      console.log("ARCHIVE: NO TARGET. STOP.")
+      return
+    }
 
+    try {
+      console.log("ARCHIVE: Calling archiveSource...")
+      const result = await archiveSource(archiveTarget.id)
+      console.log("ARCHIVE: Supabase result:", result)
+    } catch (err) {
+      console.error("ARCHIVE: ERROR calling archiveSource:", err)
+    }
+
+    console.log("ARCHIVE: Refreshing lists...")
     const uid = user.id
     setSources(await getActiveSources(uid))
     setArchivedSources(await getArchivedSources(uid))
 
-    toast({
-      title: "Archived",
-      description: `${archiveTarget.source_name} archived.`
-    })
-
+    console.log("ARCHIVE: DONE")
     setConfirmArchive(false)
     setArchiveTarget(null)
   }
@@ -169,7 +178,11 @@ export default function DashboardPage() {
           sources={sources}
           onAdd={() => { setEditingSource(null); setSlideOpen(true) }}
           onEdit={(s) => { setEditingSource(s); setSlideOpen(true) }}
-          onArchive={(s) => { setArchiveTarget(s); setConfirmArchive(true) }}
+          onArchive={(s) => {
+            console.log("DASHBOARD: Archive target received:", s)
+            setArchiveTarget(s)
+            setConfirmArchive(true)
+          }}
         />
       )}
 
