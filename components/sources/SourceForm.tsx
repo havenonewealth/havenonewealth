@@ -4,23 +4,15 @@ import React from "react"
 import { IncomeSource } from "@/lib/types"
 
 interface Props {
-    data: {
-        source_name: string
-        source_type: string | null
-        frequency: string | null
-        expected_amount: number | null
-        expected_monthly: number | null
-        notes: string | null
-    }
-    onChange: (values: any) => void
+    data: Partial<IncomeSource>
+    onChange: (values: Partial<IncomeSource>) => void
 }
 
 export default function SourceForm({ data, onChange }: Props) {
-
-    function update(field: keyof typeof data, value: any) {
+    function update<K extends keyof IncomeSource>(key: K, value: IncomeSource[K]) {
         onChange({
             ...data,
-            [field]: value ?? null
+            [key]: value
         })
     }
 
@@ -34,28 +26,33 @@ export default function SourceForm({ data, onChange }: Props) {
                 </label>
                 <input
                     type="text"
-                    value={data.source_name}
+                    value={data.source_name ?? ""}
                     onChange={(e) => update("source_name", e.target.value)}
                     className="mt-1 block w-full rounded border-gray-300 focus:ring-[#C6A664] focus:border-[#C6A664]"
-                    placeholder="Example: Amazon KDP, Udemy, YouTube"
+                    placeholder="Amazon KDP, Udemy, YouTube"
                 />
             </div>
 
-            {/* Source Type */}
+            {/* Source Type (Dropdown) */}
             <div>
                 <label className="block text-sm font-medium text-gray-700">
                     Source Type
                 </label>
-                <input
-                    type="text"
+                <select
                     value={data.source_type ?? ""}
                     onChange={(e) => update("source_type", e.target.value || null)}
                     className="mt-1 block w-full rounded border-gray-300 focus:ring-[#C6A664] focus:border-[#C6A664]"
-                    placeholder="e.g. Royalty, Affiliate, Rental"
-                />
+                >
+                    <option value="">Select...</option>
+                    <option value="Royalty">Royalty</option>
+                    <option value="Affiliate">Affiliate</option>
+                    <option value="Rental">Rental</option>
+                    <option value="Dividends">Dividends</option>
+                    <option value="Other">Other</option>
+                </select>
             </div>
 
-            {/* Frequency */}
+            {/* Frequency (Dropdown) */}
             <div>
                 <label className="block text-sm font-medium text-gray-700">
                     Frequency
@@ -92,7 +89,7 @@ export default function SourceForm({ data, onChange }: Props) {
             {/* Expected Monthly */}
             <div>
                 <label className="block text-sm font-medium text-gray-700">
-                    Expected Monthly Value
+                    Expected Monthly
                 </label>
                 <input
                     type="number"
@@ -101,7 +98,7 @@ export default function SourceForm({ data, onChange }: Props) {
                         update("expected_monthly", e.target.value ? Number(e.target.value) : null)
                     }
                     className="mt-1 block w-full rounded border-gray-300 focus:ring-[#C6A664] focus:border-[#C6A664]"
-                    placeholder="Auto-calculated or manual"
+                    placeholder="Auto or manual monthly value"
                 />
             </div>
 
@@ -112,13 +109,12 @@ export default function SourceForm({ data, onChange }: Props) {
                 </label>
                 <textarea
                     value={data.notes ?? ""}
-                    onChange={(e) => update("notes", e.target.value || null)}
+                    onChange={(e) => update("notes", e.target.value)}
                     className="mt-1 block w-full rounded border-gray-300 focus:ring-[#C6A664] focus:border-[#C6A664]"
                     rows={3}
-                    placeholder="Optional notes..."
+                    placeholder="Optional notes"
                 />
             </div>
-
         </div>
     )
 }

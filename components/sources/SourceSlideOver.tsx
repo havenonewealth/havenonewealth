@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useState, useEffect } from "react"
 import { IncomeSource } from "@/lib/types"
 import { saveSource } from "@/lib/supabase/sources"
 import { useToast } from "@/components/ui/use-toast"
@@ -21,18 +21,9 @@ export default function SourceSlideOver({
     onClose,
     onSaved
 }: Props) {
-
     const { toast } = useToast()
 
-    // Local form state (safe, all nullable)
-    const [data, setData] = useState<{
-        source_name: string
-        source_type: string | null
-        frequency: string | null
-        expected_amount: number | null
-        expected_monthly: number | null
-        notes: string | null
-    }>({
+    const [data, setData] = useState<Partial<IncomeSource>>({
         source_name: "",
         source_type: null,
         frequency: null,
@@ -41,16 +32,15 @@ export default function SourceSlideOver({
         notes: null
     })
 
-    // Load existing values when editing
     useEffect(() => {
         if (initial) {
             setData({
-                source_name: initial.source_name ?? "",
-                source_type: initial.source_type ?? null,
-                frequency: initial.frequency ?? null,
-                expected_amount: initial.expected_amount ?? null,
-                expected_monthly: initial.expected_monthly ?? null,
-                notes: initial.notes ?? null
+                source_name: initial.source_name,
+                source_type: initial.source_type,
+                frequency: initial.frequency,
+                expected_amount: initial.expected_amount,
+                expected_monthly: initial.expected_monthly,
+                notes: initial.notes
             })
         } else {
             setData({
@@ -67,27 +57,18 @@ export default function SourceSlideOver({
     if (!open) return null
 
     async function handleSave() {
-
         if (!data.source_name || data.source_name.trim() === "") {
             toast({
-                title: "Missing name",
+                title: "Missing Name",
                 description: "Source name is required."
             })
             return
         }
 
-        // Final payload — safe for DB
-        const payload = {
-            source_name: data.source_name.trim(),
-            source_type: data.source_type ?? null,
-            frequency: data.frequency ?? null,
-            expected_amount: data.expected_amount ?? null,
-            expected_monthly: data.expected_monthly ?? null,
-            notes: data.notes ?? null,
+        const success = await saveSource(initial?.id ?? null, {
+            ...data,
             user_id: userId
-        }
-
-        const success = await saveSource(initial?.id ?? null, payload)
+        })
 
         if (!success) {
             toast({
@@ -99,7 +80,7 @@ export default function SourceSlideOver({
 
         toast({
             title: initial ? "Updated" : "Created",
-            description: "Your income source has been saved."
+            description: "Source saved successfully."
         })
 
         onSaved()
@@ -116,18 +97,15 @@ export default function SourceSlideOver({
                         {initial ? "Edit Source" : "New Source"}
                     </h2>
 
-                    <button
-                        onClick={onClose}
-                        className="text-gray-500 hover:text-gray-700"
-                    >
+                    <button onClick={onClose} className="text-gray-500 hover:text-gray-700">
                         ✕
                     </button>
                 </div>
 
-                {/* FORM */}
+                {/* Form */}
                 <SourceForm data={data} onChange={setData} />
 
-                {/* ACTIONS */}
+                {/* Actions */}
                 <div className="mt-8 flex justify-end gap-3">
                     <button
                         onClick={onClose}
@@ -143,7 +121,6 @@ export default function SourceSlideOver({
                         Save
                     </button>
                 </div>
-
             </div>
         </div>
     )
