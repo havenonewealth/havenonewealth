@@ -13,7 +13,6 @@ interface Props {
 export default function SourceList({ sources, onAdd, onEdit, onArchive }: Props) {
   return (
     <div>
-
       {/* Header */}
       <div className="flex justify-between items-center mb-4">
         <h2 className="text-2xl font-semibold text-[#0A1E2D]">
@@ -33,34 +32,33 @@ export default function SourceList({ sources, onAdd, onEdit, onArchive }: Props)
         {sources.map((s) => (
           <li
             key={s.id}
-            className="p-4 border rounded-lg shadow-sm bg-white flex justify-between items-center"
+            className="p-4 border rounded-lg shadow-sm bg-white"
           >
+            <div className="flex justify-between items-center">
 
-            {/* LEFT SIDE – EDIT */}
-            <div
-              className="cursor-pointer flex-1"
-              onClick={() => onEdit(s)}
-            >
-              <p className="text-lg font-semibold text-[#0A1E2D]">
-                {s.source_name}
-              </p>
+              {/* Edit area */}
+              <div
+                onClick={() => onEdit(s)}
+                className="cursor-pointer"
+              >
+                <p className="text-lg font-semibold text-[#0A1E2D]">
+                  {s.source_name}
+                </p>
 
-              <p className="text-sm text-gray-600">
-                {s.source_type || "Unknown Type"}
-              </p>
+                <p className="text-sm text-gray-600">
+                  {s.source_type || "Unknown Type"}
+                </p>
+              </div>
+
+              {/* Archive button */}
+              <button
+                onClick={() => onArchive(s)}
+                className="px-4 py-2 rounded-md bg-[#0A1E2D] text-white hover:bg-[#C6A664] transition font-medium shadow-sm ml-4"
+              >
+                Archive
+              </button>
+
             </div>
-
-            {/* RIGHT SIDE – ARCHIVE */}
-            <button
-              onClick={(e) => {
-                e.stopPropagation()       // FIX: prevents edit click
-                onArchive(s)
-              }}
-              className="px-4 py-2 rounded-md bg-[#0A1E2D] text-white hover:bg-[#C6A664] transition font-medium shadow-sm ml-4"
-            >
-              Archive
-            </button>
-
           </li>
         ))}
       </ul>

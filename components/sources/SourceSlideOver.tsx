@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useEffect, useState } from "react"
 import { IncomeSource } from "@/lib/types"
 import { saveSource } from "@/lib/supabase/sources"
 import { useToast } from "@/components/ui/use-toast"
@@ -21,9 +21,9 @@ export default function SourceSlideOver({
     onClose,
     onSaved
 }: Props) {
-
     const { toast } = useToast()
 
+    // Local form state
     const [data, setData] = useState<Partial<IncomeSource>>({
         source_name: "",
         source_type: null,
@@ -33,16 +33,16 @@ export default function SourceSlideOver({
         notes: null
     })
 
-    // Load initial values
+    // Load values when editing OR reset for new entry
     useEffect(() => {
         if (initial) {
             setData({
-                source_name: initial.source_name,
-                source_type: initial.source_type,
-                frequency: initial.frequency,
-                expected_amount: initial.expected_amount,
-                expected_monthly: initial.expected_monthly,
-                notes: initial.notes
+                source_name: initial.source_name ?? "",
+                source_type: initial.source_type ?? null,
+                frequency: initial.frequency ?? null,
+                expected_amount: initial.expected_amount ?? null,
+                expected_monthly: initial.expected_monthly ?? null,
+                notes: initial.notes ?? null
             })
         } else {
             setData({
@@ -58,37 +58,43 @@ export default function SourceSlideOver({
 
     if (!open) return null
 
-    // SAVE HANDLER
     async function handleSave() {
+        // Validate required fields
+        if (!data.source_name || data.source_name.trim() === "") {
+            toast({
+                title: "Missing name",
+                description: "Source name is required"
+            })
+            return
+        }
+
         const payload = {
-            source_name: data.source_name ?? "",
-            source_type: data.source_type ?? null,
-            frequency: data.frequency ?? null,
-            expected_amount: data.expected_amount ?? null,
-            expected_monthly: data.expected_monthly ?? null,
-            notes: data.notes ?? null,
+            ...data,
+            source_name: data.source_name.trim(),
             user_id: userId
         }
 
         const success = await saveSource(initial?.id ?? null, payload)
 
-        if (success) {
-            toast({
-                title: initial ? "Updated" : "Created",
-                description: "Your income source has been saved."
-            })
-            onSaved()
-            onClose()
-        } else {
+        if (!success) {
             toast({
                 title: "Error",
-                description: "Something went wrong while saving."
+                description: "Unable to save the source"
             })
+            return
         }
+
+        toast({
+            title: initial ? "Updated" : "Created",
+            description: "Your income source has been saved."
+        })
+
+        onSaved()
+        onClose()
     }
 
     return (
-        <div className="fixed inset-0 bg-black/30 z-40 flex justify-end">
+        <div className="fixed inset-0 bg-black/40 z-40 flex justify-end">
             <div className="bg-white w-full max-w-md h-full shadow-xl p-6 overflow-y-auto">
 
                 {/* Header */}
@@ -96,6 +102,7 @@ export default function SourceSlideOver({
                     <h2 className="text-xl font-semibold text-[#0A1E2D]">
                         {initial ? "Edit Source" : "New Source"}
                     </h2>
+
                     <button
                         onClick={onClose}
                         className="text-gray-500 hover:text-gray-700"
@@ -104,10 +111,10 @@ export default function SourceSlideOver({
                     </button>
                 </div>
 
-                {/* FORM */}
+                {/* Form */}
                 <SourceForm data={data} onChange={setData} />
 
-                {/* ACTIONS */}
+                {/* Actions */}
                 <div className="mt-8 flex justify-end gap-3">
                     <button
                         onClick={onClose}

@@ -5,50 +5,47 @@ import { IncomeSource } from "@/lib/types"
 
 interface Props {
     sources: IncomeSource[]
-    onUnarchive: (source: IncomeSource) => void
+    onUnarchive: (s: IncomeSource) => void
 }
 
 export default function ArchivedList({ sources, onUnarchive }: Props) {
     return (
         <div>
-            <div className="flex justify-between items-center mb-4">
-                <h2 className="text-2xl font-semibold text-[#0A1E2D]">
-                    Archived Sources
-                </h2>
-            </div>
+            <h2 className="text-2xl font-semibold text-[#0A1E2D] mb-4">
+                Archived Sources
+            </h2>
 
             {sources.length === 0 && (
-                <p className="text-gray-500">No archived sources.</p>
+                <p className="text-gray-600">No archived sources found.</p>
             )}
 
             <ul className="space-y-3">
                 {sources.map((s) => (
                     <li
                         key={s.id}
-                        className="p-4 border rounded-lg shadow-sm bg-white"
+                        className="p-4 border rounded-lg shadow-sm bg-white flex justify-between items-center"
                     >
-                        <div className="flex justify-between items-start">
-                            {/* Source info */}
-                            <div className="flex-1">
-                                <p className="text-lg font-semibold text-[#0A1E2D]">
-                                    {s.source_name}
-                                </p>
+                        {/* Left side */}
+                        <div>
+                            <p className="text-lg font-semibold text-[#0A1E2D]">
+                                {s.source_name}
+                            </p>
 
-                                {s.archived_at && (
-                                    <p className="text-xs text-gray-500 mt-1">
-                                        Archived {new Date(s.archived_at).toLocaleDateString()}
-                                    </p>
-                                )}
-                            </div>
-
-                            {/* Restore button */}
-                            <button
-                                onClick={() => onUnarchive(s)}
-                                className="px-3 py-1 rounded bg-[#0A1E2D] text-white hover:bg-[#C6A664] transition ml-4"
-                            >
-                                Restore
-                            </button>
+                            <p className="text-sm text-gray-600">
+                                Archived on:{" "}
+                                {s.archived_at
+                                    ? new Date(s.archived_at).toLocaleDateString()
+                                    : "Unknown"}
+                            </p>
                         </div>
+
+                        {/* Right side */}
+                        <button
+                            onClick={() => onUnarchive(s)}
+                            className="px-4 py-2 rounded-md bg-[#0A1E2D] text-white hover:bg-[#C6A664] transition font-medium shadow-sm ml-4"
+                        >
+                            Restore
+                        </button>
                     </li>
                 ))}
             </ul>
