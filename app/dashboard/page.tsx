@@ -19,12 +19,9 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { useToast } from "@/components/ui/use-toast"
 
 import { getPayouts } from "@/lib/supabase/payouts"
-
 import {
   getActiveSources,
-  getArchivedSources,
-  archiveSource,
-  unarchiveSource
+  getArchivedSources
 } from "@/lib/supabase/sources"
 
 export default function DashboardPage() {
@@ -41,86 +38,151 @@ export default function DashboardPage() {
 
   const [user, setUser] = useState<any>(null)
 
-  // Slide-over editor
   const [slideOpen, setSlideOpen] = useState(false)
   const [editingSource, setEditingSource] = useState<IncomeSource | null>(null)
 
-  // Confirm dialogs
   const [confirmArchive, setConfirmArchive] = useState(false)
   const [archiveTarget, setArchiveTarget] = useState<IncomeSource | null>(null)
 
   const [confirmUnarchive, setConfirmUnarchive] = useState(false)
   const [unarchiveTarget, setUnarchiveTarget] = useState<IncomeSource | null>(null)
 
-  // Load data
+  // -------------------------------------------------------
+  // Initial load
+  // -------------------------------------------------------
   useEffect(() => {
     async function load() {
       const { data: { user: loggedIn } } = await supabase.auth.getUser()
-      if (!loggedIn) return router.push("/login")
+      if (!loggedIn) {
+        router.push("/login")
+        return
+      }
 
       setUser(loggedIn)
-      const uid = loggedIn.id
+      const userId = loggedIn.id
 
-      setSources(await getActiveSources(uid))
-      setArchivedSources(await getArchivedSources(uid))
-      setPayouts(await getPayouts(uid))
+      const [active, archived, payoutsData] = await Promise.all([
+        getActiveSources(userId),
+        getArchivedSources(userId),
+        getPayouts(userId)
+      ])
+
+      setSources(active)
+      setArchivedSources(archived)
+      setPayouts(payoutsData)
 
       const { data: trends } = await supabase
         .from("v_user_monthly_trends")
         .select("*")
-        .eq("user_id", uid)
+        .eq("user_id", userId)
+
       setMonthlyTrends(trends ?? [])
 
       const { data: insightRows } = await supabase
         .from("v_user_insights")
         .select("*")
-        .eq("user_id", uid)
+        .eq("user_id", userId)
+
       setInsights(insightRows ?? [])
 
       setLoading(false)
     }
+
     load()
   }, [router])
 
   if (loading) return <div>Loading...</div>
 
-  // Archive action
+  // -------------------------------------------------------
+  // Archive (client-side Supabase call)
+  // -------------------------------------------------------
   async function doArchive() {
-    console.log("ARCHIVE: Confirm clicked")
-    console.log("ARCHIVE: archiveTarget =", archiveTarget)
+    if (!archiveTarget || !user) return
 
-    if (!archiveTarget) {
-      console.log("ARCHIVE: NO TARGET. STOP.")
+    console.log("ARCHIVE: target", archiveTarget)
+
+    const { data, error } = await supabase
+      .from("income_sources")
+      .update({
+        archived: true,
+        archived_at: new Date().toISOString(),
+        deleted: false
+      })
+      .eq("id", archiveTarget.id)
+      .eq("user_id", user.id)
+      .select("id, archived, archived_at")
+      .maybeSingle()
+
+    console.log("ARCHIVE: supabase data =", data, "error =", error)
+
+    if (error) {
+      toast({
+        title: "Archive failed",
+        description: error.message
+      })
+      setConfirmArchive(false)
+      setArchiveTarget(null)
       return
     }
 
-    try {
-      console.log("ARCHIVE: Calling archiveSource...")
-      const result = await archiveSource(archiveTarget.id)
-      console.log("ARCHIVE: Supabase result:", result)
-    } catch (err) {
-      console.error("ARCHIVE: ERROR calling archiveSource:", err)
-    }
-
-    console.log("ARCHIVE: Refreshing lists...")
     const uid = user.id
-    setSources(await getActiveSources(uid))
-    setArchivedSources(await getArchivedSources(uid))
+    const [active, archived] = await Promise.all([
+      getActiveSources(uid),
+      getArchivedSources(uid)
+    ])
 
-    console.log("ARCHIVE: DONE")
+    setSources(active)
+    setArchivedSources(archived)
+
+    toast({
+      title: "Archived",
+      description: `${archiveTarget.source_name} archived.`
+    })
+
     setConfirmArchive(false)
     setArchiveTarget(null)
   }
 
-  // Unarchive action
+  // -------------------------------------------------------
+  // Unarchive (client-side Supabase call)
+  // -------------------------------------------------------
   async function doUnarchive() {
-    if (!unarchiveTarget) return
+    if (!unarchiveTarget || !user) return
 
-    await unarchiveSource(unarchiveTarget.id)
+    console.log("UNARCHIVE: target", unarchiveTarget)
+
+    const { data, error } = await supabase
+      .from("income_sources")
+      .update({
+        archived: false,
+        archived_at: null,
+        deleted: false
+      })
+      .eq("id", unarchiveTarget.id)
+      .eq("user_id", user.id)
+      .select("id, archived, archived_at")
+      .maybeSingle()
+
+    console.log("UNARCHIVE: supabase data =", data, "error =", error)
+
+    if (error) {
+      toast({
+        title: "Unarchive failed",
+        description: error.message
+      })
+      setConfirmUnarchive(false)
+      setUnarchiveTarget(null)
+      return
+    }
 
     const uid = user.id
-    setSources(await getActiveSources(uid))
-    setArchivedSources(await getArchivedSources(uid))
+    const [active, archived] = await Promise.all([
+      getActiveSources(uid),
+      getArchivedSources(uid)
+    ])
+
+    setSources(active)
+    setArchivedSources(archived)
 
     toast({
       title: "Restored",
@@ -140,8 +202,7 @@ export default function DashboardPage() {
 
   return (
     <div className="mt-6">
-
-      {/* Confirm Archive */}
+      {/* Archive dialog */}
       <ConfirmDialog
         open={confirmArchive}
         title="Archive Source"
@@ -150,7 +211,7 @@ export default function DashboardPage() {
         onConfirm={doArchive}
       />
 
-      {/* Confirm Unarchive */}
+      {/* Unarchive dialog */}
       <ConfirmDialog
         open={confirmUnarchive}
         title="Unarchive Source"
@@ -159,7 +220,7 @@ export default function DashboardPage() {
         onConfirm={doUnarchive}
       />
 
-      {/* Slide-over */}
+      {/* SlideOver editor */}
       <SourceSlideOver
         initial={editingSource}
         userId={user?.id}
@@ -172,20 +233,17 @@ export default function DashboardPage() {
         }}
       />
 
-      {/* Tabs */}
+      {/* SOURCES */}
       {activeTab === "sources" && (
         <SourceList
           sources={sources}
           onAdd={() => { setEditingSource(null); setSlideOpen(true) }}
           onEdit={(s) => { setEditingSource(s); setSlideOpen(true) }}
-          onArchive={(s) => {
-            console.log("DASHBOARD: Archive target received:", s)
-            setArchiveTarget(s)
-            setConfirmArchive(true)
-          }}
+          onArchive={(s) => { setArchiveTarget(s); setConfirmArchive(true) }}
         />
       )}
 
+      {/* ARCHIVED */}
       {activeTab === "archived" && (
         <ArchivedList
           sources={archivedSources}
