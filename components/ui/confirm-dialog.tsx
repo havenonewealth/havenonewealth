@@ -1,6 +1,13 @@
 "use client"
 
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
+import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+    DialogDescription
+} from "@/components/ui/dialog"
+
 import { Button } from "@/components/ui/button"
 
 export interface ConfirmDialogProps {
@@ -11,15 +18,17 @@ export interface ConfirmDialogProps {
     onCancel: () => void
 }
 
-export function ConfirmDialog({ open, title, description, onConfirm, onCancel }: ConfirmDialogProps) {
-
-    // IMPORTANT: Only close when user explicitly presses cancel
-    function handleChange(isOpen: boolean) {
-        if (!isOpen) onCancel()
-    }
-
+export function ConfirmDialog({
+    open,
+    title,
+    description,
+    onConfirm,
+    onCancel
+}: ConfirmDialogProps) {
     return (
-        <Dialog open={open} onOpenChange={handleChange}>
+        <Dialog open={open} onOpenChange={(isOpen) => {
+            if (!isOpen) onCancel()
+        }}>
             <DialogContent className="max-w-sm">
                 <DialogHeader>
                     <DialogTitle>{title}</DialogTitle>
@@ -31,7 +40,14 @@ export function ConfirmDialog({ open, title, description, onConfirm, onCancel }:
                         Cancel
                     </Button>
 
-                    <Button className="bg-red-600 text-white" onClick={onConfirm}>
+                    <Button
+                        className="bg-red-600 text-white"
+                        onClick={() => {
+                            // DO NOT auto-close here
+                            // Let DashboardPage close the dialog AFTER archive completes
+                            onConfirm()
+                        }}
+                    >
                         Confirm
                     </Button>
                 </div>
