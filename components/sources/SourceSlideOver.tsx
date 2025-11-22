@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useState, useEffect } from "react"
 import { IncomeSource } from "@/lib/types"
 import { saveSource } from "@/lib/supabase/sources"
 import { useToast } from "@/components/ui/use-toast"
@@ -25,11 +25,9 @@ export default function SourceSlideOver({
 
     const [data, setData] = useState<Partial<IncomeSource>>({})
 
-    // Load values when editing OR reset for new entry
     useEffect(() => {
         if (initial) {
             setData({
-                id: initial.id,
                 source_name: initial.source_name,
                 source_type: initial.source_type,
                 frequency: initial.frequency,
@@ -40,11 +38,11 @@ export default function SourceSlideOver({
         } else {
             setData({
                 source_name: "",
-                source_type: null,
-                frequency: null,
+                source_type: "",
+                frequency: "",
                 expected_amount: null,
                 expected_monthly: null,
-                notes: null
+                notes: ""
             })
         }
     }, [initial])
@@ -55,40 +53,29 @@ export default function SourceSlideOver({
         if (!data.source_name || data.source_name.trim() === "") {
             toast({
                 title: "Source name required",
-                description: "Please enter a name before saving."
+                description: "Please enter a name"
             })
             return
         }
 
-        // THE KEY FIX — ensure ID is passed for updates
-        const id = initial?.id ?? null
-
         const payload = {
-            source_name: data.source_name?.trim() ?? "",
-            source_type: data.source_type ?? null,
-            frequency: data.frequency ?? null,
-            expected_amount: data.expected_amount ?? null,
-            expected_monthly: data.expected_monthly ?? null,
-            notes: data.notes ?? null,
+            ...data,
             user_id: userId
         }
 
-        console.log("SAVE SOURCE → id:", id)
-        console.log("SAVE SOURCE → payload:", payload)
-
-        const success = await saveSource(id, payload)
+        const success = await saveSource(initial?.id ?? null, payload)
 
         if (!success) {
             toast({
                 title: "Error",
-                description: "Unable to save the source. Try again."
+                description: "Source could not be saved"
             })
             return
         }
 
         toast({
             title: initial ? "Updated" : "Created",
-            description: "Your source has been saved."
+            description: "Your source has been saved"
         })
 
         onSaved()
@@ -112,21 +99,19 @@ export default function SourceSlideOver({
                     </button>
                 </div>
 
-                {/* Form */}
                 <SourceForm data={data} onChange={setData} />
 
-                {/* Save / Cancel Buttons */}
                 <div className="mt-8 flex justify-end gap-3">
                     <button
                         onClick={onClose}
-                        className="px-4 py-2 border border-gray-300 rounded text-gray-700 hover:bg-gray-100"
+                        className="px-4 py-2 border border-gray-300 rounded text-gray-700"
                     >
                         Cancel
                     </button>
 
                     <button
                         onClick={handleSave}
-                        className="px-4 py-2 rounded bg-[#0A1E2D] text-white hover:bg-[#C6A664]"
+                        className="px-4 py-2 bg-[#0A1E2D] text-white rounded hover:bg-[#C6A664]"
                     >
                         Save
                     </button>

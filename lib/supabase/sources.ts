@@ -42,46 +42,37 @@ export async function getArchivedSources(userId: string): Promise<IncomeSource[]
 }
 
 // ---------------------------------------------------------
-// SAVE (CREATE OR UPDATE)
+// SAVE SOURCE (CREATE / UPDATE) — FIXED
 // ---------------------------------------------------------
 export async function saveSource(id: string | null, payload: Partial<IncomeSource>) {
-  const safePayload = {
-    source_name: payload.source_name,
-    source_type: payload.source_type ?? null,
-    frequency: payload.frequency ?? null,
-    expected_amount: payload.expected_amount ?? null,
-    expected_monthly: payload.expected_monthly ?? null,
-    notes: payload.notes ?? null,
-    user_id: payload.user_id
-  }
+
+  // Build ONLY the fields that the user actually edits
+  const safePayload: any = {}
+
+  if (payload.source_name !== undefined) safePayload.source_name = payload.source_name
+  if (payload.source_type !== undefined) safePayload.source_type = payload.source_type
+  if (payload.frequency !== undefined) safePayload.frequency = payload.frequency
+  if (payload.expected_amount !== undefined) safePayload.expected_amount = payload.expected_amount
+  if (payload.expected_monthly !== undefined) safePayload.expected_monthly = payload.expected_monthly
+  if (payload.notes !== undefined) safePayload.notes = payload.notes
+  if (payload.user_id) safePayload.user_id = payload.user_id
 
   if (id) {
-    console.log("UPDATE: Saving source with ID =", id, safePayload)
-
-    const { data, error } = await supabase
+    const { error } = await supabase
       .from("income_sources")
       .update(safePayload)
       .eq("id", id)
-      .select()
-
-    console.log("UPDATE RESULT:", data, error)
 
     if (error) {
       console.error("saveSource update error:", error)
       return false
     }
-
     return true
   }
 
-  console.log("INSERT: Creating new source", safePayload)
-
-  const { data, error } = await supabase
+  const { error } = await supabase
     .from("income_sources")
     .insert(safePayload)
-    .select()
-
-  console.log("INSERT RESULT:", data, error)
 
   if (error) {
     console.error("saveSource create error:", error)
@@ -92,21 +83,16 @@ export async function saveSource(id: string | null, payload: Partial<IncomeSourc
 }
 
 // ---------------------------------------------------------
-// ARCHIVE SOURCE
+// ARCHIVE SOURCE — WORKING
 // ---------------------------------------------------------
 export async function archiveSource(id: string) {
-  console.log("ARCHIVE: Updating income_sources where id =", id)
-
-  const { data, error } = await supabase
+  const { error } = await supabase
     .from("income_sources")
     .update({
       archived: true,
       archived_at: new Date().toISOString()
     })
     .eq("id", id)
-    .select()
-
-  console.log("ARCHIVE RESULT:", data, error)
 
   if (error) {
     console.error("archiveSource error:", error)
@@ -117,21 +103,16 @@ export async function archiveSource(id: string) {
 }
 
 // ---------------------------------------------------------
-// UNARCHIVE SOURCE
+// UNARCHIVE SOURCE — WORKING
 // ---------------------------------------------------------
 export async function unarchiveSource(id: string) {
-  console.log("UNARCHIVE: Updating income_sources where id =", id)
-
-  const { data, error } = await supabase
+  const { error } = await supabase
     .from("income_sources")
     .update({
       archived: false,
       archived_at: null
     })
     .eq("id", id)
-    .select()
-
-  console.log("UNARCHIVE RESULT:", data, error)
 
   if (error) {
     console.error("unarchiveSource error:", error)
