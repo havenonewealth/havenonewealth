@@ -21,6 +21,7 @@ export default function SourceSlideOver({
     onClose,
     onSaved
 }: Props) {
+
     const { toast } = useToast()
 
     const [data, setData] = useState<Partial<IncomeSource>>({
@@ -32,6 +33,7 @@ export default function SourceSlideOver({
         notes: null
     })
 
+    // Load existing values on edit
     useEffect(() => {
         if (initial) {
             setData({
@@ -60,20 +62,27 @@ export default function SourceSlideOver({
         if (!data.source_name || data.source_name.trim() === "") {
             toast({
                 title: "Missing Name",
-                description: "Source name is required."
+                description: "Source name is required"
             })
             return
         }
 
-        const success = await saveSource(initial?.id ?? null, {
-            ...data,
+        const payload = {
+            source_name: data.source_name.trim(),
+            source_type: data.source_type ?? null,
+            frequency: data.frequency ?? null,
+            expected_amount: data.expected_amount ?? null,
+            expected_monthly: data.expected_monthly ?? null,
+            notes: data.notes ?? null,
             user_id: userId
-        })
+        }
+
+        const success = await saveSource(initial?.id ?? null, payload)
 
         if (!success) {
             toast({
                 title: "Error",
-                description: "Unable to save the source."
+                description: "Could not save source."
             })
             return
         }
@@ -96,10 +105,7 @@ export default function SourceSlideOver({
                     <h2 className="text-xl font-semibold text-[#0A1E2D]">
                         {initial ? "Edit Source" : "New Source"}
                     </h2>
-
-                    <button onClick={onClose} className="text-gray-500 hover:text-gray-700">
-                        ✕
-                    </button>
+                    <button onClick={onClose} className="text-gray-500 hover:text-gray-700">✕</button>
                 </div>
 
                 {/* Form */}
@@ -121,6 +127,7 @@ export default function SourceSlideOver({
                         Save
                     </button>
                 </div>
+
             </div>
         </div>
     )
