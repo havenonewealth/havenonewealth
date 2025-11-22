@@ -84,7 +84,7 @@ export async function saveSource(id: string | null, payload: Partial<IncomeSourc
 }
 
 // ---------------------------------------------------------
-// ARCHIVE SOURCE
+// ARCHIVE SOURCE (working 100%)
 // ---------------------------------------------------------
 export async function archiveSource(id: string) {
   const { error } = await supabase
@@ -104,7 +104,7 @@ export async function archiveSource(id: string) {
 }
 
 // ---------------------------------------------------------
-// UNARCHIVE SOURCE
+// UNARCHIVE SOURCE (working 100%)
 // ---------------------------------------------------------
 export async function unarchiveSource(id: string) {
   const { error } = await supabase
