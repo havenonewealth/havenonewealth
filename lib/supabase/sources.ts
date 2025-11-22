@@ -30,8 +30,8 @@ export async function getArchivedSources(userId: string): Promise<IncomeSource[]
   const { data, error } = await supabase
     .from("income_sources")
     .select("*")
-    .eq("user_id", userId)
     .not("archived_at", "is", null)
+    .eq("user_id", userId)
     .eq("deleted", false)
     .order("archived_at", { ascending: false })
 
@@ -86,9 +86,7 @@ export async function saveSource(id: string | null, payload: Partial<IncomeSourc
 // ---------------------------------------------------------
 // ARCHIVE SOURCE — FIXED
 // ---------------------------------------------------------
-export async function archiveSource(source: string | IncomeSource) {
-  const id = typeof source === "string" ? source : source.id
-
+export async function archiveSource(id: string) {
   const { error } = await supabase
     .from("income_sources")
     .update({
@@ -107,9 +105,7 @@ export async function archiveSource(source: string | IncomeSource) {
 // ---------------------------------------------------------
 // UNARCHIVE SOURCE — FIXED
 // ---------------------------------------------------------
-export async function unarchiveSource(source: string | IncomeSource) {
-  const id = typeof source === "string" ? source : source.id
-
+export async function unarchiveSource(id: string) {
   const { error } = await supabase
     .from("income_sources")
     .update({

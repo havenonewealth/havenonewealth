@@ -17,13 +17,15 @@ import ArchivedList from "@/components/sources/ArchivedList"
 import SourceSlideOver from "@/components/sources/SourceSlideOver"
 import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { useToast } from "@/components/ui/use-toast"
-import { getPayouts } from "@/lib/supabase/payouts"
+
 import {
   getActiveSources,
   getArchivedSources,
   archiveSource,
   unarchiveSource
 } from "@/lib/supabase/sources"
+
+import { getPayouts } from "@/lib/supabase/payouts"
 
 export default function DashboardPage() {
   const router = useRouter()
@@ -48,63 +50,96 @@ export default function DashboardPage() {
   const [confirmUnarchive, setConfirmUnarchive] = useState(false)
   const [unarchiveTarget, setUnarchiveTarget] = useState<IncomeSource | null>(null)
 
+  // ----------------------------------------------------
+  // INITIAL LOAD
+  // ----------------------------------------------------
   useEffect(() => {
     async function load() {
       const { data: { user: loggedIn } } = await supabase.auth.getUser()
       if (!loggedIn) return router.push("/login")
 
       setUser(loggedIn)
-      const userId = loggedIn.id
+      const uid = loggedIn.id
 
-      setSources(await getActiveSources(userId))
-      setArchivedSources(await getArchivedSources(userId))
-      setPayouts(await getPayouts(userId))
+      setSources(await getActiveSources(uid))
+      setArchivedSources(await getArchivedSources(uid))
+      setPayouts(await getPayouts(uid))
 
       const { data: trends } = await supabase
         .from("v_user_monthly_trends")
         .select("*")
-        .eq("user_id", userId)
+        .eq("user_id", uid)
+
       setMonthlyTrends(trends ?? [])
 
       const { data: insightRows } = await supabase
         .from("v_user_insights")
         .select("*")
-        .eq("user_id", userId)
+        .eq("user_id", uid)
+
       setInsights(insightRows ?? [])
 
       setLoading(false)
     }
+
     load()
   }, [router])
 
   if (loading) return <div>Loading...</div>
 
+  // ----------------------------------------------------
+  // ARCHIVE SOURCE
+  // ----------------------------------------------------
   async function doArchive() {
     if (!archiveTarget) return
+
     await archiveSource(archiveTarget.id)
 
     const uid = user.id
-    setSources(await getActiveSources(uid))
-    setArchivedSources(await getArchivedSources(uid))
 
-    toast({ title: "Archived", description: `${archiveTarget.source_name} archived.` })
+    const updatedActive = await getActiveSources(uid)
+    const updatedArchived = await getArchivedSources(uid)
+
+    setSources(updatedActive)
+    setArchivedSources(updatedArchived)
+
+    toast({
+      title: "Archived",
+      description: `${archiveTarget.source_name} moved to Archived.`
+    })
+
     setConfirmArchive(false)
     setArchiveTarget(null)
   }
 
+  // ----------------------------------------------------
+  // UNARCHIVE SOURCE
+  // ----------------------------------------------------
   async function doUnarchive() {
     if (!unarchiveTarget) return
+
     await unarchiveSource(unarchiveTarget.id)
 
     const uid = user.id
-    setSources(await getActiveSources(uid))
-    setArchivedSources(await getArchivedSources(uid))
 
-    toast({ title: "Restored", description: `${unarchiveTarget.source_name} restored.` })
+    const updatedActive = await getActiveSources(uid)
+    const updatedArchived = await getArchivedSources(uid)
+
+    setSources(updatedActive)
+    setArchivedSources(updatedArchived)
+
+    toast({
+      title: "Restored",
+      description: `${unarchiveTarget.source_name} is active again.`
+    })
+
     setConfirmUnarchive(false)
     setUnarchiveTarget(null)
   }
 
+  // ----------------------------------------------------
+  // CSV EXPORT
+  // ----------------------------------------------------
   const csvData = payouts.map((p) => ({
     Source: p.income_sources?.source_name || "—",
     Amount: p.amount,
@@ -115,22 +150,25 @@ export default function DashboardPage() {
   return (
     <div className="mt-6">
 
+      {/* Archive Modal */}
       <ConfirmDialog
         open={confirmArchive}
         title="Archive Source"
-        description="Move this source to Archived?"
+        description="This action moves the source to the Archived tab."
         onCancel={() => setConfirmArchive(false)}
         onConfirm={doArchive}
       />
 
+      {/* Unarchive Modal */}
       <ConfirmDialog
         open={confirmUnarchive}
-        title="Unarchive Source"
-        description="Restore this source?"
+        title="Restore Source"
+        description="This action moves the source back to Active."
         onCancel={() => setConfirmUnarchive(false)}
         onConfirm={doUnarchive}
       />
 
+      {/* Slide-Over Form */}
       <SourceSlideOver
         initial={editingSource}
         userId={user?.id}
@@ -142,6 +180,7 @@ export default function DashboardPage() {
         }}
       />
 
+      {/* Sources Tab */}
       {activeTab === "sources" && (
         <SourceList
           sources={sources}
@@ -151,6 +190,7 @@ export default function DashboardPage() {
         />
       )}
 
+      {/* Archived Tab */}
       {activeTab === "archived" && (
         <ArchivedList
           sources={archivedSources}
@@ -158,6 +198,7 @@ export default function DashboardPage() {
         />
       )}
 
+      {/* Payouts Tab */}
       {activeTab === "payouts" && (
         <section>
           <h2 className="text-2xl font-semibold mb-4">Payouts</h2>
@@ -195,6 +236,7 @@ export default function DashboardPage() {
         </section>
       )}
 
+      {/* Analytics Tab */}
       {activeTab === "analytics" && (
         <section>
           <KPI insights={insights} />

@@ -45,13 +45,13 @@ export interface IncomeSource {
    notes: string | null
 
    archived_at: string | null
-
    deleted: boolean
    deleted_at: string | null
    ready_for_delete: boolean
 
    created_at: string
 }
+
 
 /* Payouts */
 export interface Payout {
