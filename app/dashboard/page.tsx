@@ -93,7 +93,12 @@ export default function DashboardPage() {
   async function doArchive() {
     if (!archiveTarget) return
 
-    await archiveSource(archiveTarget.id)
+    await fetch("/api/archive", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: archiveTarget.id })
+    });
+
 
     const uid = user.id
 
