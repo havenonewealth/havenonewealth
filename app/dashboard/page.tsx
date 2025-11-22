@@ -1,20 +1,16 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { useRouter } from "next/navigation"
-import { supabase } from "@/lib/supabaseClient"
 import { useTabs } from "./TabContext"
-import { IncomeSource, Payout, MonthlyTrend } from "@/lib/types"
+import { supabase } from "@/lib/supabaseClient"
+import { useRouter } from "next/navigation"
+import { CSVLink } from "react-csv"
 
-import {
-  getActiveSources,
-  getArchivedSources,
-  archiveSource,
-  unarchiveSource,
-  getSourceById
-} from "@/lib/supabase/sources"
+import type { IncomeSource, Payout, MonthlyTrend } from "@/lib/types"
 
-import { getPayouts } from "@/lib/supabase/payouts"
+import KPI from "@/components/analytics/KPI"
+import MonthlyTrendsChart from "@/components/analytics/MonthlyTrendsChart"
+import SourceInsightsTable from "@/components/analytics/SourceInsightsTable"
 
 import SourceList from "@/components/sources/SourceList"
 import ArchivedList from "@/components/sources/ArchivedList"
@@ -22,107 +18,295 @@ import SourceSlideOver from "@/components/sources/SourceSlideOver"
 import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { useToast } from "@/components/ui/use-toast"
 
-export default function DashboardPage() {
+import { getPayouts } from "@/lib/supabase/payouts"
+import {
+  getActiveSources,
+  getArchivedSources
+} from "@/lib/supabase/sources"
 
-  const { toast } = useToast()
+export default function DashboardPage() {
   const router = useRouter()
   const { activeTab } = useTabs()
+  const { toast } = useToast()
 
-  const [user, setUser] = useState<any>(null)
   const [sources, setSources] = useState<IncomeSource[]>([])
   const [archivedSources, setArchivedSources] = useState<IncomeSource[]>([])
   const [payouts, setPayouts] = useState<Payout[]>([])
+  const [insights, setInsights] = useState<any[]>([])
+  const [monthlyTrends, setMonthlyTrends] = useState<MonthlyTrend[]>([])
+  const [loading, setLoading] = useState(true)
+
+  const [user, setUser] = useState<any>(null)
 
   const [slideOpen, setSlideOpen] = useState(false)
-  const [editingId, setEditingId] = useState<string | null>(null)
+  const [editingSource, setEditingSource] = useState<IncomeSource | null>(null)
 
   const [confirmArchive, setConfirmArchive] = useState(false)
-  const [archiveId, setArchiveId] = useState<string | null>(null)
+  const [archiveTarget, setArchiveTarget] = useState<IncomeSource | null>(null)
 
   const [confirmUnarchive, setConfirmUnarchive] = useState(false)
-  const [unarchiveId, setUnarchiveId] = useState<string | null>(null)
+  const [unarchiveTarget, setUnarchiveTarget] = useState<IncomeSource | null>(null)
 
+  // -------------------------------------------------------
+  // Initial load
+  // -------------------------------------------------------
   useEffect(() => {
     async function load() {
-      const { data: session } = await supabase.auth.getUser()
-      if (!session.user) return router.push("/login")
+      const { data: { user: loggedIn } } = await supabase.auth.getUser()
+      if (!loggedIn) {
+        router.push("/login")
+        return
+      }
 
-      setUser(session.user)
-      const uid = session.user.id
+      setUser(loggedIn)
+      const userId = loggedIn.id
 
-      setSources(await getActiveSources(uid))
-      setArchivedSources(await getArchivedSources(uid))
-      setPayouts(await getPayouts(uid))
+      const [active, archived, payoutsData] = await Promise.all([
+        getActiveSources(userId),
+        getArchivedSources(userId),
+        getPayouts(userId)
+      ])
+
+      setSources(active)
+      setArchivedSources(archived)
+      setPayouts(payoutsData)
+
+      const { data: trends } = await supabase
+        .from("v_user_monthly_trends")
+        .select("*")
+        .eq("user_id", userId)
+
+      setMonthlyTrends(trends ?? [])
+
+      const { data: insightRows } = await supabase
+        .from("v_user_insights")
+        .select("*")
+        .eq("user_id", userId)
+
+      setInsights(insightRows ?? [])
+
+      setLoading(false)
     }
+
     load()
-  }, [])
+  }, [router])
 
-  async function refresh() {
-    const uid = user.id
-    setSources(await getActiveSources(uid))
-    setArchivedSources(await getArchivedSources(uid))
-  }
+  if (loading) return <div>Loading...</div>
 
+  // -------------------------------------------------------
+  // Archive (client-side Supabase call)
+  // -------------------------------------------------------
   async function doArchive() {
-    if (!archiveId) return
-    await archiveSource(archiveId)
-    toast({ title: "Archived" })
+    if (!archiveTarget || !user) return
+
+    console.log("ARCHIVE: target", archiveTarget)
+
+    const { data, error } = await supabase
+      .from("income_sources")
+      .update({
+        archived: true,
+        archived_at: new Date().toISOString(),
+        deleted: false
+      })
+      .eq("id", archiveTarget.id)
+      .eq("user_id", user.id)
+      .select("id, archived, archived_at")
+      .maybeSingle()
+
+    console.log("ARCHIVE: supabase data =", data, "error =", error)
+
+    if (error) {
+      toast({
+        title: "Archive failed",
+        description: error.message
+      })
+      setConfirmArchive(false)
+      setArchiveTarget(null)
+      return
+    }
+
+    const uid = user.id
+    const [active, archived] = await Promise.all([
+      getActiveSources(uid),
+      getArchivedSources(uid)
+    ])
+
+    setSources(active)
+    setArchivedSources(archived)
+
+    toast({
+      title: "Archived",
+      description: `${archiveTarget.source_name} archived.`
+    })
+
     setConfirmArchive(false)
-    refresh()
+    setArchiveTarget(null)
   }
 
+  // -------------------------------------------------------
+  // Unarchive (client-side Supabase call)
+  // -------------------------------------------------------
   async function doUnarchive() {
-    if (!unarchiveId) return
-    await unarchiveSource(unarchiveId)
-    toast({ title: "Restored" })
+    if (!unarchiveTarget || !user) return
+
+    console.log("UNARCHIVE: target", unarchiveTarget)
+
+    const { data, error } = await supabase
+      .from("income_sources")
+      .update({
+        archived: false,
+        archived_at: null,
+        deleted: false
+      })
+      .eq("id", unarchiveTarget.id)
+      .eq("user_id", user.id)
+      .select("id, archived, archived_at")
+      .maybeSingle()
+
+    console.log("UNARCHIVE: supabase data =", data, "error =", error)
+
+    if (error) {
+      toast({
+        title: "Unarchive failed",
+        description: error.message
+      })
+      setConfirmUnarchive(false)
+      setUnarchiveTarget(null)
+      return
+    }
+
+    const uid = user.id
+    const [active, archived] = await Promise.all([
+      getActiveSources(uid),
+      getArchivedSources(uid)
+    ])
+
+    setSources(active)
+    setArchivedSources(archived)
+
+    toast({
+      title: "Restored",
+      description: `${unarchiveTarget.source_name} restored.`
+    })
+
     setConfirmUnarchive(false)
-    refresh()
+    setUnarchiveTarget(null)
   }
+
+  const csvData = payouts.map((p) => ({
+    Source: p.income_sources?.source_name || "—",
+    Amount: p.amount,
+    Date: p.payment_date,
+    Status: p.status
+  }))
 
   return (
     <div className="mt-6">
-
+      {/* Archive dialog */}
       <ConfirmDialog
         open={confirmArchive}
         title="Archive Source"
-        description="Are you sure?"
+        description="Move this source to Archived?"
         onCancel={() => setConfirmArchive(false)}
         onConfirm={doArchive}
       />
 
+      {/* Unarchive dialog */}
       <ConfirmDialog
         open={confirmUnarchive}
-        title="Restore Source"
-        description="Restore this item?"
+        title="Unarchive Source"
+        description="Restore this source?"
         onCancel={() => setConfirmUnarchive(false)}
         onConfirm={doUnarchive}
       />
 
+      {/* SlideOver editor */}
       <SourceSlideOver
-        sourceId={editingId}
+        initial={editingSource}
         userId={user?.id}
         open={slideOpen}
-        onClose={() => { setEditingId(null); setSlideOpen(false) }}
-        onSaved={refresh}
+        onClose={() => { setSlideOpen(false); setEditingSource(null) }}
+        onSaved={async () => {
+          console.log("DASHBOARD: onSaved() triggered")
+
+          const active = await getActiveSources(user.id)
+          const archived = await getArchivedSources(user.id)
+
+          console.log("DASHBOARD: refreshed active =", active)
+          console.log("DASHBOARD: refreshed archived =", archived)
+
+          setSources(active)
+          setArchivedSources(archived)
+        }}
       />
 
+      {/* SOURCES */}
       {activeTab === "sources" && (
         <SourceList
           sources={sources}
-          onAdd={() => { setEditingId(null); setSlideOpen(true) }}
-          onEdit={(id) => { setEditingId(id); setSlideOpen(true) }}
-          onArchive={(id) => { setArchiveId(id); setConfirmArchive(true) }}
+          onAdd={() => { setEditingSource(null); setSlideOpen(true) }}
+          onEdit={(s) => { setEditingSource(s); setSlideOpen(true) }}
+          onArchive={(s) => { setArchiveTarget(s); setConfirmArchive(true) }}
         />
       )}
 
+      {/* ARCHIVED */}
       {activeTab === "archived" && (
         <ArchivedList
           sources={archivedSources}
-          onUnarchive={(s) => { setUnarchiveId(s.id); setConfirmUnarchive(true) }}
+          onUnarchive={(s) => { setUnarchiveTarget(s); setConfirmUnarchive(true) }}
         />
       )}
 
-      {/* payouts + analytics omitted for brevity since not part of bug */}
+      {/* PAYOUTS */}
+      {activeTab === "payouts" && (
+        <section>
+          <h2 className="text-2xl font-semibold mb-4">Payouts</h2>
+
+          <div className="overflow-x-auto">
+            <table className="min-w-full border rounded-md">
+              <thead className="bg-gray-100">
+                <tr>
+                  <th className="p-3">Source</th>
+                  <th className="p-3">Amount</th>
+                  <th className="p-3">Date</th>
+                  <th className="p-3">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {payouts.map((p) => (
+                  <tr key={p.id} className="border-t">
+                    <td className="p-3">{p.income_sources?.source_name || "—"}</td>
+                    <td className="p-3">${p.amount.toLocaleString()}</td>
+                    <td className="p-3">{new Date(p.payment_date).toLocaleDateString()}</td>
+                    <td className="p-3">{p.status}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          <CSVLink
+            data={csvData}
+            filename="HavenOne_Payouts.csv"
+            className="mt-4 inline-block bg-[#C6A664] px-4 py-2 rounded text-[#0A1E2D]"
+          >
+            Export CSV
+          </CSVLink>
+        </section>
+      )}
+
+      {/* ANALYTICS */}
+      {activeTab === "analytics" && (
+        <section>
+          <KPI insights={insights} />
+          {monthlyTrends.length === 0
+            ? <p className="text-gray-500">No trend data.</p>
+            : <MonthlyTrendsChart data={monthlyTrends} />
+          }
+          <SourceInsightsTable insights={insights} />
+        </section>
+      )}
     </div>
   )
 }

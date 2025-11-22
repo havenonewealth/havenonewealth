@@ -1,13 +1,13 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useState, useEffect } from "react"
 import { IncomeSource } from "@/lib/types"
-import { getSourceById, saveSource } from "@/lib/supabase/sources"
+import { saveSource } from "@/lib/supabase/sources"
 import { useToast } from "@/components/ui/use-toast"
 import SourceForm from "./SourceForm"
 
 interface Props {
-    sourceId: string | null
+    initial: IncomeSource | null
     userId: string
     open: boolean
     onClose: () => void
@@ -15,16 +15,19 @@ interface Props {
 }
 
 export default function SourceSlideOver({
-    sourceId,
+    initial,
     userId,
     open,
     onClose,
     onSaved
 }: Props) {
-
     const { toast } = useToast()
 
+    console.log("SLIDEOVER: mounted with initial =", initial)
+
     const [data, setData] = useState<Partial<IncomeSource>>({
+        id: undefined,
+        user_id: userId,
         source_name: "",
         source_type: null,
         frequency: null,
@@ -34,75 +37,87 @@ export default function SourceSlideOver({
     })
 
     useEffect(() => {
-        async function load() {
-            if (!sourceId) {
-                setData({
-                    source_name: "",
-                    source_type: null,
-                    frequency: null,
-                    expected_amount: null,
-                    expected_monthly: null,
-                    notes: null
-                })
-                return
-            }
+        console.log("SLIDEOVER: useEffect triggered with initial =", initial)
 
-            const row = await getSourceById(sourceId)
-            if (row) setData(row)
+        if (initial) {
+            setData({
+                id: initial.id,
+                user_id: initial.user_id,
+                source_name: initial.source_name,
+                source_type: initial.source_type,
+                frequency: initial.frequency,
+                expected_amount: initial.expected_amount,
+                expected_monthly: initial.expected_monthly,
+                notes: initial.notes
+            })
+        } else {
+            setData({
+                id: undefined,
+                user_id: userId,
+                source_name: "",
+                source_type: null,
+                frequency: null,
+                expected_amount: null,
+                expected_monthly: null,
+                notes: null
+            })
         }
-
-        if (open) load()
-    }, [open, sourceId])
+    }, [initial, userId])
 
     if (!open) return null
 
     async function handleSave() {
-        if (!data.source_name || data.source_name.trim() === "") {
-            toast({ title: "Missing Name", description: "Source name is required." })
-            return
+        console.log("SLIDEOVER: handleSave() fired")
+        console.log("SLIDEOVER: data BEFORE save =", data)
+
+        const idToSave = data.id ?? null
+        console.log("SLIDEOVER: idToSave =", idToSave)
+
+        const payload = {
+            ...data,
+            user_id: userId
         }
 
-        const success = await saveSource(sourceId, { ...data, user_id: userId })
+        console.log("SLIDEOVER: payload sent to saveSource =", payload)
+
+        const success = await saveSource(idToSave, payload)
+
+        console.log("SLIDEOVER: saveSource returned =", success)
+
         if (!success) {
-            toast({ title: "Error", description: "Unable to save source." })
+            toast({ title: "Error", description: "Unable to save source" })
             return
         }
-
-        toast({
-            title: sourceId ? "Updated" : "Created",
-            description: "Source saved successfully."
-        })
 
         onSaved()
         onClose()
     }
 
     return (
-        <div className="fixed inset-0 bg-black/40 flex justify-end z-40">
-            <div className="bg-white w-full max-w-md h-full p-6 shadow-xl overflow-y-auto">
-
+        <div className="fixed inset-0 bg-black/40 z-40 flex justify-end">
+            <div className="bg-white w-full max-w-md h-full shadow-xl p-6 overflow-y-auto">
                 <div className="flex justify-between items-center mb-6">
                     <h2 className="text-xl font-semibold">
-                        {sourceId ? "Edit Source" : "New Source"}
+                        {data.id ? "Edit Source" : "New Source"}
                     </h2>
-                    <button onClick={onClose} className="text-gray-500">✕</button>
+
+                    <button onClick={onClose} className="text-gray-600 text-xl">✕</button>
                 </div>
 
                 <SourceForm data={data} onChange={setData} />
 
                 <div className="mt-8 flex justify-end gap-3">
-                    <button onClick={onClose} className="px-4 py-2 rounded border">
+                    <button onClick={onClose} className="border px-4 py-2 rounded">
                         Cancel
                     </button>
 
                     <button
                         onClick={handleSave}
-                        className="px-4 py-2 rounded bg-[#0A1E2D] text-white hover:bg-[#C6A664]"
+                        className="px-4 py-2 rounded bg-[#0A1E2D] text-white"
                     >
                         Save
                     </button>
                 </div>
-
             </div>
         </div>
     )

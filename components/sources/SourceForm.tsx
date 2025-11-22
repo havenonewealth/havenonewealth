@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import React, { useEffect, useState } from "react"
 import { IncomeSource } from "@/lib/types"
 
 interface Props {
@@ -9,126 +9,197 @@ interface Props {
 }
 
 export default function SourceForm({ data, onChange }: Props) {
-
     function update<K extends keyof IncomeSource>(key: K, value: IncomeSource[K]) {
-        onChange({ ...data, [key]: value })
+        onChange({
+            ...data,
+            [key]: value
+        })
     }
 
-    const [amount, setAmount] = useState("")
-    const [monthly, setMonthly] = useState("")
+    function formatCurrency(num: number | null | undefined): string {
+        if (num == null || isNaN(num as any)) return ""
+        return num.toLocaleString("en-US", {
+            style: "currency",
+            currency: "USD"
+        })
+    }
+
+    const [rawAmount, setRawAmount] = useState("")
+    const [rawMonthly, setRawMonthly] = useState("")
 
     useEffect(() => {
-        setAmount(data.expected_amount?.toString() ?? "")
-        setMonthly(data.expected_monthly?.toString() ?? "")
-    }, [data.expected_amount, data.expected_monthly])
+        setRawAmount(formatCurrency(data.expected_amount ?? null))
+    }, [data.expected_amount])
 
-    function moneyFormat(n: number | null) {
-        if (n == null) return ""
-        return n.toLocaleString("en-US", { style: "currency", currency: "USD" })
-    }
+    useEffect(() => {
+        setRawMonthly(formatCurrency(data.expected_monthly ?? null))
+    }, [data.expected_monthly])
 
-    function clean(v: string) {
-        return v.replace(/[^0-9.]/g, "")
-    }
+    function calculateMonthly(amount: number, frequency: string | null): number | null {
+        if (!frequency || !amount) return amount
 
-    function calcMonthly(v: number, freq: string | null) {
-        if (!freq) return v
-        switch (freq) {
-            case "Weekly": return v * 4.33
-            case "Quarterly": return v / 3
-            case "Annual": return v / 12
-            default: return v
+        switch (frequency) {
+            case "Weekly":
+                return parseFloat((amount * 4.33).toFixed(2))
+            case "Monthly":
+                return parseFloat(amount.toFixed(2))
+            case "Quarterly":
+                return parseFloat((amount / 3).toFixed(2))
+            case "Annual":
+                return parseFloat((amount / 12).toFixed(2))
+            default:
+                return amount
         }
     }
 
-    function handleAmount(v: string) {
-        setAmount(v)
-        const num = Number(clean(v))
-        if (!isNaN(num)) {
-            update("expected_amount", num)
-            if (data.frequency) {
-                const m = calcMonthly(num, data.frequency)
-                update("expected_monthly", m)
-                setMonthly(m.toString())
-            }
+    function handleAmountChange(v: string) {
+        setRawAmount(v)
+
+        const cleaned = v.replace(/[^0-9.]/g, "")
+        if (cleaned === "") {
+            update("expected_amount", null as any)
+            return
+        }
+
+        const num = Number(cleaned)
+        if (isNaN(num)) return
+
+        update("expected_amount", num as any)
+    }
+
+    function handleMonthlyChange(v: string) {
+        setRawMonthly(v)
+
+        const cleaned = v.replace(/[^0-9.]/g, "")
+        if (cleaned === "") {
+            update("expected_monthly", null as any)
+            return
+        }
+
+        const num = Number(cleaned)
+        if (isNaN(num)) return
+
+        update("expected_monthly", num as any)
+    }
+
+    function handleAmountBlur() {
+        setRawAmount(formatCurrency(data.expected_amount ?? null))
+    }
+
+    function handleMonthlyBlur() {
+        setRawMonthly(formatCurrency(data.expected_monthly ?? null))
+    }
+
+    function handleFrequencyChange(freq: string | null) {
+        update("frequency", freq as any)
+
+        if (freq && data.expected_amount != null && !isNaN(data.expected_amount as any)) {
+            const monthly = calculateMonthly(data.expected_amount as number, freq)
+            update("expected_monthly", monthly as any)
         }
     }
 
-    function handleMonthly(v: string) {
-        setMonthly(v)
-        const num = Number(clean(v))
-        if (!isNaN(num)) update("expected_monthly", num)
-    }
+    useEffect(() => {
+        if (!data.frequency || data.expected_amount == null || isNaN(data.expected_amount as any)) return
+
+        const f = data.frequency
+        if (!["Weekly", "Monthly", "Quarterly", "Annual"].includes(f)) return
+
+        const monthly = calculateMonthly(data.expected_amount as number, f)
+        if (monthly == null) return
+
+        if (data.expected_monthly === monthly) return
+
+        update("expected_monthly", monthly as any)
+    }, [data.expected_amount, data.frequency])
 
     return (
         <div className="space-y-5">
 
             <div>
-                <label>Source Name *</label>
+                <label className="block text-sm font-medium text-gray-700">
+                    Source Name *
+                </label>
                 <input
                     type="text"
                     value={data.source_name ?? ""}
-                    onChange={e => update("source_name", e.target.value)}
-                    className="mt-1 w-full border rounded p-2"
+                    onChange={(e) => update("source_name", e.target.value)}
+                    className="mt-1 block w-full rounded border-gray-300 focus:ring-[#C6A664] focus:border-[#C6A664]"
+                    placeholder="Example: Amazon KDP, Udemy, YouTube"
                 />
             </div>
 
             <div>
-                <label>Source Type</label>
+                <label className="block text-sm font-medium text-gray-700">
+                    Source Type
+                </label>
                 <input
+                    type="text"
                     value={data.source_type ?? ""}
-                    onChange={e => update("source_type", e.target.value)}
-                    className="mt-1 w-full border rounded p-2"
+                    onChange={(e) => update("source_type", e.target.value)}
+                    className="mt-1 block w-full rounded border-gray-300 focus:ring-[#C6A664] focus:border-[#C6A664]"
+                    placeholder="Royalty, Affiliate, Rental, etc."
                 />
             </div>
 
             <div>
-                <label>Frequency</label>
+                <label className="block text-sm font-medium text-gray-700">
+                    Frequency
+                </label>
                 <select
                     value={data.frequency ?? ""}
-                    onChange={e => update("frequency", e.target.value || null)}
-                    className="mt-1 w-full border rounded p-2"
+                    onChange={(e) => handleFrequencyChange(e.target.value || null)}
+                    className="mt-1 block w-full rounded border-gray-300 focus:ring-[#C6A664] focus:border-[#C6A664]"
                 >
                     <option value="">Select...</option>
-                    <option>Monthly</option>
-                    <option>Weekly</option>
-                    <option>Quarterly</option>
-                    <option>Annual</option>
-                    <option>Other</option>
+                    <option value="Monthly">Monthly</option>
+                    <option value="Weekly">Weekly</option>
+                    <option value="Quarterly">Quarterly</option>
+                    <option value="Annual">Annual</option>
+                    <option value="Other">Other</option>
                 </select>
             </div>
 
             <div>
-                <label>Expected Amount</label>
+                <label className="block text-sm font-medium text-gray-700">
+                    Expected Amount
+                </label>
                 <input
-                    value={amount}
-                    onChange={e => handleAmount(e.target.value)}
-                    onBlur={() => setAmount(moneyFormat(data.expected_amount ?? null))}
-                    className="mt-1 w-full border rounded p-2"
+                    type="text"
+                    value={rawAmount}
+                    onChange={(e) => handleAmountChange(e.target.value)}
+                    onBlur={handleAmountBlur}
+                    className="mt-1 block w-full rounded border-gray-300 focus:ring-[#C6A664] focus:border-[#C6A664]"
                     placeholder="$0.00"
                 />
             </div>
 
             <div>
-                <label>Expected Monthly</label>
+                <label className="block text-sm font-medium text-gray-700">
+                    Expected Monthly
+                </label>
                 <input
-                    value={monthly}
-                    onChange={e => handleMonthly(e.target.value)}
-                    onBlur={() => setMonthly(moneyFormat(data.expected_monthly ?? null))}
-                    className="mt-1 w-full border rounded p-2"
+                    type="text"
+                    value={rawMonthly}
+                    onChange={(e) => handleMonthlyChange(e.target.value)}
+                    onBlur={handleMonthlyBlur}
+                    className="mt-1 block w-full rounded border-gray-300 focus:ring-[#C6A664] focus:border-[#C6A664]"
                     placeholder="$0.00"
                 />
             </div>
 
             <div>
-                <label>Notes</label>
+                <label className="block text-sm font-medium text-gray-700">
+                    Notes
+                </label>
                 <textarea
                     value={data.notes ?? ""}
-                    onChange={e => update("notes", e.target.value)}
-                    className="mt-1 w-full border rounded p-2"
+                    onChange={(e) => update("notes", e.target.value)}
+                    className="mt-1 block w-full rounded border-gray-300 focus:ring-[#C6A664] focus:border-[#C6A664]"
+                    rows={3}
+                    placeholder="Optional notes about this source..."
                 />
             </div>
-
         </div>
     )
 }
