@@ -1,17 +1,17 @@
-"use client";
+"use client"
 
-import { useState, useEffect } from "react";
-import { IncomeSource } from "@/lib/types";
-import { saveSource } from "@/lib/supabase/sources";
-import { useToast } from "@/components/ui/use-toast";
-import SourceForm from "./SourceForm";
+import { useState, useEffect } from "react"
+import { IncomeSource } from "@/lib/types"
+import { saveSource } from "@/lib/supabase/sources"
+import { useToast } from "@/components/ui/use-toast"
+import SourceForm from "./SourceForm"
 
 interface Props {
-    initial: IncomeSource | null;
-    userId: string;
-    open: boolean;
-    onClose: () => void;
-    onSaved: () => void;
+    initial: IncomeSource | null
+    userId: string
+    open: boolean
+    onClose: () => void
+    onSaved: () => void
 }
 
 export default function SourceSlideOver({
@@ -19,10 +19,11 @@ export default function SourceSlideOver({
     userId,
     open,
     onClose,
-    onSaved,
+    onSaved
 }: Props) {
-    const { toast } = useToast();
+    const { toast } = useToast()
 
+    // Local state includes id + safe editable fields
     const [data, setData] = useState<Partial<IncomeSource>>({
         id: undefined,
         user_id: userId,
@@ -31,10 +32,10 @@ export default function SourceSlideOver({
         frequency: null,
         expected_amount: null,
         expected_monthly: null,
-        notes: null,
-    });
+        notes: null
+    })
 
-    // Load for EDIT or reset for NEW
+    // Load values when editing OR reset when adding
     useEffect(() => {
         if (initial) {
             setData({
@@ -45,8 +46,8 @@ export default function SourceSlideOver({
                 frequency: initial.frequency ?? null,
                 expected_amount: initial.expected_amount ?? null,
                 expected_monthly: initial.expected_monthly ?? null,
-                notes: initial.notes ?? null,
-            });
+                notes: initial.notes ?? null
+            })
         } else {
             setData({
                 id: undefined,
@@ -56,27 +57,28 @@ export default function SourceSlideOver({
                 frequency: null,
                 expected_amount: null,
                 expected_monthly: null,
-                notes: null,
-            });
+                notes: null
+            })
         }
-    }, [initial, userId]);
+    }, [initial, userId])
 
-    if (!open) return null;
+    if (!open) return null
 
-    // -----------------------------------------------------
-    // SAVE HANDLER — FULLY FIXED
-    // -----------------------------------------------------
+    // ---------------------------------------------------------
+    // SAVE HANDLER — FIXED FOR UPDATES
+    // ---------------------------------------------------------
     async function handleSave() {
         if (!data.source_name || data.source_name.trim() === "") {
             toast({
                 title: "Missing Name",
-                description: "Source name is required.",
-            });
-            return;
+                description: "Source name is required."
+            })
+            return
         }
 
-        const idToSave = data.id ?? null;
+        const idToSave = data.id ?? null
 
+        // Build safe payload (no id/user_id mutation on update)
         const payload: Partial<IncomeSource> = {
             source_name: data.source_name.trim(),
             source_type: data.source_type ?? null,
@@ -84,31 +86,33 @@ export default function SourceSlideOver({
             expected_amount: data.expected_amount ?? null,
             expected_monthly: data.expected_monthly ?? null,
             notes: data.notes ?? null,
-            user_id: userId,
-        };
+            user_id: userId // allowed only for creation, safeSource filters it for updates
+        }
 
-        const success = await saveSource(idToSave, payload);
+        const success = await saveSource(idToSave, payload)
 
         if (!success) {
             toast({
                 title: "Error",
-                description: "Could not save the source.",
-            });
-            return;
+                description: "Could not save the source."
+            })
+            return
         }
 
         toast({
             title: idToSave ? "Updated" : "Created",
-            description: "The source has been saved.",
-        });
+            description: "The source has been saved."
+        })
 
-        onSaved();
-        onClose();
+        onSaved()
+        onClose()
     }
 
     return (
         <div className="fixed inset-0 bg-black/40 z-40 flex justify-end">
             <div className="bg-white w-full max-w-md h-full shadow-xl p-6 overflow-y-auto">
+
+                {/* Header */}
                 <div className="flex justify-between items-center mb-6">
                     <h2 className="text-xl font-semibold text-[#0A1E2D]">
                         {data.id ? "Edit Source" : "New Source"}
@@ -122,8 +126,10 @@ export default function SourceSlideOver({
                     </button>
                 </div>
 
+                {/* FORM */}
                 <SourceForm data={data} onChange={setData} />
 
+                {/* ACTIONS */}
                 <div className="mt-8 flex justify-end gap-3">
                     <button
                         onClick={onClose}
@@ -139,7 +145,8 @@ export default function SourceSlideOver({
                         Save
                     </button>
                 </div>
+
             </div>
         </div>
-    );
+    )
 }
