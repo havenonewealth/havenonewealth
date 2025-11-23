@@ -4,6 +4,21 @@ import { supabase } from "@/lib/supabaseClient"
 import type { IncomeSource } from "@/lib/types"
 
 // ---------------------------------------------------------
+// CLEANER — removes undefined, converts empty string → null
+// ---------------------------------------------------------
+function sanitize(data: any) {
+  const cleaned: any = {}
+
+  for (const [key, value] of Object.entries(data)) {
+    if (value === undefined) continue     // skip undefined
+    if (value === "") cleaned[key] = null // empty strings become null
+    else cleaned[key] = value
+  }
+
+  return cleaned
+}
+
+// ---------------------------------------------------------
 // ACTIVE SOURCES
 // ---------------------------------------------------------
 export async function getActiveSources(userId: string): Promise<IncomeSource[]> {
@@ -44,37 +59,59 @@ export async function getArchivedSources(userId: string): Promise<IncomeSource[]
 }
 
 // ---------------------------------------------------------
-// SAVE SOURCE (CREATE / UPDATE)
-// ---------------------------------------------------------
-// ---------------------------------------------------------
-// SAVE SOURCE (FIXED: prevent user_id from being updated)
+// SAVE SOURCE (CREATE + UPDATE)
+// FIXED: removes undefined, strips formatted currency, prevents failed updates
 // ---------------------------------------------------------
 export async function saveSource(id: string | null, payload: Partial<IncomeSource>) {
+  console.log("saveSource INPUT:", id, payload)
+
+  // Convert formatted values like "$100.00" to 100
+  const numericFix = (val: any) => {
+    if (val === null || val === undefined) return null
+    if (typeof val === "number") return val
+    if (typeof val === "string") {
+      const cleaned = val.replace(/[^0-9.-]/g, "")
+      return cleaned === "" ? null : Number(cleaned)
+    }
+    return val
+  }
+
+  const safe = sanitize({
+    source_name: payload.source_name?.trim(),
+    source_type: payload.source_type ?? null,
+    frequency: payload.frequency ?? null,
+    expected_amount: numericFix(payload.expected_amount),
+    expected_monthly: numericFix(payload.expected_monthly),
+    notes: payload.notes ?? null,
+    user_id: payload.user_id
+  })
+
+  console.log("saveSource CLEANED payload:", safe)
 
   if (id) {
-    // REMOVE user_id and id so they are NOT updated
-    const { user_id, id: _ignored, ...updateFields } = payload
+    // must not update id or user_id
+    const { id: _ignore, user_id: _ignore2, ...fields } = safe
 
     const { error } = await supabase
       .from("income_sources")
-      .update(updateFields)
+      .update(fields)
       .eq("id", id)
 
     if (error) {
-      console.error("saveSource update error:", error)
+      console.error("saveSource UPDATE ERROR:", error)
       return false
     }
 
     return true
   }
 
-  // CREATE (user_id is allowed on creation)
+  // CREATE
   const { error } = await supabase
     .from("income_sources")
-    .insert(payload)
+    .insert(safe)
 
   if (error) {
-    console.error("saveSource create error:", error)
+    console.error("saveSource CREATE ERROR:", error)
     return false
   }
 
