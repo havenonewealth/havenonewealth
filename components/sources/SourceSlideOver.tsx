@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { IncomeSource } from "@/lib/types"
+import { saveSource } from "@/lib/supabase/sources"
 import { useToast } from "@/components/ui/use-toast"
 import SourceForm from "./SourceForm"
 
@@ -20,9 +21,9 @@ export default function SourceSlideOver({
     onClose,
     onSaved
 }: Props) {
+
     const { toast } = useToast()
 
-    // Local data buffer
     const [data, setData] = useState<Partial<IncomeSource>>({
         id: undefined,
         user_id: userId,
@@ -34,10 +35,8 @@ export default function SourceSlideOver({
         notes: null
     })
 
-    // Load initial values
+    // Load form state when editing OR reset when adding
     useEffect(() => {
-        console.log("SLIDEOVER: mounted with initial =", initial)
-
         if (initial) {
             setData({
                 id: initial.id,
@@ -65,11 +64,8 @@ export default function SourceSlideOver({
 
     if (!open) return null
 
-    // -------------------------------------------------------------
-    // SAVE via API ROUTE (fixes update issues)
-    // -------------------------------------------------------------
+    // SAVE HANDLER — calls Supabase directly, no API route
     async function handleSave() {
-        console.log("SLIDEOVER: data BEFORE save =", data)
 
         if (!data.source_name || data.source_name.trim() === "") {
             toast({
@@ -81,28 +77,22 @@ export default function SourceSlideOver({
 
         const idToSave = data.id ?? null
 
-        console.log("SLIDEOVER: idToSave =", idToSave)
-        console.log("SLIDEOVER: payload sent to API =", data)
-
-        const res = await fetch("/api/sources/save", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-                id: idToSave,
-                payload: {
-                    ...data,
-                    user_id: userId
-                }
-            })
+        console.log("SLIDEOVER: saving with payload =", {
+            ...data,
+            user_id: userId
         })
 
-        const result = await res.json()
-        console.log("SLIDEOVER: API result =", result)
+        const success = await saveSource(idToSave, {
+            ...data,
+            user_id: userId
+        })
 
-        if (!result.success) {
+        console.log("SLIDEOVER: saveSource returned =", success)
+
+        if (!success) {
             toast({
                 title: "Error",
-                description: result.error || "Could not save the source."
+                description: "Could not save the source."
             })
             return
         }
@@ -124,7 +114,6 @@ export default function SourceSlideOver({
                     <h2 className="text-xl font-semibold text-[#0A1E2D]">
                         {data.id ? "Edit Source" : "New Source"}
                     </h2>
-
                     <button
                         onClick={onClose}
                         className="text-gray-500 hover:text-gray-700"
