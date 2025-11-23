@@ -47,64 +47,34 @@ export async function getArchivedSources(userId: string): Promise<IncomeSource[]
 // SAVE SOURCE (CREATE / UPDATE)
 // ---------------------------------------------------------
 // ---------------------------------------------------------
-// SAVE SOURCE (with strict debugging)
+// SAVE SOURCE (FIXED: prevent user_id from being updated)
 // ---------------------------------------------------------
 export async function saveSource(id: string | null, payload: Partial<IncomeSource>) {
-  console.log("SAVESOURCE: called with id =", id)
-  console.log("SAVESOURCE: payload =", payload)
 
-  const safePayload = {
-    source_name: payload.source_name ?? null,
-    source_type: payload.source_type ?? null,
-    frequency: payload.frequency ?? null,
-    expected_amount: payload.expected_amount ?? null,
-    expected_monthly: payload.expected_monthly ?? null,
-    notes: payload.notes ?? null,
-    user_id: payload.user_id
-  }
-
-  // UPDATE
   if (id) {
-    console.log("SAVESOURCE: running UPDATE for id =", id)
+    // REMOVE user_id and id so they are NOT updated
+    const { user_id, id: _ignored, ...updateFields } = payload
 
-    console.log("UPSERT PAYLOAD:", safePayload);
-
-    const { data, error } = await supabase
+    const { error } = await supabase
       .from("income_sources")
-      .update(safePayload)
+      .update(updateFields)
       .eq("id", id)
-      .select();
-
-    console.log("UPSERT RESULT:", data, "ERROR:", error);
-
-    console.log("SAVESOURCE: update RESULT =", data)
 
     if (error) {
-      console.error("saveSource UPDATE failed:", error)
-      return false
-    }
-
-    if (!data || data.length === 0) {
-      console.error("saveSource UPDATE returned 0 rows — ID mismatch")
+      console.error("saveSource update error:", error)
       return false
     }
 
     return true
   }
 
-  // INSERT
-  console.log("SAVESOURCE: running INSERT")
-
-  const { data, error } = await supabase
+  // CREATE (user_id is allowed on creation)
+  const { error } = await supabase
     .from("income_sources")
-    .insert(safePayload)
-    .select()
-
-  console.log("SAVESOURCE: insert RESULT =", data)
-  console.log("SAVESOURCE: insert ERROR =", error)
+    .insert(payload)
 
   if (error) {
-    console.error("saveSource INSERT failed:", error)
+    console.error("saveSource create error:", error)
     return false
   }
 
