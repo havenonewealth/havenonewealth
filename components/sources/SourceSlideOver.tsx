@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from "react"
 import { IncomeSource } from "@/lib/types"
-import { saveSource } from "@/lib/supabase/sources"
 import { useToast } from "@/components/ui/use-toast"
 import SourceForm from "./SourceForm"
 
@@ -23,7 +22,7 @@ export default function SourceSlideOver({
 }: Props) {
     const { toast } = useToast()
 
-    // IMPORTANT: include id and user_id in local state
+    // Local data buffer
     const [data, setData] = useState<Partial<IncomeSource>>({
         id: undefined,
         user_id: userId,
@@ -35,8 +34,10 @@ export default function SourceSlideOver({
         notes: null
     })
 
-    // Load values when editing or reset when adding
+    // Load initial values
     useEffect(() => {
+        console.log("SLIDEOVER: mounted with initial =", initial)
+
         if (initial) {
             setData({
                 id: initial.id,
@@ -64,7 +65,12 @@ export default function SourceSlideOver({
 
     if (!open) return null
 
+    // -------------------------------------------------------------
+    // SAVE via API ROUTE (fixes update issues)
+    // -------------------------------------------------------------
     async function handleSave() {
+        console.log("SLIDEOVER: data BEFORE save =", data)
+
         if (!data.source_name || data.source_name.trim() === "") {
             toast({
                 title: "Missing Name",
@@ -75,15 +81,28 @@ export default function SourceSlideOver({
 
         const idToSave = data.id ?? null
 
-        const success = await saveSource(idToSave, {
-            ...data,
-            user_id: userId
+        console.log("SLIDEOVER: idToSave =", idToSave)
+        console.log("SLIDEOVER: payload sent to API =", data)
+
+        const res = await fetch("/api/sources/save", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                id: idToSave,
+                payload: {
+                    ...data,
+                    user_id: userId
+                }
+            })
         })
 
-        if (!success) {
+        const result = await res.json()
+        console.log("SLIDEOVER: API result =", result)
+
+        if (!result.success) {
             toast({
                 title: "Error",
-                description: "Could not save the source."
+                description: result.error || "Could not save the source."
             })
             return
         }
