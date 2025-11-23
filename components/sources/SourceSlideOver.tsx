@@ -23,8 +23,7 @@ export default function SourceSlideOver({
 }: Props) {
     const { toast } = useToast()
 
-    // Local state includes id + safe editable fields
-    const [data, setData] = useState<Partial<IncomeSource>>({
+    const [form, setForm] = useState<Partial<IncomeSource>>({
         id: undefined,
         user_id: userId,
         source_name: "",
@@ -35,10 +34,12 @@ export default function SourceSlideOver({
         notes: null
     })
 
-    // Load values when editing OR reset when adding
+    // Load initial data when editing
     useEffect(() => {
+        if (!open) return
+
         if (initial) {
-            setData({
+            setForm({
                 id: initial.id,
                 user_id: initial.user_id,
                 source_name: initial.source_name ?? "",
@@ -49,7 +50,7 @@ export default function SourceSlideOver({
                 notes: initial.notes ?? null
             })
         } else {
-            setData({
+            setForm({
                 id: undefined,
                 user_id: userId,
                 source_name: "",
@@ -60,15 +61,12 @@ export default function SourceSlideOver({
                 notes: null
             })
         }
-    }, [initial, userId])
+    }, [initial, open, userId])
 
     if (!open) return null
 
-    // ---------------------------------------------------------
-    // SAVE HANDLER — FIXED FOR UPDATES
-    // ---------------------------------------------------------
     async function handleSave() {
-        if (!data.source_name || data.source_name.trim() === "") {
+        if (!form.source_name || form.source_name.trim() === "") {
             toast({
                 title: "Missing Name",
                 description: "Source name is required."
@@ -76,22 +74,21 @@ export default function SourceSlideOver({
             return
         }
 
-        const idToSave = data.id ?? null
+        const idToSave = form.id ?? null
 
-        // Build safe payload (no id/user_id mutation on update)
         const payload: Partial<IncomeSource> = {
-            source_name: data.source_name.trim(),
-            source_type: data.source_type ?? null,
-            frequency: data.frequency ?? null,
-            expected_amount: data.expected_amount ?? null,
-            expected_monthly: data.expected_monthly ?? null,
-            notes: data.notes ?? null,
-            user_id: userId // allowed only for creation, safeSource filters it for updates
+            source_name: form.source_name?.trim() ?? "",
+            source_type: form.source_type ?? null,
+            frequency: form.frequency ?? null,
+            expected_amount: form.expected_amount ?? null,
+            expected_monthly: form.expected_monthly ?? null,
+            notes: form.notes ?? null,
+            user_id: userId
         }
 
-        const success = await saveSource(idToSave, payload)
+        const ok = await saveSource(idToSave, payload)
 
-        if (!success) {
+        if (!ok) {
             toast({
                 title: "Error",
                 description: "Could not save the source."
@@ -112,10 +109,9 @@ export default function SourceSlideOver({
         <div className="fixed inset-0 bg-black/40 z-40 flex justify-end">
             <div className="bg-white w-full max-w-md h-full shadow-xl p-6 overflow-y-auto">
 
-                {/* Header */}
                 <div className="flex justify-between items-center mb-6">
                     <h2 className="text-xl font-semibold text-[#0A1E2D]">
-                        {data.id ? "Edit Source" : "New Source"}
+                        {form.id ? "Edit Source" : "New Source"}
                     </h2>
 
                     <button
@@ -126,10 +122,8 @@ export default function SourceSlideOver({
                     </button>
                 </div>
 
-                {/* FORM */}
-                <SourceForm data={data} onChange={setData} />
+                <SourceForm data={form} onChange={setForm} />
 
-                {/* ACTIONS */}
                 <div className="mt-8 flex justify-end gap-3">
                     <button
                         onClick={onClose}
