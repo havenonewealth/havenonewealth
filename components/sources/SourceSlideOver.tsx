@@ -23,7 +23,7 @@ export default function SourceSlideOver({
 }: Props) {
     const { toast } = useToast()
 
-    // Local state includes id + safe editable fields
+    // Full editable state
     const [data, setData] = useState<Partial<IncomeSource>>({
         id: undefined,
         user_id: userId,
@@ -35,7 +35,7 @@ export default function SourceSlideOver({
         notes: null
     })
 
-    // Load values when editing OR reset when adding
+    // Load values into the form when editing
     useEffect(() => {
         if (initial) {
             setData({
@@ -64,13 +64,10 @@ export default function SourceSlideOver({
 
     if (!open) return null
 
-    // ---------------------------------------------------------
-    // SAVE HANDLER — FIXED FOR UPDATES
-    // ---------------------------------------------------------
     async function handleSave() {
         if (!data.source_name || data.source_name.trim() === "") {
             toast({
-                title: "Missing Name",
+                title: "Missing name",
                 description: "Source name is required."
             })
             return
@@ -78,7 +75,6 @@ export default function SourceSlideOver({
 
         const idToSave = data.id ?? null
 
-        // Build safe payload (no id/user_id mutation on update)
         const payload: Partial<IncomeSource> = {
             source_name: data.source_name.trim(),
             source_type: data.source_type ?? null,
@@ -86,7 +82,7 @@ export default function SourceSlideOver({
             expected_amount: data.expected_amount ?? null,
             expected_monthly: data.expected_monthly ?? null,
             notes: data.notes ?? null,
-            user_id: userId // allowed only for creation, safeSource filters it for updates
+            user_id: userId // safe – update logic strips it out
         }
 
         const success = await saveSource(idToSave, payload)
@@ -101,7 +97,7 @@ export default function SourceSlideOver({
 
         toast({
             title: idToSave ? "Updated" : "Created",
-            description: "The source has been saved."
+            description: "Your source has been saved."
         })
 
         onSaved()
@@ -126,10 +122,10 @@ export default function SourceSlideOver({
                     </button>
                 </div>
 
-                {/* FORM */}
+                {/* Form */}
                 <SourceForm data={data} onChange={setData} />
 
-                {/* ACTIONS */}
+                {/* Actions */}
                 <div className="mt-8 flex justify-end gap-3">
                     <button
                         onClick={onClose}
