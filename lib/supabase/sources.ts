@@ -46,47 +46,65 @@ export async function getArchivedSources(userId: string): Promise<IncomeSource[]
 // ---------------------------------------------------------
 // SAVE SOURCE (CREATE / UPDATE)
 // ---------------------------------------------------------
-export async function saveSource(
-  id: string | null,
-  payload: Partial<IncomeSource>
-) {
-  // Only the editable business fields
-  const base = {
-    source_name: payload.source_name,
+// ---------------------------------------------------------
+// SAVE SOURCE (with strict debugging)
+// ---------------------------------------------------------
+export async function saveSource(id: string | null, payload: Partial<IncomeSource>) {
+  console.log("SAVESOURCE: called with id =", id)
+  console.log("SAVESOURCE: payload =", payload)
+
+  const safePayload = {
+    source_name: payload.source_name ?? null,
     source_type: payload.source_type ?? null,
     frequency: payload.frequency ?? null,
     expected_amount: payload.expected_amount ?? null,
     expected_monthly: payload.expected_monthly ?? null,
-    notes: payload.notes ?? null
+    notes: payload.notes ?? null,
+    user_id: payload.user_id
   }
 
-  // CREATE
-  if (!id) {
-    const insertPayload = {
-      ...base,
-      user_id: payload.user_id
-    }
+  // UPDATE
+  if (id) {
+    console.log("SAVESOURCE: running UPDATE for id =", id)
 
-    const { error } = await supabase
+    console.log("UPSERT PAYLOAD:", safePayload);
+
+    const { data, error } = await supabase
       .from("income_sources")
-      .insert(insertPayload)
+      .update(safePayload)
+      .eq("id", id)
+      .select();
+
+    console.log("UPSERT RESULT:", data, "ERROR:", error);
+
+    console.log("SAVESOURCE: update RESULT =", data)
 
     if (error) {
-      console.error("saveSource create error:", error)
+      console.error("saveSource UPDATE failed:", error)
+      return false
+    }
+
+    if (!data || data.length === 0) {
+      console.error("saveSource UPDATE returned 0 rows — ID mismatch")
       return false
     }
 
     return true
   }
 
-  // UPDATE (do NOT touch user_id / archived / deleted flags here)
-  const { error } = await supabase
+  // INSERT
+  console.log("SAVESOURCE: running INSERT")
+
+  const { data, error } = await supabase
     .from("income_sources")
-    .update(base)
-    .eq("id", id)
+    .insert(safePayload)
+    .select()
+
+  console.log("SAVESOURCE: insert RESULT =", data)
+  console.log("SAVESOURCE: insert ERROR =", error)
 
   if (error) {
-    console.error("saveSource update error:", error)
+    console.error("saveSource INSERT failed:", error)
     return false
   }
 
