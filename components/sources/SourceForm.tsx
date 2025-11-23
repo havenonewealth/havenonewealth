@@ -16,106 +16,99 @@ export default function SourceForm({ data, onChange }: Props) {
         })
     }
 
-    function formatCurrency(num: number | null | undefined): string {
-        if (num == null || isNaN(num as any)) return ""
-        return num.toLocaleString("en-US", {
+    // RAW INPUT BUFFERS (prevents stuck typing)
+    const [rawAmount, setRawAmount] = useState("")
+    const [rawMonthly, setRawMonthly] = useState("")
+
+    // Load initial values only on mount or when editing an existing source
+    useEffect(() => {
+        setRawAmount(
+            data.expected_amount != null
+                ? String(data.expected_amount)
+                : ""
+        )
+
+        setRawMonthly(
+            data.expected_monthly != null
+                ? String(data.expected_monthly)
+                : ""
+        )
+    }, [data.id]) // ONLY fires when switching between items
+
+    // Convert "$1,234.50" → 1234.50 numeric
+    function parseCurrency(v: string): number | null {
+        const cleaned = v.replace(/[^0-9.-]/g, "")
+        if (!cleaned) return null
+        const num = Number(cleaned)
+        return isNaN(num) ? null : num
+    }
+
+    // Format number to "$1,234.00"
+    function formatCurrency(val: number | null): string {
+        if (val == null) return ""
+        return val.toLocaleString("en-US", {
             style: "currency",
             currency: "USD"
         })
     }
 
-    const [rawAmount, setRawAmount] = useState("")
-    const [rawMonthly, setRawMonthly] = useState("")
-
-    useEffect(() => {
-        setRawAmount(formatCurrency(data.expected_amount ?? null))
-    }, [data.expected_amount])
-
-    useEffect(() => {
-        setRawMonthly(formatCurrency(data.expected_monthly ?? null))
-    }, [data.expected_monthly])
-
-    function calculateMonthly(amount: number, frequency: string | null): number | null {
-        if (!frequency || !amount) return amount
+    // MONTHLY AUTO-CALC
+    function calculateMonthly(amount: number | null, frequency: string | null): number | null {
+        if (!amount || !frequency) return amount
 
         switch (frequency) {
-            case "Weekly":
-                return parseFloat((amount * 4.33).toFixed(2))
-            case "Monthly":
-                return parseFloat(amount.toFixed(2))
-            case "Quarterly":
-                return parseFloat((amount / 3).toFixed(2))
-            case "Annual":
-                return parseFloat((amount / 12).toFixed(2))
-            default:
-                return amount
+            case "Weekly": return parseFloat((amount * 4.33).toFixed(2))
+            case "Monthly": return amount
+            case "Quarterly": return parseFloat((amount / 3).toFixed(2))
+            case "Annual": return parseFloat((amount / 12).toFixed(2))
+            default: return amount
         }
     }
 
+    // AMOUNT HANDLER
     function handleAmountChange(v: string) {
         setRawAmount(v)
 
-        const cleaned = v.replace(/[^0-9.]/g, "")
-        if (cleaned === "") {
-            update("expected_amount", null as any)
-            return
+        const value = parseCurrency(v)
+        update("expected_amount", value)
+
+        if (value != null && data.frequency) {
+            const monthly = calculateMonthly(value, data.frequency)
+            update("expected_monthly", monthly)
+            setRawMonthly(monthly != null ? String(monthly) : "")
         }
-
-        const num = Number(cleaned)
-        if (isNaN(num)) return
-
-        update("expected_amount", num as any)
-    }
-
-    function handleMonthlyChange(v: string) {
-        setRawMonthly(v)
-
-        const cleaned = v.replace(/[^0-9.]/g, "")
-        if (cleaned === "") {
-            update("expected_monthly", null as any)
-            return
-        }
-
-        const num = Number(cleaned)
-        if (isNaN(num)) return
-
-        update("expected_monthly", num as any)
     }
 
     function handleAmountBlur() {
         setRawAmount(formatCurrency(data.expected_amount ?? null))
     }
 
+    // MONTHLY HANDLER
+    function handleMonthlyChange(v: string) {
+        setRawMonthly(v)
+        const value = parseCurrency(v)
+        update("expected_monthly", value)
+    }
+
     function handleMonthlyBlur() {
         setRawMonthly(formatCurrency(data.expected_monthly ?? null))
     }
 
+    // FREQUENCY CHANGE → RECALCULATE MONTHLY
     function handleFrequencyChange(freq: string | null) {
-        update("frequency", freq as any)
+        update("frequency", freq)
 
-        if (freq && data.expected_amount != null && !isNaN(data.expected_amount as any)) {
-            const monthly = calculateMonthly(data.expected_amount as number, freq)
-            update("expected_monthly", monthly as any)
+        if (data.expected_amount != null) {
+            const monthly = calculateMonthly(data.expected_amount, freq)
+            update("expected_monthly", monthly)
+            setRawMonthly(monthly != null ? String(monthly) : "")
         }
     }
-
-    useEffect(() => {
-        if (!data.frequency || data.expected_amount == null || isNaN(data.expected_amount as any)) return
-
-        const f = data.frequency
-        if (!["Weekly", "Monthly", "Quarterly", "Annual"].includes(f)) return
-
-        const monthly = calculateMonthly(data.expected_amount as number, f)
-        if (monthly == null) return
-
-        if (data.expected_monthly === monthly) return
-
-        update("expected_monthly", monthly as any)
-    }, [data.expected_amount, data.frequency])
 
     return (
         <div className="space-y-5">
 
+            {/* Source Name */}
             <div>
                 <label className="block text-sm font-medium text-gray-700">
                     Source Name *
@@ -129,6 +122,7 @@ export default function SourceForm({ data, onChange }: Props) {
                 />
             </div>
 
+            {/* Source Type */}
             <div>
                 <label className="block text-sm font-medium text-gray-700">
                     Source Type
@@ -142,6 +136,7 @@ export default function SourceForm({ data, onChange }: Props) {
                 />
             </div>
 
+            {/* Frequency */}
             <div>
                 <label className="block text-sm font-medium text-gray-700">
                     Frequency
@@ -160,6 +155,7 @@ export default function SourceForm({ data, onChange }: Props) {
                 </select>
             </div>
 
+            {/* Expected Amount */}
             <div>
                 <label className="block text-sm font-medium text-gray-700">
                     Expected Amount
@@ -174,6 +170,7 @@ export default function SourceForm({ data, onChange }: Props) {
                 />
             </div>
 
+            {/* Expected Monthly */}
             <div>
                 <label className="block text-sm font-medium text-gray-700">
                     Expected Monthly
@@ -188,6 +185,7 @@ export default function SourceForm({ data, onChange }: Props) {
                 />
             </div>
 
+            {/* Notes */}
             <div>
                 <label className="block text-sm font-medium text-gray-700">
                     Notes
@@ -200,6 +198,7 @@ export default function SourceForm({ data, onChange }: Props) {
                     placeholder="Optional notes about this source..."
                 />
             </div>
+
         </div>
     )
 }
