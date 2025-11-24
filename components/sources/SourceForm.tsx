@@ -3,12 +3,13 @@
 import { useEffect, useState } from "react"
 import { IncomeSource } from "@/lib/types"
 
-interface Props {
+export default function SourceForm({
+    data,
+    onChange
+}: {
     data: Partial<IncomeSource>
-    onChange: (values: Partial<IncomeSource>) => void
-}
-
-export default function SourceForm({ data, onChange }: Props) {
+    onChange: (v: Partial<IncomeSource>) => void
+}) {
     function update<K extends keyof IncomeSource>(key: K, value: IncomeSource[K]) {
         onChange({
             ...data,
@@ -16,17 +17,14 @@ export default function SourceForm({ data, onChange }: Props) {
         })
     }
 
+    // RAW INPUT FIELDS (so typing is not blocked)
     const [rawAmount, setRawAmount] = useState("")
     const [rawMonthly, setRawMonthly] = useState("")
 
+    // Load on edit
     useEffect(() => {
-        setRawAmount(
-            data.expected_amount != null ? String(data.expected_amount) : ""
-        )
-
-        setRawMonthly(
-            data.expected_monthly != null ? String(data.expected_monthly) : ""
-        )
+        setRawAmount(data.expected_amount != null ? String(data.expected_amount) : "")
+        setRawMonthly(data.expected_monthly != null ? String(data.expected_monthly) : "")
     }, [data.id])
 
     function parseCurrency(v: string): number | null {
@@ -96,6 +94,7 @@ export default function SourceForm({ data, onChange }: Props) {
     return (
         <div className="space-y-5">
 
+            {/* SOURCE NAME */}
             <div>
                 <label className="block text-sm font-medium text-gray-700">
                     Source Name *
@@ -108,18 +107,26 @@ export default function SourceForm({ data, onChange }: Props) {
                 />
             </div>
 
+            {/* SOURCE TYPE — NOW WORKS */}
             <div>
                 <label className="block text-sm font-medium text-gray-700">
                     Source Type
                 </label>
-                <input
-                    type="text"
+                <select
                     value={data.source_type ?? ""}
                     onChange={(e) => update("source_type", e.target.value)}
                     className="mt-1 block w-full rounded border-gray-300"
-                />
+                >
+                    <option value="">Select...</option>
+                    <option value="Commission">Commission</option>
+                    <option value="Royalty">Royalty</option>
+                    <option value="Affiliate">Affiliate</option>
+                    <option value="Rental">Rental</option>
+                    <option value="Other">Other</option>
+                </select>
             </div>
 
+            {/* FREQUENCY */}
             <div>
                 <label className="block text-sm font-medium text-gray-700">
                     Frequency
@@ -138,6 +145,7 @@ export default function SourceForm({ data, onChange }: Props) {
                 </select>
             </div>
 
+            {/* EXPECTED AMOUNT */}
             <div>
                 <label className="block text-sm font-medium text-gray-700">
                     Expected Amount
@@ -152,6 +160,7 @@ export default function SourceForm({ data, onChange }: Props) {
                 />
             </div>
 
+            {/* EXPECTED MONTHLY */}
             <div>
                 <label className="block text-sm font-medium text-gray-700">
                     Expected Monthly
@@ -166,6 +175,7 @@ export default function SourceForm({ data, onChange }: Props) {
                 />
             </div>
 
+            {/* NOTES */}
             <div>
                 <label className="block text-sm font-medium text-gray-700">
                     Notes

@@ -34,22 +34,20 @@ export interface RecentPayout {
 
 /* Income Sources */
 export interface IncomeSource {
-   id: string
+   id?: string            // ← FIX: make optional
    user_id: string
-
    source_name: string
    source_type: string | null
    frequency: string | null
    expected_amount: number | null
    expected_monthly: number | null
    notes: string | null
-
+   archived: boolean
    archived_at: string | null
    deleted: boolean
    deleted_at: string | null
-   ready_for_delete: boolean
-
    created_at: string
+   ready_for_delete: boolean
 }
 
 
