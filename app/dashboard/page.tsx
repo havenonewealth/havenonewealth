@@ -2,127 +2,205 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
-import { useRouter } from "next/navigation";
 import SourceList from "@/components/sources/SourceList";
 import ArchivedList from "@/components/sources/ArchivedList";
-import KPI from "@/components/analytics/KPI"
-import type { InsightRow } from "@/components/analytics/KPI"
-
-// TYPES ----------------------------------------
-
-interface IncomeSource {
-  id: string;
-  user_id: string;
-  source_name: string;
-  source_type: string;
-  frequency: string;
-  expected_amount: number | null;
-  expected_monthly: number | null;
-  notes: string | null;
-  archived: boolean;
-  archived_at: string | null;
-  created_at: string;
-}
-
-interface SummaryInsight {
-  total_expected_monthly: number | null
-  total_sources: number | null
-}
-
-interface TrendRow {
-  month: string;
-  total: number | null;
-}
-
-// ----------------------------------------------
+import SourceSlideOver from "@/components/sources/SourceSlideOver";
+import KPI from "@/components/analytics/KPI";
 
 export default function DashboardPage() {
-  const router = useRouter();
+  const [activeTab, setActiveTab] = useState("sources");
 
-  const [user, setUser] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
+  const [sources, setSources] = useState<any[]>([]);
+  const [archived, setArchived] = useState<any[]>([]);
+  const [insights, setInsights] = useState<any[]>([]);
+  const [payouts, setPayouts] = useState<any[]>([]);
 
-  // FIX: Explicit types instead of never[]
-  const [sources, setSources] = useState<IncomeSource[]>([]);
-  const [archived, setArchived] = useState<IncomeSource[]>([]);
-  const [insights, setInsights] = useState<InsightRow[]>([]);
-  const [monthlyTrends, setMonthlyTrends] = useState<TrendRow[]>([]);
+  const [userId, setUserId] = useState<string | null>(null);
 
+  const [editing, setEditing] = useState<any | null>(null);
+  const [slideOpen, setSlideOpen] = useState(false);
+
+  // -----------------------------
+  // Load user on mount
+  // -----------------------------
   useEffect(() => {
-    const init = async () => {
-      const { data } = await supabase.auth.getSession();
-      const session = data.session;
-
-      if (!session || !session.user) {
-        router.push("/login");
-        return;
-      }
-
-      setUser(session.user);
-      loadAll(session.user.id);
-    };
-
-    init();
+    const session = supabase.auth.getSession().then(({ data }) => {
+      const uid = data.session?.user?.id || null;
+      setUserId(uid);
+    });
   }, []);
 
-  const loadAll = async (userId: string) => {
-    setLoading(true);
+  // -----------------------------
+  // Load all dashboard data
+  // -----------------------------
+  const loadAll = async (uid: string) => {
+    const [{ data: src }, { data: arc }, { data: ins }, { data: pays }] =
+      await Promise.all([
+        supabase
+          .from("income_sources")
+          .select("*")
+          .eq("user_id", uid)
+          .eq("archived", false)
+          .order("created_at", { ascending: false }),
 
-    // Active sources
-    const { data: activeRows } = await supabase
-      .from("income_sources")
-      .select("*")
-      .eq("user_id", userId)
-      .eq("archived", false)
-      .order("created_at", { ascending: false });
+        supabase
+          .from("income_sources")
+          .select("*")
+          .eq("user_id", uid)
+          .eq("archived", true)
+          .order("created_at", { ascending: false }),
 
-    setSources(activeRows || []);
+        supabase.from("admin_insights").select("*"),
 
-    // Archived
-    const { data: archivedRows } = await supabase
-      .from("income_sources")
-      .select("*")
-      .eq("user_id", userId)
-      .eq("archived", true)
-      .order("archived_at", { ascending: false });
+        supabase.from("admin_recent_payouts").select("*"),
+      ]);
 
-    setArchived(archivedRows || []);
-
-    // Insights
-    const { data: insightsRows } = await supabase
-      .from("v_user_insights")
-      .select("*")
-      .eq("user_id", userId);
-
-    setInsights(insightsRows || []);
-
-    // Trends
-    const { data: trendRows } = await supabase
-      .from("v_user_monthly_trends")
-      .select("*")
-      .eq("user_id", userId)
-      .order("month");
-
-    setMonthlyTrends(trendRows || []);
-
-    setLoading(false);
+    setSources(src || []);
+    setArchived(arc || []);
+    setInsights(ins || []);
+    setPayouts(pays || []);
   };
 
-  if (loading) {
-    return (
-      <div className="p-8 text-center text-gray-400">
-        Loading dashboard...
-      </div>
-    );
-  }
+  // -----------------------------
+  // Reload when user loads
+  // -----------------------------
+  useEffect(() => {
+    if (userId) loadAll(userId);
+  }, [userId]);
+
+  // -----------------------------
+  // Refresh callback for child components
+  // -----------------------------
+  const refreshAll = () => {
+    if (userId) loadAll(userId);
+  };
+
+  // -----------------------------
+  // Begin Create / Edit
+  // -----------------------------
+  const handleAdd = () => {
+    setEditing(null);
+    setSlideOpen(true);
+  };
+
+  const handleEdit = (row: any) => {
+    setEditing(row);
+    setSlideOpen(true);
+  };
 
   return (
-    <div className="p-6 space-y-10">
-      {/* FIX: KPI expects insights prop */}
-      <KPI insights={insights} />
+    <div className="p-6 space-y-6">
+      {/* Tabs */}
+      <div className="flex space-x-4 border-b pb-2">
+        <button
+          onClick={() => setActiveTab("sources")}
+          className={`pb-2 ${activeTab === "sources"
+            ? "border-b-2 border-black font-semibold"
+            : "text-gray-500"
+            }`}
+        >
+          Sources
+        </button>
 
-      <SourceList sources={sources} userId={user.id} />
-      <ArchivedList archived={archived} userId={user.id} />
+        <button
+          onClick={() => setActiveTab("archived")}
+          className={`pb-2 ${activeTab === "archived"
+            ? "border-b-2 border-black font-semibold"
+            : "text-gray-500"
+            }`}
+        >
+          Archived
+        </button>
+
+        <button
+          onClick={() => setActiveTab("payouts")}
+          className={`pb-2 ${activeTab === "payouts"
+            ? "border-b-2 border-black font-semibold"
+            : "text-gray-500"
+            }`}
+        >
+          Payouts
+        </button>
+
+        <button
+          onClick={() => setActiveTab("analytics")}
+          className={`pb-2 ${activeTab === "analytics"
+            ? "border-b-2 border-black font-semibold"
+            : "text-gray-500"
+            }`}
+        >
+          Analytics
+        </button>
+      </div>
+
+      {/* ACTION BUTTON */}
+      {activeTab === "sources" && (
+        <div className="flex justify-end">
+          <button
+            onClick={handleAdd}
+            className="px-4 py-2 bg-black text-white rounded"
+          >
+            Add Source
+          </button>
+        </div>
+      )}
+
+      {/* TAB CONTENT */}
+
+      {activeTab === "sources" && (
+        <SourceList
+          sources={sources}
+          userId={userId || ""}
+          onEdit={handleEdit}
+          refreshAll={refreshAll}
+        />
+      )}
+
+      {activeTab === "archived" && (
+        <ArchivedList
+          archived={archived}
+          userId={userId || ""}
+          refreshAll={refreshAll}
+        />
+      )}
+
+      {activeTab === "payouts" && (
+        <div className="space-y-3">
+          <h2 className="text-lg font-semibold">Recent Payouts</h2>
+
+          {payouts.length === 0 && (
+            <p className="text-gray-500 text-sm">No payouts found.</p>
+          )}
+
+          {payouts.map((p: any) => (
+            <div
+              key={p.id}
+              className="border rounded p-4 bg-white shadow-sm space-y-1"
+            >
+              <div className="font-medium">${p.amount}</div>
+              <div className="text-sm text-gray-500">
+                {new Date(p.date).toLocaleDateString()}
+              </div>
+              <div className="text-sm text-gray-500">{p.source_name}</div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {activeTab === "analytics" && (
+        <div>
+          <KPI insights={insights} />
+        </div>
+      )}
+
+      {/* Slide-Over */}
+      <SourceSlideOver
+        open={slideOpen}
+        setOpen={setSlideOpen}
+        editing={editing}
+        refresh={refreshAll}
+        userId={userId}
+      />
     </div>
   );
 }
