@@ -2,47 +2,47 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
+
 import SourceList from "@/components/sources/SourceList";
 import ArchivedList from "@/components/sources/ArchivedList";
 import SourceSlideOver from "@/components/sources/SourceSlideOver";
 import KPI from "@/components/analytics/KPI";
 
+import type {
+  IncomeSource,
+  RecentPayout
+} from "@/lib/types";
+
 export default function DashboardPage() {
   const [activeTab, setActiveTab] = useState("sources");
 
-  const [sources, setSources] = useState<any[]>([]);
-  const [archived, setArchived] = useState<any[]>([]);
+  const [sources, setSources] = useState<IncomeSource[]>([]);
+  const [archived, setArchived] = useState<IncomeSource[]>([]);
   const [insights, setInsights] = useState<any[]>([]);
-  const [payouts, setPayouts] = useState<any[]>([]);
+  const [payouts, setPayouts] = useState<RecentPayout[]>([]);
 
   const [userId, setUserId] = useState<string | null>(null);
 
-  const [editing, setEditing] = useState<any | null>(null);
+  const [editing, setEditing] = useState<IncomeSource | null>(null);
   const [slideOpen, setSlideOpen] = useState(false);
 
-  // -----------------------------
-  // Load user on mount
-  // -----------------------------
-  useEffect(() => {
-    if (!userId) return;
-    loadAll(userId);
-  }, [userId]);
-
-  // FORCE LOAD after session resolves
+  // Load user session first
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
       const uid = data.session?.user?.id || null;
       if (uid) {
         setUserId(uid);
-        loadAll(uid); // <- CRITICAL
+        loadAll(uid);
       }
     });
   }, []);
 
+  // Reload when userId is ready
+  useEffect(() => {
+    if (userId) loadAll(userId);
+  }, [userId]);
 
-  // -----------------------------
-  // Load all dashboard data
-  // -----------------------------
+  // MASTER LOADING FUNCTION
   const loadAll = async (uid: string) => {
     const [{ data: src }, { data: arc }, { data: ins }, { data: pays }] =
       await Promise.all([
@@ -62,51 +62,41 @@ export default function DashboardPage() {
 
         supabase.from("admin_insights").select("*"),
 
-        supabase.from("admin_recent_payouts").select("*"),
+        supabase.from("admin_recent_payouts").select("*")
       ]);
 
     setSources(src || []);
     setArchived(arc || []);
     setInsights(ins || []);
-    setPayouts(pays || []);
+    setPayouts((pays as RecentPayout[]) || []);
   };
 
-  // -----------------------------
-  // Reload when user loads
-  // -----------------------------
-  useEffect(() => {
-    if (userId) loadAll(userId);
-  }, [userId]);
-
-  // -----------------------------
-  // Refresh callback for child components
-  // -----------------------------
+  // Child components call refreshAll()
   const refreshAll = () => {
     if (userId) loadAll(userId);
   };
 
-  // -----------------------------
-  // Begin Create / Edit
-  // -----------------------------
+  // Slide actions
   const handleAdd = () => {
     setEditing(null);
     setSlideOpen(true);
   };
 
-  const handleEdit = (row: any) => {
+  const handleEdit = (row: IncomeSource) => {
     setEditing(row);
     setSlideOpen(true);
   };
 
   return (
     <div className="p-6 space-y-6">
-      {/* Tabs */}
+
+      {/* New Tab Buttons (only one row — top removed) */}
       <div className="flex space-x-4 border-b pb-2">
         <button
           onClick={() => setActiveTab("sources")}
           className={`pb-2 ${activeTab === "sources"
-            ? "border-b-2 border-black font-semibold"
-            : "text-gray-500"
+              ? "border-b-2 border-black font-semibold"
+              : "text-gray-500"
             }`}
         >
           Sources
@@ -115,8 +105,8 @@ export default function DashboardPage() {
         <button
           onClick={() => setActiveTab("archived")}
           className={`pb-2 ${activeTab === "archived"
-            ? "border-b-2 border-black font-semibold"
-            : "text-gray-500"
+              ? "border-b-2 border-black font-semibold"
+              : "text-gray-500"
             }`}
         >
           Archived
@@ -125,8 +115,8 @@ export default function DashboardPage() {
         <button
           onClick={() => setActiveTab("payouts")}
           className={`pb-2 ${activeTab === "payouts"
-            ? "border-b-2 border-black font-semibold"
-            : "text-gray-500"
+              ? "border-b-2 border-black font-semibold"
+              : "text-gray-500"
             }`}
         >
           Payouts
@@ -135,15 +125,15 @@ export default function DashboardPage() {
         <button
           onClick={() => setActiveTab("analytics")}
           className={`pb-2 ${activeTab === "analytics"
-            ? "border-b-2 border-black font-semibold"
-            : "text-gray-500"
+              ? "border-b-2 border-black font-semibold"
+              : "text-gray-500"
             }`}
         >
           Analytics
         </button>
       </div>
 
-      {/* ACTION BUTTON */}
+      {/* Add Button */}
       {activeTab === "sources" && (
         <div className="flex justify-end">
           <button
@@ -155,8 +145,9 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* TAB CONTENT */}
+      {/* CONTENT AREAS */}
 
+      {/* Sources */}
       {activeTab === "sources" && (
         <SourceList
           sources={sources}
@@ -166,6 +157,7 @@ export default function DashboardPage() {
         />
       )}
 
+      {/* Archived */}
       {activeTab === "archived" && (
         <ArchivedList
           archived={archived}
@@ -174,6 +166,7 @@ export default function DashboardPage() {
         />
       )}
 
+      {/* Payouts */}
       {activeTab === "payouts" && (
         <div className="space-y-3">
           <h2 className="text-lg font-semibold">Recent Payouts</h2>
@@ -182,14 +175,14 @@ export default function DashboardPage() {
             <p className="text-gray-500 text-sm">No payouts found.</p>
           )}
 
-          {payouts.map((p: any) => (
+          {payouts.map((p) => (
             <div
-              key={p.id}
+              key={`${p.source_name}-${p.payout_date}`}
               className="border rounded p-4 bg-white shadow-sm space-y-1"
             >
               <div className="font-medium">${p.amount}</div>
               <div className="text-sm text-gray-500">
-                {new Date(p.date).toLocaleDateString()}
+                {new Date(p.payout_date).toLocaleDateString()}
               </div>
               <div className="text-sm text-gray-500">{p.source_name}</div>
             </div>
@@ -197,13 +190,14 @@ export default function DashboardPage() {
         </div>
       )}
 
+      {/* Analytics */}
       {activeTab === "analytics" && (
         <div>
           <KPI insights={insights} />
         </div>
       )}
 
-      {/* Slide-Over */}
+      {/* SlideOver */}
       <SourceSlideOver
         open={slideOpen}
         setOpen={setSlideOpen}

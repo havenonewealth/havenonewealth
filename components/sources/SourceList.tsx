@@ -1,7 +1,7 @@
 "use client";
 
-import { supabase } from "@/lib/supabaseClient";
 import { useState } from "react";
+import { supabase } from "@/lib/supabaseClient";
 import type { IncomeSource } from "@/lib/types";
 
 interface Props {
@@ -11,81 +11,70 @@ interface Props {
   refreshAll: () => void;
 }
 
-export default function SourceList({
-  sources,
-  userId,
-  onEdit,
-  refreshAll
-}: Props) {
+export default function SourceList({ sources, userId, onEdit, refreshAll }: Props) {
   const [items, setItems] = useState<IncomeSource[]>(sources);
 
-  // Sync with parent when switching views
-  if (items !== sources) {
-    setItems(sources);
-  }
-
-  // -----------------------------
-  // ARCHIVE
-  // -----------------------------
-  const handleArchive = async (row: IncomeSource) => {
-    await supabase
+  // Local refresh after actions
+  const refresh = async () => {
+    const { data } = await supabase
       .from("income_sources")
-      .update({
-        archived: true,
-        archived_at: new Date().toISOString()
-      })
-      .eq("id", row.id);
+      .select("*")
+      .eq("user_id", userId)
+      .eq("archived", false)
+      .order("created_at", { ascending: false });
 
+    setItems(data || []);
     refreshAll();
   };
 
-  // -----------------------------
-  // UI
-  // -----------------------------
+  // Archive a source
+  const handleArchive = async (id: string) => {
+    await supabase
+      .from("income_sources")
+      .update({ archived: true, archived_at: new Date().toISOString() })
+      .eq("id", id);
+
+    refresh();
+  };
+
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
       <h2 className="text-lg font-semibold">Active Sources</h2>
 
       {items.length === 0 && (
-        <div className="text-gray-400 text-sm">No active sources found.</div>
+        <p className="text-gray-500 text-sm">No active sources found.</p>
       )}
 
       {items.map((row) => (
         <div
           key={row.id}
-          className="border rounded p-4 bg-white shadow-sm space-y-1"
+          className="border rounded p-4 bg-white shadow-sm flex justify-between items-center"
         >
-          <div className="font-medium">{row.source_name}</div>
-
-          {row.source_type && (
+          <div>
+            <div className="font-medium">{row.source_name}</div>
             <div className="text-sm text-gray-500">{row.source_type}</div>
-          )}
-
-          <div className="text-sm text-gray-500">
-            Frequency: {row.frequency}
+            <div className="text-sm text-gray-500">
+              Frequency: {row.frequency}
+            </div>
+            <div className="text-sm text-gray-500">
+              Expected: $
+              {row.expected_amount != null
+                ? row.expected_amount.toLocaleString()
+                : "0"}
+            </div>
           </div>
 
-          {/* Expected Monthly */}
-          {row.expected_monthly != null && (
-            <div className="text-sm text-gray-500">
-              Monthly: $
-              {row.expected_monthly.toLocaleString("en-US", {
-                minimumFractionDigits: 2
-              })}
-            </div>
-          )}
-
-          <div className="flex space-x-3 pt-2">
+          <div className="flex space-x-3">
             <button
               onClick={() => onEdit(row)}
-              className="px-3 py-1 text-xs border rounded bg-blue-100"
+              className="text-blue-600 hover:underline"
             >
               Edit
             </button>
 
             <button
-              onClick={() => handleArchive(row)}
-              className="px-3 py-1 text-xs border rounded bg-yellow-100"
+              onClick={() => handleArchive(row.id!)}
+              className="text-red-600 hover:underline"
             >
               Archive
             </button>

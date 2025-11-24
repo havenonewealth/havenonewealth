@@ -10,22 +10,18 @@ export default function SourceForm({
     data: Partial<IncomeSource>;
     onChange: (v: Partial<IncomeSource>) => void;
 }) {
-    //---------------------------------------------------------------------
-    // Safe update helper (supports null)
-    //---------------------------------------------------------------------
+
+    // Allow null and undefined when updating
     function update<K extends keyof IncomeSource>(
         key: K,
-        value: IncomeSource[K] | null
+        value: IncomeSource[K] | null | undefined
     ) {
         onChange({
             ...data,
-            [key]: value ?? null
+            [key]: value
         });
     }
 
-    //---------------------------------------------------------------------
-    // Local raw values (prevents formatting while typing)
-    //---------------------------------------------------------------------
     const [rawAmount, setRawAmount] = useState("");
     const [rawMonthly, setRawMonthly] = useState("");
 
@@ -39,13 +35,9 @@ export default function SourceForm({
         );
     }, [data]);
 
-    //---------------------------------------------------------------------
-    // Currency helpers
-    //---------------------------------------------------------------------
     function parseCurrency(v: string): number | null {
         const cleaned = v.replace(/[^0-9.-]/g, "");
         if (!cleaned) return null;
-
         const num = Number(cleaned);
         return isNaN(num) ? null : num;
     }
@@ -58,9 +50,6 @@ export default function SourceForm({
         });
     }
 
-    //---------------------------------------------------------------------
-    // 7-frequency calculator (matches SourceSlideOver)
-    //---------------------------------------------------------------------
     function calculateMonthly(amount: number | null, frequency: string | null) {
         if (!amount || !frequency) return amount;
 
@@ -76,7 +65,6 @@ export default function SourceForm({
             case "Annual":
                 return parseFloat((amount / 12).toFixed(2));
             case "One-Time":
-                return amount;
             case "Varies":
                 return amount;
             default:
@@ -84,18 +72,15 @@ export default function SourceForm({
         }
     }
 
-    //---------------------------------------------------------------------
-    // Expected Amount input
-    //---------------------------------------------------------------------
     function handleAmountChange(v: string) {
         setRawAmount(v);
 
         const value = parseCurrency(v);
-        update("expected_amount", value);
+        update("expected_amount", value ?? undefined);
 
         if (value != null && data.frequency) {
             const monthly = calculateMonthly(value, data.frequency);
-            update("expected_monthly", monthly);
+            update("expected_monthly", monthly ?? undefined);
             setRawMonthly(monthly != null ? String(monthly) : "");
         }
     }
@@ -104,42 +89,29 @@ export default function SourceForm({
         setRawAmount(formatCurrency(data.expected_amount ?? null));
     }
 
-    //---------------------------------------------------------------------
-    // Expected Monthly input
-    //---------------------------------------------------------------------
     function handleMonthlyChange(v: string) {
         setRawMonthly(v);
-
         const value = parseCurrency(v);
-        update("expected_monthly", value);
+        update("expected_monthly", value ?? undefined);
     }
 
     function handleMonthlyBlur() {
         setRawMonthly(formatCurrency(data.expected_monthly ?? null));
     }
 
-    //---------------------------------------------------------------------
-    // Frequency selector
-    //---------------------------------------------------------------------
     function handleFrequencyChange(freq: string | null) {
-        const amt = parseCurrency(rawAmount);
-
         update("frequency", freq);
 
-        if (amt != null) {
-            const monthly = calculateMonthly(amt, freq);
-            update("expected_monthly", monthly);
+        if (data.expected_amount != null) {
+            const monthly = calculateMonthly(data.expected_amount, freq);
+            update("expected_monthly", monthly ?? undefined);
             setRawMonthly(monthly != null ? String(monthly) : "");
         }
     }
 
-    //---------------------------------------------------------------------
-    // UI
-    //---------------------------------------------------------------------
     return (
         <div className="space-y-5">
 
-            {/* SOURCE NAME */}
             <div>
                 <label className="block text-sm font-medium text-gray-700">
                     Source Name *
@@ -152,7 +124,6 @@ export default function SourceForm({
                 />
             </div>
 
-            {/* SOURCE TYPE */}
             <div>
                 <label className="block text-sm font-medium text-gray-700">
                     Source Type
@@ -171,7 +142,6 @@ export default function SourceForm({
                 </select>
             </div>
 
-            {/* FREQUENCY */}
             <div>
                 <label className="block text-sm font-medium text-gray-700">
                     Frequency
@@ -192,7 +162,6 @@ export default function SourceForm({
                 </select>
             </div>
 
-            {/* EXPECTED AMOUNT */}
             <div>
                 <label className="block text-sm font-medium text-gray-700">
                     Expected Amount
@@ -207,7 +176,6 @@ export default function SourceForm({
                 />
             </div>
 
-            {/* EXPECTED MONTHLY */}
             <div>
                 <label className="block text-sm font-medium text-gray-700">
                     Expected Monthly
@@ -222,7 +190,6 @@ export default function SourceForm({
                 />
             </div>
 
-            {/* NOTES */}
             <div>
                 <label className="block text-sm font-medium text-gray-700">
                     Notes
@@ -230,8 +197,8 @@ export default function SourceForm({
                 <textarea
                     value={data.notes ?? ""}
                     onChange={(e) => update("notes", e.target.value)}
-                    rows={3}
                     className="mt-1 block w-full rounded border-gray-300"
+                    rows={3}
                 />
             </div>
 
