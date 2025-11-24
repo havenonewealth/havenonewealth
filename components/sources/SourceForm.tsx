@@ -10,14 +10,15 @@ export default function SourceForm({
     data: Partial<IncomeSource>;
     onChange: (v: Partial<IncomeSource>) => void;
 }) {
-
-    function update(field: keyof IncomeSource, value: any) {
-        onChange((prev) => ({
-            ...prev,
-            [field]: value
-        }));
+    function update<K extends keyof IncomeSource>(key: K, value: IncomeSource[K]) {
+        // ❗ FIXED: no functional update. Always send full merged object.
+        onChange({
+            ...data,
+            [key]: value
+        });
     }
 
+    // Raw input buffers
     const [rawAmount, setRawAmount] = useState("");
     const [rawMonthly, setRawMonthly] = useState("");
 
@@ -26,12 +27,19 @@ export default function SourceForm({
         setRawMonthly(data.expected_monthly != null ? String(data.expected_monthly) : "");
     }, [data.id]);
 
-
     function parseCurrency(v: string): number | null {
         const cleaned = v.replace(/[^0-9.-]/g, "");
         if (!cleaned) return null;
         const num = Number(cleaned);
         return isNaN(num) ? null : num;
+    }
+
+    function formatCurrency(val: number | null): string {
+        if (val == null) return "";
+        return val.toLocaleString("en-US", {
+            style: "currency",
+            currency: "USD"
+        });
     }
 
     function calculateMonthly(amount: number | null, frequency: string | null) {
@@ -46,26 +54,64 @@ export default function SourceForm({
         }
     }
 
+    function handleAmountChange(v: string) {
+        setRawAmount(v);
+
+        const value = parseCurrency(v);
+        update("expected_amount", value);
+
+        if (value != null && data.frequency) {
+            const monthly = calculateMonthly(value, data.frequency);
+            update("expected_monthly", monthly);
+            setRawMonthly(monthly != null ? String(monthly) : "");
+        }
+    }
+
+    function handleAmountBlur() {
+        setRawAmount(formatCurrency(data.expected_amount ?? null));
+    }
+
+    function handleMonthlyChange(v: string) {
+        setRawMonthly(v);
+        const value = parseCurrency(v);
+        update("expected_monthly", value);
+    }
+
+    function handleMonthlyBlur() {
+        setRawMonthly(formatCurrency(data.expected_monthly ?? null));
+    }
+
+    function handleFrequencyChange(freq: string | null) {
+        update("frequency", freq);
+
+        if (data.expected_amount != null) {
+            const monthly = calculateMonthly(data.expected_amount, freq);
+            update("expected_monthly", monthly);
+            setRawMonthly(monthly != null ? String(monthly) : "");
+        }
+    }
 
     return (
         <div className="space-y-5">
 
             <div>
-                <label className="block text-sm font-medium">Source Name *</label>
+                <label className="block text-sm font-medium text-gray-700">
+                    Source Name *
+                </label>
                 <input
                     type="text"
                     value={data.source_name ?? ""}
                     onChange={(e) => update("source_name", e.target.value)}
-                    className="mt-1 block w-full border rounded"
+                    className="mt-1 block w-full rounded border-gray-300"
                 />
             </div>
 
             <div>
-                <label className="block text-sm font-medium">Source Type</label>
+                <label className="block text-sm font-medium text-gray-700">Source Type</label>
                 <select
                     value={data.source_type ?? ""}
                     onChange={(e) => update("source_type", e.target.value)}
-                    className="mt-1 block w-full border rounded"
+                    className="mt-1 block w-full rounded border-gray-300"
                 >
                     <option value="">Select...</option>
                     <option value="Commission">Commission</option>
@@ -77,11 +123,11 @@ export default function SourceForm({
             </div>
 
             <div>
-                <label className="block text-sm font-medium">Frequency</label>
+                <label className="block text-sm font-medium text-gray-700">Frequency</label>
                 <select
                     value={data.frequency ?? ""}
-                    onChange={(e) => update("frequency", e.target.value)}
-                    className="mt-1 block w-full border rounded"
+                    onChange={(e) => handleFrequencyChange(e.target.value || null)}
+                    className="mt-1 block w-full rounded border-gray-300"
                 >
                     <option value="">Select...</option>
                     <option value="Monthly">Monthly</option>
@@ -90,6 +136,40 @@ export default function SourceForm({
                     <option value="Annual">Annual</option>
                     <option value="Other">Other</option>
                 </select>
+            </div>
+
+            <div>
+                <label className="block text-sm font-medium text-gray-700">Expected Amount</label>
+                <input
+                    type="text"
+                    value={rawAmount}
+                    onChange={(e) => handleAmountChange(e.target.value)}
+                    onBlur={handleAmountBlur}
+                    className="mt-1 block w-full rounded border-gray-300"
+                    placeholder="$0.00"
+                />
+            </div>
+
+            <div>
+                <label className="block text-sm font-medium text-gray-700">Expected Monthly</label>
+                <input
+                    type="text"
+                    value={rawMonthly}
+                    onChange={(e) => handleMonthlyChange(e.target.value)}
+                    onBlur={handleMonthlyBlur}
+                    className="mt-1 block w-full rounded border-gray-300"
+                    placeholder="$0.00"
+                />
+            </div>
+
+            <div>
+                <label className="block text-sm font-medium text-gray-700">Notes</label>
+                <textarea
+                    value={data.notes ?? ""}
+                    onChange={(e) => update("notes", e.target.value)}
+                    className="mt-1 block w-full rounded border-gray-300"
+                    rows={3}
+                />
             </div>
 
         </div>
