@@ -20,7 +20,6 @@ export default function SourceSlideOver({
 }) {
     const { toast } = useToast()
 
-    // Form state — includes id (optional)
     const [form, setForm] = useState<Partial<IncomeSource>>({
         id: undefined,
         user_id: userId,
@@ -32,7 +31,6 @@ export default function SourceSlideOver({
         notes: null
     })
 
-    // Load data when opening editor
     useEffect(() => {
         if (!open) return
 
@@ -48,7 +46,6 @@ export default function SourceSlideOver({
                 notes: initial.notes ?? null
             })
         } else {
-            // Reset form for new entry
             setForm({
                 id: undefined,
                 user_id: userId,
@@ -64,23 +61,15 @@ export default function SourceSlideOver({
 
     if (!open) return null
 
-    // ------------------------------------------------------
-    // SAVE HANDLER — uses the new API route
-    // ------------------------------------------------------
     async function handleSave() {
         if (!form.source_name || form.source_name.trim() === "") {
-            toast({
-                title: "Missing Name",
-                description: "Source name is required."
-            })
+            toast({ title: "Missing Name", description: "Source name is required." })
             return
         }
 
         const response = await fetch("/api/sources/save", {
             method: "POST",
-            headers: {
-                "Content-Type": "application/json"
-            },
+            headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
                 id: form.id ?? null,
                 payload: {
@@ -99,10 +88,7 @@ export default function SourceSlideOver({
         try {
             json = await response.json()
         } catch {
-            toast({
-                title: "Error",
-                description: "Unexpected server response."
-            })
+            toast({ title: "Error", description: "Unexpected server response." })
             return
         }
 
@@ -127,7 +113,6 @@ export default function SourceSlideOver({
         <div className="fixed inset-0 bg-black/40 z-40 flex justify-end">
             <div className="bg-white w-full max-w-md h-full shadow-xl p-6 overflow-y-auto">
 
-                {/* Header */}
                 <div className="flex justify-between items-center mb-6">
                     <h2 className="text-xl font-semibold text-[#0A1E2D]">
                         {form.id ? "Edit Source" : "New Source"}
@@ -141,10 +126,8 @@ export default function SourceSlideOver({
                     </button>
                 </div>
 
-                {/* Form */}
                 <SourceForm data={form} onChange={setForm} />
 
-                {/* Actions */}
                 <div className="mt-8 flex justify-end gap-3">
                     <button
                         onClick={onClose}
@@ -160,7 +143,6 @@ export default function SourceSlideOver({
                         Save
                     </button>
                 </div>
-
             </div>
         </div>
     )

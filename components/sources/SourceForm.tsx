@@ -11,17 +11,12 @@ export default function SourceForm({
     onChange: (v: Partial<IncomeSource>) => void
 }) {
     function update<K extends keyof IncomeSource>(key: K, value: IncomeSource[K]) {
-        onChange({
-            ...data,
-            [key]: value
-        })
+        onChange({ ...data, [key]: value })
     }
 
-    // RAW INPUT FIELDS (so typing is not blocked)
     const [rawAmount, setRawAmount] = useState("")
     const [rawMonthly, setRawMonthly] = useState("")
 
-    // Load on edit
     useEffect(() => {
         setRawAmount(data.expected_amount != null ? String(data.expected_amount) : "")
         setRawMonthly(data.expected_monthly != null ? String(data.expected_monthly) : "")
@@ -36,15 +31,11 @@ export default function SourceForm({
 
     function formatCurrency(val: number | null): string {
         if (val == null) return ""
-        return val.toLocaleString("en-US", {
-            style: "currency",
-            currency: "USD"
-        })
+        return val.toLocaleString("en-US", { style: "currency", currency: "USD" })
     }
 
     function calculateMonthly(amount: number | null, frequency: string | null) {
         if (!amount || !frequency) return amount
-
         switch (frequency) {
             case "Weekly": return parseFloat((amount * 4.33).toFixed(2))
             case "Monthly": return amount
@@ -56,7 +47,6 @@ export default function SourceForm({
 
     function handleAmountChange(v: string) {
         setRawAmount(v)
-
         const value = parseCurrency(v)
         update("expected_amount", value)
 
@@ -73,8 +63,7 @@ export default function SourceForm({
 
     function handleMonthlyChange(v: string) {
         setRawMonthly(v)
-        const value = parseCurrency(v)
-        update("expected_monthly", value)
+        update("expected_monthly", parseCurrency(v))
     }
 
     function handleMonthlyBlur() {
@@ -83,7 +72,6 @@ export default function SourceForm({
 
     function handleFrequencyChange(freq: string | null) {
         update("frequency", freq)
-
         if (data.expected_amount != null) {
             const monthly = calculateMonthly(data.expected_amount, freq)
             update("expected_monthly", monthly)
@@ -94,7 +82,6 @@ export default function SourceForm({
     return (
         <div className="space-y-5">
 
-            {/* SOURCE NAME */}
             <div>
                 <label className="block text-sm font-medium text-gray-700">
                     Source Name *
@@ -107,7 +94,6 @@ export default function SourceForm({
                 />
             </div>
 
-            {/* SOURCE TYPE — NOW WORKS */}
             <div>
                 <label className="block text-sm font-medium text-gray-700">
                     Source Type
@@ -126,7 +112,6 @@ export default function SourceForm({
                 </select>
             </div>
 
-            {/* FREQUENCY */}
             <div>
                 <label className="block text-sm font-medium text-gray-700">
                     Frequency
@@ -145,7 +130,6 @@ export default function SourceForm({
                 </select>
             </div>
 
-            {/* EXPECTED AMOUNT */}
             <div>
                 <label className="block text-sm font-medium text-gray-700">
                     Expected Amount
@@ -160,7 +144,6 @@ export default function SourceForm({
                 />
             </div>
 
-            {/* EXPECTED MONTHLY */}
             <div>
                 <label className="block text-sm font-medium text-gray-700">
                     Expected Monthly
@@ -175,7 +158,6 @@ export default function SourceForm({
                 />
             </div>
 
-            {/* NOTES */}
             <div>
                 <label className="block text-sm font-medium text-gray-700">
                     Notes
