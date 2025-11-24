@@ -1,59 +1,77 @@
 "use client"
 
 import { useState } from "react"
+import { supabase } from "@/lib/supabaseClient"
 
 export default function TestUpdateButton() {
-    const [status, setStatus] = useState<string | null>(null)
+    const [result, setResult] = useState<string>("")
 
-    async function handleUpdate() {
-        setStatus("Updating...")
+    async function runTest() {
+        setResult("Running...")
 
-        // Use an existing row id from your income_sources table
-        const existingId = "PUT_AN_EXISTING_SOURCE_ID_HERE"
-
-        const payload = {
-            source_name: "UPDATED VIA TEST BUTTON",
-            source_type: "Commission",
-            frequency: "Monthly",
-            expected_amount: 1234.56,
-            expected_monthly: 1234.56,
-            notes: "Test update run from TestUpdateButton"
-            // user_id will be ignored on update by the API
+        // 1. Pull logged-in user
+        const { data: { user } } = await supabase.auth.getUser()
+        if (!user) {
+            setResult("Not logged in")
+            return
         }
 
+        // 2. Fetch a REAL existing source
+        const { data: sources, error: fetchErr } = await supabase
+            .from("income_sources")
+            .select("id, source_name")
+            .eq("user_id", user.id)
+            .limit(1)
+
+        if (fetchErr || !sources || sources.length === 0) {
+            setResult("No existing source found to update.")
+            return
+        }
+
+        const source = sources[0]
+
+        // 3. Build update payload
+        const body = {
+            id: source.id, // MUST be a real UUID
+            payload: {
+                source_name: "UPDATED_FROM_TEST_BUTTON",
+                source_type: "Commission",
+                frequency: "Monthly",
+                expected_amount: 777,
+                expected_monthly: 777,
+                notes: "Updated via test button",
+                user_id: user.id
+            }
+        }
+
+        // 4. Call the API
         const res = await fetch("/api/sources/save", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ id: existingId, payload })
+            body: JSON.stringify(body)
         })
 
-        let json: any = null
-        try {
-            json = await res.json()
-        } catch {
-            setStatus(`HTTP ${res.status} – no JSON body`)
-            return
-        }
+        const json = await res.json()
 
         if (!json.success) {
-            setStatus(`Failed: ${json.error || "unknown error"}`)
-            console.error("TestUpdateButton error:", json)
+            setResult(`Failed: ${json.error}`)
+            console.error("Test update error:", json.error)
             return
         }
 
-        setStatus("Update succeeded")
-        console.log("TestUpdateButton result:", json)
+        setResult(`SUCCESS: Updated ${source.id}`)
     }
 
     return (
-        <div className="mt-4 flex items-center gap-3">
+        <div className="mt-2">
             <button
-                onClick={handleUpdate}
-                className="px-3 py-1 rounded bg-blue-600 text-white text-sm"
+                onClick={runTest}
+                className="px-4 py-2 bg-blue-600 text-white rounded"
             >
-                Run Test UPDATE
+                Run TEST UPDATE
             </button>
-            {status && <span className="text-xs text-gray-600">{status}</span>}
+
+            <div className="mt-2 text-sm text-red-600">{result}</div>
         </div>
     )
 }
