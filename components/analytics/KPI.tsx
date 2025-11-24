@@ -1,6 +1,6 @@
 'use client'
 
-interface InsightRow {
+export interface InsightRow {
   source_name: string
   total_earned: number
   avg_payment: number
@@ -12,7 +12,6 @@ interface InsightRow {
 interface KPIProps {
   insights: InsightRow[]
 }
-
 export default function KPI({ insights }: KPIProps) {
   if (!insights || insights.length === 0) {
     return <p className="text-gray-500">No insight data available.</p>

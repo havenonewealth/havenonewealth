@@ -1,54 +1,42 @@
-"use client"
+"use client";
 
-import React from "react"
-import { IncomeSource } from "@/lib/types"
+import { supabase } from "@/lib/supabaseClient";
+import { useState } from "react";
 
-interface Props {
-    sources: IncomeSource[]
-    onUnarchive: (s: IncomeSource) => void
-}
+export default function ArchivedList({ archived, userId }: any) {
+    const [items, setItems] = useState(archived);
 
-export default function ArchivedList({ sources, onUnarchive }: Props) {
+    const refresh = async () => {
+        const { data } = await supabase
+            .from("income_sources")
+            .select("*")
+            .eq("user_id", userId)
+            .eq("archived", true)
+            .order("archived_at", { ascending: false });
+
+        setItems(data || []);
+    };
+
     return (
-        <div>
-            <h2 className="text-2xl font-semibold text-[#0A1E2D] mb-4">
-                Archived Sources
-            </h2>
+        <div className="space-y-3">
+            <h2 className="text-lg font-semibold">Archived Sources</h2>
 
-            {sources.length === 0 && (
-                <p className="text-gray-600">No archived sources found.</p>
+            {items.length === 0 && (
+                <div className="text-gray-400 text-sm">
+                    No archived sources found.
+                </div>
             )}
 
-            <ul className="space-y-3">
-                {sources.map((s) => (
-                    <li
-                        key={s.id}
-                        className="p-4 border rounded-lg shadow-sm bg-white flex justify-between items-center"
-                    >
-                        {/* Left side */}
-                        <div>
-                            <p className="text-lg font-semibold text-[#0A1E2D]">
-                                {s.source_name}
-                            </p>
-
-                            <p className="text-sm text-gray-600">
-                                Archived on:{" "}
-                                {s.archived_at
-                                    ? new Date(s.archived_at).toLocaleDateString()
-                                    : "Unknown"}
-                            </p>
-                        </div>
-
-                        {/* Right side */}
-                        <button
-                            onClick={() => onUnarchive(s)}
-                            className="px-4 py-2 rounded-md bg-[#0A1E2D] text-white hover:bg-[#C6A664] transition font-medium shadow-sm ml-4"
-                        >
-                            Restore
-                        </button>
-                    </li>
-                ))}
-            </ul>
+            {items.map((row: any) => (
+                <div
+                    key={row.id}
+                    className="border rounded p-4 bg-gray-50 shadow-inner space-y-1"
+                >
+                    <div className="font-medium">{row.source_name}</div>
+                    <div className="text-sm text-gray-500">{row.source_type}</div>
+                    <div className="text-sm text-gray-500">Archived</div>
+                </div>
+            ))}
         </div>
-    )
+    );
 }
