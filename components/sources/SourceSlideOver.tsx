@@ -1,17 +1,9 @@
-"use client"
+"use client";
 
-import { useState, useEffect } from "react"
-import type { IncomeSource } from "@/lib/types"
-import { useToast } from "@/components/ui/use-toast"
-import SourceForm from "./SourceForm"
-
-interface Props {
-    initial: IncomeSource | null
-    userId: string
-    open: boolean
-    onClose: () => void
-    onSaved: () => void
-}
+import { useState, useEffect } from "react";
+import { IncomeSource } from "@/lib/types";
+import { useToast } from "@/components/ui/use-toast";
+import SourceForm from "./SourceForm";
 
 export default function SourceSlideOver({
     initial,
@@ -19,9 +11,14 @@ export default function SourceSlideOver({
     open,
     onClose,
     onSaved
-}: Props) {
-
-    const { toast } = useToast()
+}: {
+    initial: IncomeSource | null;
+    userId: string;
+    open: boolean;
+    onClose: () => void;
+    onSaved: () => void;
+}) {
+    const { toast } = useToast();
 
     const [form, setForm] = useState<Partial<IncomeSource>>({
         id: undefined,
@@ -32,10 +29,11 @@ export default function SourceSlideOver({
         expected_amount: null,
         expected_monthly: null,
         notes: null
-    })
+    });
 
+    // Load initial object
     useEffect(() => {
-        if (!open) return
+        if (!open) return;
 
         if (initial) {
             setForm({
@@ -47,7 +45,7 @@ export default function SourceSlideOver({
                 expected_amount: initial.expected_amount ?? null,
                 expected_monthly: initial.expected_monthly ?? null,
                 notes: initial.notes ?? null
-            })
+            });
         } else {
             setForm({
                 id: undefined,
@@ -58,57 +56,61 @@ export default function SourceSlideOver({
                 expected_amount: null,
                 expected_monthly: null,
                 notes: null
-            })
+            });
         }
-    }, [initial, open, userId])
+    }, [initial, open, userId]);
 
-    if (!open) return null
+    if (!open) return null;
 
     async function handleSave() {
-        if (!form.source_name || form.source_name.trim() === "") {
+        if (!form.source_name?.trim()) {
             toast({
                 title: "Missing Name",
                 description: "Source name is required."
-            })
-            return
+            });
+            return;
         }
 
         const response = await fetch("/api/sources/save", {
             method: "POST",
-            headers: {
-                "Content-Type": "application/json"
-            },
+            headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
                 id: form.id ?? null,
                 payload: {
-                    source_name: form.source_name.trim(),
-                    source_type: form.source_type ?? null,
-                    frequency: form.frequency ?? null,
-                    expected_amount: form.expected_amount ?? null,
-                    expected_monthly: form.expected_monthly ?? null,
-                    notes: form.notes ?? null,
-                    user_id: userId
+                    user_id: userId,
+                    source_name: form.source_name,
+                    source_type: form.source_type,
+                    frequency: form.frequency,
+                    expected_amount: form.expected_amount,
+                    expected_monthly: form.expected_monthly,
+                    notes: form.notes
                 }
             })
-        })
+        });
 
-        const json = await response.json().catch(() => null)
+        let json;
+        try {
+            json = await response.json();
+        } catch {
+            toast({ title: "Error", description: "Unexpected server response." });
+            return;
+        }
 
-        if (!json || !json.success) {
+        if (!json.success) {
             toast({
                 title: "Error",
-                description: json?.error || "Could not save the source."
-            })
-            return
+                description: json.error || "Could not save the source."
+            });
+            return;
         }
 
         toast({
             title: form.id ? "Updated" : "Created",
             description: "The source has been saved."
-        })
+        });
 
-        onSaved()
-        onClose()
+        onSaved();
+        onClose();
     }
 
     return (
@@ -120,10 +122,7 @@ export default function SourceSlideOver({
                         {form.id ? "Edit Source" : "New Source"}
                     </h2>
 
-                    <button
-                        onClick={onClose}
-                        className="text-gray-500 hover:text-gray-700"
-                    >
+                    <button onClick={onClose} className="text-gray-500 hover:text-gray-700">
                         ✕
                     </button>
                 </div>
@@ -148,5 +147,5 @@ export default function SourceSlideOver({
 
             </div>
         </div>
-    )
+    );
 }
