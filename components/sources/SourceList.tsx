@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import type { IncomeSource } from "@/lib/types";
 
@@ -11,10 +11,19 @@ interface Props {
   refreshAll: () => void;
 }
 
-export default function SourceList({ sources, userId, onEdit, refreshAll }: Props) {
-  const [items, setItems] = useState<IncomeSource[]>(sources);
+export default function SourceList({
+  sources,
+  userId,
+  onEdit,
+  refreshAll
+}: Props) {
 
-  // Local refresh after actions
+  // Sync local state with props on change — FIXES issue #1 (blank on first load)
+  const [items, setItems] = useState<IncomeSource[]>(sources);
+  useEffect(() => {
+    setItems(sources);
+  }, [sources]);
+
   const refresh = async () => {
     const { data } = await supabase
       .from("income_sources")
@@ -27,11 +36,28 @@ export default function SourceList({ sources, userId, onEdit, refreshAll }: Prop
     refreshAll();
   };
 
-  // Archive a source
+  // Archive
   const handleArchive = async (id: string) => {
     await supabase
       .from("income_sources")
-      .update({ archived: true, archived_at: new Date().toISOString() })
+      .update({
+        archived: true,
+        archived_at: new Date().toISOString()
+      })
+      .eq("id", id);
+
+    refresh();
+  };
+
+  // DELETE — FIXES issue #4
+  const handleDelete = async (id: string) => {
+    await supabase
+      .from("income_sources")
+      .update({
+        deleted: true,
+        deleted_at: new Date().toISOString(),
+        ready_for_delete: true
+      })
       .eq("id", id);
 
     refresh();
@@ -42,7 +68,9 @@ export default function SourceList({ sources, userId, onEdit, refreshAll }: Prop
       <h2 className="text-lg font-semibold">Active Sources</h2>
 
       {items.length === 0 && (
-        <p className="text-gray-500 text-sm">No active sources found.</p>
+        <p className="text-gray-500 text-sm">
+          No active sources found.
+        </p>
       )}
 
       {items.map((row) => (
@@ -74,9 +102,16 @@ export default function SourceList({ sources, userId, onEdit, refreshAll }: Prop
 
             <button
               onClick={() => handleArchive(row.id!)}
-              className="text-red-600 hover:underline"
+              className="text-yellow-600 hover:underline"
             >
               Archive
+            </button>
+
+            <button
+              onClick={() => handleDelete(row.id!)}
+              className="text-red-600 hover:underline"
+            >
+              Delete
             </button>
           </div>
         </div>
