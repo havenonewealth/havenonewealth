@@ -12,7 +12,7 @@ export async function POST(req: Request) {
             )
         }
 
-        // Force correct numeric types
+        // Ensure numeric fields
         const clean = {
             ...payload,
             expected_amount: payload.expected_amount != null
@@ -26,7 +26,7 @@ export async function POST(req: Request) {
         let result
 
         if (id) {
-            // UPDATE
+            // Update
             result = await supabase
                 .from("income_sources")
                 .update(clean)
@@ -34,21 +34,23 @@ export async function POST(req: Request) {
                 .select("*")
                 .maybeSingle()
 
-            // Extra safeguard: update affected zero rows
-            if (result.data === null) {
+            if (!result.data) {
                 return NextResponse.json(
-                    { success: false, error: "Update failed — record not found." },
+                    { success: false, error: "Update failed. Record not found." },
                     { status: 404 }
                 )
             }
         } else {
-            // CREATE
+            // Create
             result = await supabase
                 .from("income_sources")
                 .insert(clean)
                 .select("*")
                 .maybeSingle()
         }
+
+        // DEBUG
+        console.log("SUPABASE RESULT:", result);
 
         if (result.error) {
             return NextResponse.json(
@@ -57,10 +59,7 @@ export async function POST(req: Request) {
             )
         }
 
-        return NextResponse.json({
-            success: true,
-            data: result.data
-        })
+        return NextResponse.json({ success: true, data: result.data })
     } catch (e: any) {
         return NextResponse.json(
             { success: false, error: e.message },

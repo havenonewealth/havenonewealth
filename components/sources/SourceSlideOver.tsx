@@ -71,7 +71,7 @@ export default function SourceSlideOver({
             return;
         }
 
-        const response = await fetch("/api/sources/save", {
+        const response = await fetch("/api/sources", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
