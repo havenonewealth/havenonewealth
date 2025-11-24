@@ -3,18 +3,17 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 
+import { useTabs } from "./TabContext";
+
 import SourceList from "@/components/sources/SourceList";
 import ArchivedList from "@/components/sources/ArchivedList";
 import SourceSlideOver from "@/components/sources/SourceSlideOver";
 import KPI from "@/components/analytics/KPI";
 
-import type {
-  IncomeSource,
-  RecentPayout
-} from "@/lib/types";
+import type { IncomeSource, RecentPayout } from "@/lib/types";
 
 export default function DashboardPage() {
-  const [activeTab, setActiveTab] = useState("sources");
+  const { activeTab } = useTabs(); // ← GLOBAL TAB STATE
 
   const [sources, setSources] = useState<IncomeSource[]>([]);
   const [archived, setArchived] = useState<IncomeSource[]>([]);
@@ -26,7 +25,9 @@ export default function DashboardPage() {
   const [editing, setEditing] = useState<IncomeSource | null>(null);
   const [slideOpen, setSlideOpen] = useState(false);
 
-  // Load user session first
+  // -------------------------------------------
+  // Initial session load
+  // -------------------------------------------
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
       const uid = data.session?.user?.id || null;
@@ -37,12 +38,16 @@ export default function DashboardPage() {
     });
   }, []);
 
-  // Reload when userId is ready
+  // -------------------------------------------
+  // Reload whenever user becomes available
+  // -------------------------------------------
   useEffect(() => {
     if (userId) loadAll(userId);
   }, [userId]);
 
-  // MASTER LOADING FUNCTION
+  // -------------------------------------------
+  // Master loader
+  // -------------------------------------------
   const loadAll = async (uid: string) => {
     const [{ data: src }, { data: arc }, { data: ins }, { data: pays }] =
       await Promise.all([
@@ -71,12 +76,10 @@ export default function DashboardPage() {
     setPayouts((pays as RecentPayout[]) || []);
   };
 
-  // Child components call refreshAll()
   const refreshAll = () => {
     if (userId) loadAll(userId);
   };
 
-  // Slide actions
   const handleAdd = () => {
     setEditing(null);
     setSlideOpen(true);
@@ -87,53 +90,13 @@ export default function DashboardPage() {
     setSlideOpen(true);
   };
 
+  // -----------------------------------------------------
+  // RENDER BY TAB (from GLOBAL CONTEXT)
+  // -----------------------------------------------------
   return (
-    <div className="p-6 space-y-6">
+    <div className="space-y-6">
 
-      {/* New Tab Buttons (only one row — top removed) */}
-      <div className="flex space-x-4 border-b pb-2">
-        <button
-          onClick={() => setActiveTab("sources")}
-          className={`pb-2 ${activeTab === "sources"
-              ? "border-b-2 border-black font-semibold"
-              : "text-gray-500"
-            }`}
-        >
-          Sources
-        </button>
-
-        <button
-          onClick={() => setActiveTab("archived")}
-          className={`pb-2 ${activeTab === "archived"
-              ? "border-b-2 border-black font-semibold"
-              : "text-gray-500"
-            }`}
-        >
-          Archived
-        </button>
-
-        <button
-          onClick={() => setActiveTab("payouts")}
-          className={`pb-2 ${activeTab === "payouts"
-              ? "border-b-2 border-black font-semibold"
-              : "text-gray-500"
-            }`}
-        >
-          Payouts
-        </button>
-
-        <button
-          onClick={() => setActiveTab("analytics")}
-          className={`pb-2 ${activeTab === "analytics"
-              ? "border-b-2 border-black font-semibold"
-              : "text-gray-500"
-            }`}
-        >
-          Analytics
-        </button>
-      </div>
-
-      {/* Add Button */}
+      {/* Action button only in Sources */}
       {activeTab === "sources" && (
         <div className="flex justify-end">
           <button
@@ -144,8 +107,6 @@ export default function DashboardPage() {
           </button>
         </div>
       )}
-
-      {/* CONTENT AREAS */}
 
       {/* Sources */}
       {activeTab === "sources" && (
@@ -191,13 +152,9 @@ export default function DashboardPage() {
       )}
 
       {/* Analytics */}
-      {activeTab === "analytics" && (
-        <div>
-          <KPI insights={insights} />
-        </div>
-      )}
+      {activeTab === "analytics" && <KPI insights={insights} />}
 
-      {/* SlideOver */}
+      {/* Slide Over */}
       <SourceSlideOver
         open={slideOpen}
         setOpen={setSlideOpen}
