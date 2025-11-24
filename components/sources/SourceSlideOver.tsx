@@ -61,11 +61,8 @@ export default function SourceSlideOver({
 
     if (!open) return null
 
-    // ------------------------------------------------------
-    // SAVE HANDLER – only calls API route
-    // ------------------------------------------------------
     async function handleSave() {
-        if (!form.source_name?.trim()) {
+        if (!form.source_name || form.source_name.trim() === "") {
             toast({
                 title: "Missing Name",
                 description: "Source name is required."
@@ -90,21 +87,12 @@ export default function SourceSlideOver({
             })
         })
 
-        let json = null
-        try {
-            json = await res.json()
-        } catch {
-            toast({
-                title: "Error",
-                description: "Invalid server response."
-            })
-            return
-        }
+        const json = await res.json().catch(() => null)
 
-        if (!json.success) {
+        if (!json || !json.success) {
             toast({
                 title: "Error",
-                description: json.error || "Save failed"
+                description: json?.error || "Unexpected error"
             })
             return
         }
@@ -121,6 +109,7 @@ export default function SourceSlideOver({
     return (
         <div className="fixed inset-0 bg-black/40 z-40 flex justify-end">
             <div className="bg-white w-full max-w-md h-full shadow-xl p-6 overflow-y-auto">
+
                 <div className="flex justify-between items-center mb-6">
                     <h2 className="text-xl font-semibold text-[#0A1E2D]">
                         {form.id ? "Edit Source" : "New Source"}
@@ -151,6 +140,7 @@ export default function SourceSlideOver({
                         Save
                     </button>
                 </div>
+
             </div>
         </div>
     )
