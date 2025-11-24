@@ -1,6 +1,5 @@
 "use client"
 
-import TestInsertButton from "./TestInsertButton"
 import { useEffect, useState } from "react"
 import { useTabs } from "./TabContext"
 import { supabase } from "@/lib/supabaseClient"
@@ -16,14 +15,15 @@ import SourceInsightsTable from "@/components/analytics/SourceInsightsTable"
 import SourceList from "@/components/sources/SourceList"
 import ArchivedList from "@/components/sources/ArchivedList"
 import SourceSlideOver from "@/components/sources/SourceSlideOver"
+
 import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { useToast } from "@/components/ui/use-toast"
 
 import { getPayouts } from "@/lib/supabase/payouts"
-import {
-  getActiveSources,
-  getArchivedSources
-} from "@/lib/supabase/sources"
+import { getActiveSources, getArchivedSources } from "@/lib/supabase/sources"
+
+import TestInsertButton from "./TestInsertButton"
+import TestUpdateButton from "./TestUpdateButton"
 
 export default function DashboardPage() {
   const router = useRouter()
@@ -39,9 +39,11 @@ export default function DashboardPage() {
 
   const [user, setUser] = useState<any>(null)
 
+  // Slide-over editor
   const [slideOpen, setSlideOpen] = useState(false)
   const [editingSource, setEditingSource] = useState<IncomeSource | null>(null)
 
+  // Archive/unarchive confirmation
   const [confirmArchive, setConfirmArchive] = useState(false)
   const [archiveTarget, setArchiveTarget] = useState<IncomeSource | null>(null)
 
@@ -49,7 +51,7 @@ export default function DashboardPage() {
   const [unarchiveTarget, setUnarchiveTarget] = useState<IncomeSource | null>(null)
 
   // -------------------------------------------------------
-  // Initial load
+  // Load all initial data
   // -------------------------------------------------------
   useEffect(() => {
     async function load() {
@@ -95,14 +97,12 @@ export default function DashboardPage() {
   if (loading) return <div>Loading...</div>
 
   // -------------------------------------------------------
-  // Archive
+  // Archive source
   // -------------------------------------------------------
   async function doArchive() {
     if (!archiveTarget || !user) return
 
-    console.log("ARCHIVE:", archiveTarget)
-
-    const { data, error } = await supabase
+    const { error } = await supabase
       .from("income_sources")
       .update({
         archived: true,
@@ -111,15 +111,9 @@ export default function DashboardPage() {
       })
       .eq("id", archiveTarget.id)
       .eq("user_id", user.id)
-      .select()
-      .maybeSingle()
-
-    console.log("ARCHIVE result =", data, error)
 
     if (error) {
       toast({ title: "Archive failed", description: error.message })
-      setConfirmArchive(false)
-      setArchiveTarget(null)
       return
     }
 
@@ -142,14 +136,12 @@ export default function DashboardPage() {
   }
 
   // -------------------------------------------------------
-  // Unarchive
+  // Unarchive source
   // -------------------------------------------------------
   async function doUnarchive() {
     if (!unarchiveTarget || !user) return
 
-    console.log("UNARCHIVE:", unarchiveTarget)
-
-    const { data, error } = await supabase
+    const { error } = await supabase
       .from("income_sources")
       .update({
         archived: false,
@@ -158,15 +150,9 @@ export default function DashboardPage() {
       })
       .eq("id", unarchiveTarget.id)
       .eq("user_id", user.id)
-      .select()
-      .maybeSingle()
-
-    console.log("UNARCHIVE result =", data, error)
 
     if (error) {
       toast({ title: "Unarchive failed", description: error.message })
-      setConfirmUnarchive(false)
-      setUnarchiveTarget(null)
       return
     }
 
@@ -195,8 +181,9 @@ export default function DashboardPage() {
   return (
     <div className="mt-6">
 
-      {/* DEVELOPMENT TEST BUTTON */}
+      {/* DEV TEST BUTTONS */}
       <TestInsertButton />
+      <TestUpdateButton />
 
       {/* Archive dialog */}
       <ConfirmDialog
@@ -221,16 +208,13 @@ export default function DashboardPage() {
         initial={editingSource}
         userId={user?.id}
         open={slideOpen}
-        onClose={() => { setSlideOpen(false); setEditingSource(null) }}
+        onClose={() => {
+          setSlideOpen(false)
+          setEditingSource(null)
+        }}
         onSaved={async () => {
-          console.log("DASHBOARD: onSaved() triggered")
-
           const active = await getActiveSources(user.id)
           const archived = await getArchivedSources(user.id)
-
-          console.log("DASHBOARD refreshed active =", active)
-          console.log("DASHBOARD refreshed archived =", archived)
-
           setSources(active)
           setArchivedSources(archived)
         }}
@@ -292,14 +276,15 @@ export default function DashboardPage() {
         </section>
       )}
 
-      {/* ANALYTICS TAB */}
+      {/* ANALYTICS */}
       {activeTab === "analytics" && (
         <section>
           <KPI insights={insights} />
-          {monthlyTrends.length === 0
-            ? <p className="text-gray-500">No trend data.</p>
-            : <MonthlyTrendsChart data={monthlyTrends} />
-          }
+          {monthlyTrends.length === 0 ? (
+            <p className="text-gray-500">No trend data.</p>
+          ) : (
+            <MonthlyTrendsChart data={monthlyTrends} />
+          )}
           <SourceInsightsTable insights={insights} />
         </section>
       )}
