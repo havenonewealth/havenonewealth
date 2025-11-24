@@ -11,7 +11,7 @@ export default function SourceForm({
     onChange: (v: Partial<IncomeSource>) => void;
 }) {
 
-    // Allow null and undefined when updating
+    // Generic safe updater
     function update<K extends keyof IncomeSource>(
         key: K,
         value: IncomeSource[K] | null | undefined
@@ -22,6 +22,7 @@ export default function SourceForm({
         });
     }
 
+    // Local raw states for editing currency
     const [rawAmount, setRawAmount] = useState("");
     const [rawMonthly, setRawMonthly] = useState("");
 
@@ -29,12 +30,12 @@ export default function SourceForm({
         setRawAmount(
             data.expected_amount != null ? String(data.expected_amount) : ""
         );
-
         setRawMonthly(
             data.expected_monthly != null ? String(data.expected_monthly) : ""
         );
     }, [data]);
 
+    // Parse "$1,234.56" → 1234.56
     function parseCurrency(v: string): number | null {
         const cleaned = v.replace(/[^0-9.-]/g, "");
         if (!cleaned) return null;
@@ -42,6 +43,7 @@ export default function SourceForm({
         return isNaN(num) ? null : num;
     }
 
+    // Format → "$1,234.56"
     function formatCurrency(val: number | null): string {
         if (val == null) return "";
         return val.toLocaleString("en-US", {
@@ -50,6 +52,7 @@ export default function SourceForm({
         });
     }
 
+    // Monthly calculation
     function calculateMonthly(amount: number | null, frequency: string | null) {
         if (!amount || !frequency) return amount;
 
@@ -72,12 +75,14 @@ export default function SourceForm({
         }
     }
 
+    // Expected Amount
     function handleAmountChange(v: string) {
         setRawAmount(v);
 
         const value = parseCurrency(v);
         update("expected_amount", value ?? undefined);
 
+        // Auto-recalc monthly
         if (value != null && data.frequency) {
             const monthly = calculateMonthly(value, data.frequency);
             update("expected_monthly", monthly ?? undefined);
@@ -89,6 +94,7 @@ export default function SourceForm({
         setRawAmount(formatCurrency(data.expected_amount ?? null));
     }
 
+    // Expected Monthly
     function handleMonthlyChange(v: string) {
         setRawMonthly(v);
         const value = parseCurrency(v);
@@ -99,6 +105,7 @@ export default function SourceForm({
         setRawMonthly(formatCurrency(data.expected_monthly ?? null));
     }
 
+    // Frequency
     function handleFrequencyChange(freq: string | null) {
         update("frequency", freq);
 
@@ -112,6 +119,7 @@ export default function SourceForm({
     return (
         <div className="space-y-5">
 
+            {/* Source Name */}
             <div>
                 <label className="block text-sm font-medium text-gray-700">
                     Source Name *
@@ -124,6 +132,7 @@ export default function SourceForm({
                 />
             </div>
 
+            {/* Source Type */}
             <div>
                 <label className="block text-sm font-medium text-gray-700">
                     Source Type
@@ -142,6 +151,7 @@ export default function SourceForm({
                 </select>
             </div>
 
+            {/* Frequency */}
             <div>
                 <label className="block text-sm font-medium text-gray-700">
                     Frequency
@@ -162,6 +172,7 @@ export default function SourceForm({
                 </select>
             </div>
 
+            {/* Expected Amount */}
             <div>
                 <label className="block text-sm font-medium text-gray-700">
                     Expected Amount
@@ -176,6 +187,7 @@ export default function SourceForm({
                 />
             </div>
 
+            {/* Expected Monthly */}
             <div>
                 <label className="block text-sm font-medium text-gray-700">
                     Expected Monthly
@@ -190,6 +202,7 @@ export default function SourceForm({
                 />
             </div>
 
+            {/* Notes */}
             <div>
                 <label className="block text-sm font-medium text-gray-700">
                     Notes

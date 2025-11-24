@@ -19,37 +19,33 @@ export default function DashboardPage() {
   const [archived, setArchived] = useState<IncomeSource[]>([]);
   const [insights, setInsights] = useState<any[]>([]);
   const [payouts, setPayouts] = useState<RecentPayout[]>([]);
-
   const [userId, setUserId] = useState<string | null>(null);
 
   const [editing, setEditing] = useState<IncomeSource | null>(null);
   const [slideOpen, setSlideOpen] = useState(false);
 
-  // -------------------------------------------
-  // Initial session load
-  // -------------------------------------------
+  // -----------------------------------------------
+  // LOAD AUTH SESSION → THEN LOAD DATA
+  // -----------------------------------------------
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
-      const uid = data.session?.user?.id || null;
+      const uid = data.session?.user?.id ?? null;
       if (uid) {
         setUserId(uid);
-        loadAll(uid);
       }
     });
   }, []);
 
-  // -------------------------------------------
-  // Reload whenever user becomes available
-  // -------------------------------------------
+  // Load data AFTER userId is known
   useEffect(() => {
     if (userId) loadAll(userId);
   }, [userId]);
 
-  // -------------------------------------------
-  // Load ALL data including payouts
-  // -------------------------------------------
+  // -----------------------------------------------
+  // UNIVERSAL DATA LOADER
+  // -----------------------------------------------
   const loadAll = async (uid: string) => {
-    const [{ data: src }, { data: arc }, { data: ins }] = await Promise.all([
+    const [srcRes, arcRes, insRes, payRes] = await Promise.all([
       supabase
         .from("income_sources")
         .select("*")
@@ -64,50 +60,52 @@ export default function DashboardPage() {
         .eq("archived", true)
         .order("created_at", { ascending: false }),
 
-      supabase.from("admin_insights").select("*")
+      supabase.from("admin_insights").select("*"),
+
+      supabase
+        .from("payouts")
+        .select(
+          `
+          id,
+          source_id,
+          user_id,
+          amount,
+          payment_date,
+          status,
+          created_at,
+          income_sources(
+            source_name
+          )
+        `
+        )
+        .order("payment_date", { ascending: false })
     ]);
 
-    setSources(src || []);
-    setArchived(arc || []);
-    setInsights(ins || []);
+    setSources(srcRes.data || []);
+    setArchived(arcRes.data || []);
+    setInsights(insRes.data || []);
 
-    // ---------------------------------------------
-    // FIXED: load payouts with JOIN to income_sources
-    // ---------------------------------------------
-    const { data: payoutRows } = await supabase
-      .from("payouts")
-      .select(
-        `
-        id,
-        amount,
-        payment_date,
-        status,
-        user_id,
-        source_id,
-        income_sources (
-            source_name
-        )
-      `
-      )
-      .eq("user_id", uid)
-      .order("payment_date", { ascending: false });
+    // FIX payout mapping
+    const payoutMapped = (payRes.data || []).map((p: any) => ({
+      id: p.id,
+      source_id: p.source_id,
+      user_id: p.user_id,
+      amount: p.amount,
+      status: p.status,
+      payout_date: p.payment_date,
+      source_name: p.income_sources?.source_name || "Unknown"
+    }));
 
-    if (payoutRows) {
-      const mapped: RecentPayout[] = payoutRows.map((p: any) => ({
-        source_name: p.income_sources?.source_name || "Unknown",
-        amount: p.amount,
-        status: p.status,
-        payout_date: p.payment_date, // normalize name
-      }));
-
-      setPayouts(mapped);
-    }
+    setPayouts(payoutMapped);
   };
 
   const refreshAll = () => {
     if (userId) loadAll(userId);
   };
 
+  // -----------------------------------------------
+  // SLIDE ACTIONS
+  // -----------------------------------------------
   const handleAdd = () => {
     setEditing(null);
     setSlideOpen(true);
@@ -118,12 +116,12 @@ export default function DashboardPage() {
     setSlideOpen(true);
   };
 
-  // -----------------------------------------------------
+  // -----------------------------------------------
   // RENDER BY TAB
-  // -----------------------------------------------------
+  // -----------------------------------------------
   return (
     <div className="space-y-6">
-
+      {/* Action button: Sources only */}
       {activeTab === "sources" && (
         <div className="flex justify-end">
           <button
@@ -135,6 +133,7 @@ export default function DashboardPage() {
         </div>
       )}
 
+      {/* Active Sources */}
       {activeTab === "sources" && (
         <SourceList
           sources={sources}
@@ -144,6 +143,7 @@ export default function DashboardPage() {
         />
       )}
 
+      {/* Archived Sources */}
       {activeTab === "archived" && (
         <ArchivedList
           archived={archived}
@@ -152,33 +152,36 @@ export default function DashboardPage() {
         />
       )}
 
+      {/* Payouts */}
       {activeTab === "payouts" && (
         <div className="space-y-3">
           <h2 className="text-lg font-semibold">Recent Payouts</h2>
 
-          {payouts.length === 0 ? (
+          {payouts.length === 0 && (
             <p className="text-gray-500 text-sm">No payouts found.</p>
-          ) : (
-            payouts.map((p, idx) => (
-              <div
-                key={idx}
-                className="border rounded p-4 bg-white shadow-sm space-y-1"
-              >
-                <div className="font-medium">${p.amount}</div>
-
-                <div className="text-sm text-gray-500">
-                  {new Date(p.payout_date).toLocaleDateString()}
-                </div>
-
-                <div className="text-sm text-gray-500">{p.source_name}</div>
-              </div>
-            ))
           )}
+
+          {payouts.map((p) => (
+            <div
+              key={p.id}
+              className="border rounded p-4 bg-white shadow-sm space-y-1"
+            >
+              <div className="font-medium">
+                ${p.amount.toLocaleString("en-US")}
+              </div>
+              <div className="text-sm text-gray-500">
+                {new Date(p.payout_date).toLocaleDateString()}
+              </div>
+              <div className="text-sm text-gray-500">{p.source_name}</div>
+            </div>
+          ))}
         </div>
       )}
 
+      {/* Analytics */}
       {activeTab === "analytics" && <KPI insights={insights} />}
 
+      {/* SlideOver */}
       <SourceSlideOver
         open={slideOpen}
         setOpen={setSlideOpen}

@@ -1,7 +1,7 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
-import { useState } from "react";
 import type { IncomeSource } from "@/lib/types";
 
 interface Props {
@@ -10,38 +10,33 @@ interface Props {
     refreshAll: () => void;
 }
 
-export default function ArchivedList({
-    archived,
-    userId,
-    refreshAll
-}: Props) {
-    const [items, setItems] = useState<IncomeSource[]>(archived);
+export default function ArchivedList({ archived, userId, refreshAll }: Props) {
+    const [items, setItems] = useState<IncomeSource[]>([]);
 
-    // Sync with parent data immediately on tab switch
-    if (items !== archived) {
+    // Keep internal state updated with parent props
+    useEffect(() => {
         setItems(archived);
-    }
+    }, [archived]);
 
-    // -----------------------------
-    // UNARCHIVE
-    // -----------------------------
-    const handleUnarchive = async (row: IncomeSource) => {
+    // Unarchive a record
+    const handleUnarchive = async (id: string) => {
         await supabase
             .from("income_sources")
             .update({
                 archived: false,
                 archived_at: null
             })
-            .eq("id", row.id);
+            .eq("id", id);
 
         refreshAll();
     };
 
-    // -----------------------------
-    // PERMANENT DELETE
-    // -----------------------------
-    const handleDelete = async (row: IncomeSource) => {
-        if (!confirm("Permanently delete this source?")) return;
+    // Permanently delete (soft delete pattern)
+    const handleDelete = async (id: string) => {
+        const confirmed = window.confirm(
+            "Are you sure you want to permanently delete this source?"
+        );
+        if (!confirmed) return;
 
         await supabase
             .from("income_sources")
@@ -50,57 +45,49 @@ export default function ArchivedList({
                 deleted_at: new Date().toISOString(),
                 ready_for_delete: true
             })
-            .eq("id", row.id);
+            .eq("id", id);
 
         refreshAll();
     };
 
-    // -----------------------------
-    // UI
-    // -----------------------------
     return (
-        <div className="space-y-3">
+        <div className="space-y-4">
             <h2 className="text-lg font-semibold">Archived Sources</h2>
 
             {items.length === 0 && (
-                <div className="text-gray-400 text-sm">No archived sources found.</div>
+                <p className="text-gray-500 text-sm">No archived sources found.</p>
             )}
 
             {items.map((row) => (
                 <div
                     key={row.id}
-                    className="border rounded p-4 bg-white shadow-sm space-y-1"
+                    className="border rounded p-4 bg-white shadow-sm flex justify-between items-center"
                 >
-                    <div className="font-medium">{row.source_name}</div>
-
-                    {row.source_type && (
+                    <div>
+                        <div className="font-medium">{row.source_name}</div>
                         <div className="text-sm text-gray-500">{row.source_type}</div>
-                    )}
-
-                    <div className="text-sm text-gray-500">
-                        Frequency: {row.frequency}
+                        <div className="text-sm text-gray-500">
+                            Frequency: {row.frequency}
+                        </div>
+                        <div className="text-sm text-gray-500">
+                            Expected: $
+                            {row.expected_amount != null
+                                ? row.expected_amount.toLocaleString("en-US")
+                                : "0"}
+                        </div>
                     </div>
 
-                    {row.expected_monthly != null && (
-                        <div className="text-sm text-gray-500">
-                            Monthly: $
-                            {row.expected_monthly.toLocaleString("en-US", {
-                                minimumFractionDigits: 2
-                            })}
-                        </div>
-                    )}
-
-                    <div className="flex space-x-3 pt-2">
+                    <div className="flex space-x-3">
                         <button
-                            onClick={() => handleUnarchive(row)}
-                            className="px-3 py-1 text-xs border rounded bg-green-100"
+                            onClick={() => handleUnarchive(row.id!)}
+                            className="text-green-600 hover:underline"
                         >
                             Unarchive
                         </button>
 
                         <button
-                            onClick={() => handleDelete(row)}
-                            className="px-3 py-1 text-xs border rounded bg-red-100"
+                            onClick={() => handleDelete(row.id!)}
+                            className="text-red-600 hover:underline"
                         >
                             Delete
                         </button>
