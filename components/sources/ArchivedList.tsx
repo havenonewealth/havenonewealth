@@ -2,9 +2,10 @@
 
 import { supabase } from "@/lib/supabaseClient";
 import { useState } from "react";
+import type { IncomeSource } from "@/lib/types";
 
-interface ArchivedListProps {
-    archived: any[];
+interface Props {
+    archived: IncomeSource[];
     userId: string;
     refreshAll: () => void;
 }
@@ -13,77 +14,96 @@ export default function ArchivedList({
     archived,
     userId,
     refreshAll
-}: ArchivedListProps) {
-    const [items, setItems] = useState(archived);
+}: Props) {
+    const [items, setItems] = useState<IncomeSource[]>(archived);
 
-    const refresh = async () => {
-        const { data } = await supabase
+    // Sync with parent data immediately on tab switch
+    if (items !== archived) {
+        setItems(archived);
+    }
+
+    // -----------------------------
+    // UNARCHIVE
+    // -----------------------------
+    const handleUnarchive = async (row: IncomeSource) => {
+        await supabase
             .from("income_sources")
-            .select("*")
-            .eq("user_id", userId)
-            .eq("archived", true)
-            .order("created_at", { ascending: false });
+            .update({
+                archived: false,
+                archived_at: null
+            })
+            .eq("id", row.id);
 
-        setItems(data || []);
         refreshAll();
     };
 
-    const handleUnarchive = async (id: string) => {
+    // -----------------------------
+    // PERMANENT DELETE
+    // -----------------------------
+    const handleDelete = async (row: IncomeSource) => {
+        if (!confirm("Permanently delete this source?")) return;
+
         await supabase
             .from("income_sources")
-            .update({ archived: false })
-            .eq("id", id);
+            .update({
+                deleted: true,
+                deleted_at: new Date().toISOString(),
+                ready_for_delete: true
+            })
+            .eq("id", row.id);
 
-        refresh();
+        refreshAll();
     };
 
-    const handleDelete = async (id: string) => {
-        await supabase
-            .from("income_sources")
-            .delete()
-            .eq("id", id);
-
-        refresh();
-    };
-
+    // -----------------------------
+    // UI
+    // -----------------------------
     return (
         <div className="space-y-3">
             <h2 className="text-lg font-semibold">Archived Sources</h2>
 
             {items.length === 0 && (
-                <div className="text-gray-400 text-sm">
-                    No archived sources found.
-                </div>
+                <div className="text-gray-400 text-sm">No archived sources found.</div>
             )}
 
-            {items.map((row: any) => (
+            {items.map((row) => (
                 <div
                     key={row.id}
                     className="border rounded p-4 bg-white shadow-sm space-y-1"
                 >
-                    <div className="font-medium flex justify-between items-center">
-                        <span>{row.source_name}</span>
+                    <div className="font-medium">{row.source_name}</div>
 
-                        <div className="flex items-center space-x-2">
-                            <button
-                                onClick={() => handleUnarchive(row.id)}
-                                className="px-3 py-1 text-sm border rounded text-blue-600 hover:bg-blue-50"
-                            >
-                                Unarchive
-                            </button>
+                    {row.source_type && (
+                        <div className="text-sm text-gray-500">{row.source_type}</div>
+                    )}
 
-                            <button
-                                onClick={() => handleDelete(row.id)}
-                                className="px-3 py-1 text-sm border rounded text-red-600 hover:bg-red-50"
-                            >
-                                Delete
-                            </button>
-                        </div>
-                    </div>
-
-                    <div className="text-sm text-gray-500">{row.source_type}</div>
                     <div className="text-sm text-gray-500">
                         Frequency: {row.frequency}
+                    </div>
+
+                    {row.expected_monthly != null && (
+                        <div className="text-sm text-gray-500">
+                            Monthly: $
+                            {row.expected_monthly.toLocaleString("en-US", {
+                                minimumFractionDigits: 2
+                            })}
+                        </div>
+                    )}
+
+                    <div className="flex space-x-3 pt-2">
+                        <button
+                            onClick={() => handleUnarchive(row)}
+                            className="px-3 py-1 text-xs border rounded bg-green-100"
+                        >
+                            Unarchive
+                        </button>
+
+                        <button
+                            onClick={() => handleDelete(row)}
+                            className="px-3 py-1 text-xs border rounded bg-red-100"
+                        >
+                            Delete
+                        </button>
                     </div>
                 </div>
             ))}

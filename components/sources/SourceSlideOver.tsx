@@ -6,7 +6,6 @@ import { supabase } from "@/lib/supabaseClient";
 import SourceForm from "./SourceForm";
 import type { IncomeSource } from "@/lib/types";
 
-
 interface SlideProps {
     open: boolean;
     setOpen: (v: boolean) => void;
@@ -15,29 +14,29 @@ interface SlideProps {
     userId: string | null;
 }
 
-// -----------------------------------------------------------------------------
+// ---------------------------------------------------------------
 // Frequency → Monthly Calculation
-// -----------------------------------------------------------------------------
-function computeMonthly(expected_amount: number, frequency: string) {
-    if (!expected_amount || expected_amount <= 0) return null;
+// ---------------------------------------------------------------
+function computeMonthly(amount: number, frequency: string) {
+    if (!amount || amount <= 0) return null;
 
     switch (frequency) {
-        case "Monthly":
-            return expected_amount;
         case "Weekly":
-            return expected_amount * 4.345;
+            return parseFloat((amount * 4.345).toFixed(2));
         case "Bi-Weekly":
-            return expected_amount * 2.172;
+            return parseFloat((amount * 2.172).toFixed(2));
+        case "Monthly":
+            return amount;
         case "Quarterly":
-            return expected_amount / 3;
+            return parseFloat((amount / 3).toFixed(2));
         case "Annual":
-            return expected_amount / 12;
+            return parseFloat((amount / 12).toFixed(2));
         case "One-Time":
-            return expected_amount;
+            return amount;
         case "Varies":
-            return expected_amount;
+            return amount;
         default:
-            return expected_amount;
+            return amount;
     }
 }
 
@@ -48,7 +47,7 @@ export default function SourceSlideOver({
     refresh,
     userId
 }: SlideProps) {
-    // Form is aligned to Partial<IncomeSource> to satisfy SourceForm
+    // Form aligned with Partial<IncomeSource> to satisfy SourceForm
     const [form, setForm] = useState<Partial<IncomeSource>>({
         source_name: "",
         source_type: "",
@@ -57,14 +56,16 @@ export default function SourceSlideOver({
         notes: ""
     });
 
-    // Load values when editing OR reset for new source
+    // Load values when editing OR reset for new add flow
     useEffect(() => {
         if (editing) {
             setForm({
-                source_name: editing.source_name || "",
-                source_type: editing.source_type || "",
-                frequency: editing.frequency || "Monthly",
+                id: editing.id,
+                source_name: editing.source_name,
+                source_type: editing.source_type ?? "",
+                frequency: editing.frequency ?? "Monthly",
                 expected_amount: editing.expected_amount ?? 0,
+                expected_monthly: editing.expected_monthly ?? 0,
                 notes: editing.notes ?? ""
             });
         } else {
@@ -73,39 +74,39 @@ export default function SourceSlideOver({
                 source_type: "",
                 frequency: "Monthly",
                 expected_amount: 0,
+                expected_monthly: 0,
                 notes: ""
             });
         }
     }, [editing]);
 
-    // ---------------------------------------------------------------------------
-    // SAVE HANDLER (CREATE or UPDATE)
-    // ---------------------------------------------------------------------------
+    // ---------------------------------------------------------------
+    // Save Handler
+    // ---------------------------------------------------------------
     const handleSave = async () => {
         if (!userId) return;
 
-        if (!form.expected_amount || form.expected_amount <= 0) {
+        const amount = form.expected_amount ?? 0;
+        if (amount <= 0) {
             alert("Expected amount is required.");
             return;
         }
 
-        const expected_amount_num = Number(form.expected_amount);
+        const monthly = computeMonthly(amount, form.frequency || "Monthly");
 
         const payload: Partial<IncomeSource> = {
             user_id: userId,
             source_name: form.source_name?.trim() || "",
-            source_type: form.source_type?.trim() || "",
+            source_type: form.source_type || "",
             frequency: form.frequency || "Monthly",
-            expected_amount: expected_amount_num,
-            expected_monthly: computeMonthly(expected_amount_num, form.frequency || "Monthly"),
+            expected_amount: amount,
+            expected_monthly: monthly,
             notes: form.notes?.trim() || null
         };
 
         if (editing?.id) {
-            // UPDATE
             await supabase.from("income_sources").update(payload).eq("id", editing.id);
         } else {
-            // CREATE
             await supabase.from("income_sources").insert(payload);
         }
 
@@ -113,7 +114,7 @@ export default function SourceSlideOver({
         setOpen(false);
     };
 
-    // ---------------------------------------------------------------------------
+    // ---------------------------------------------------------------
 
     return (
         <Transition.Root show={open} as={Fragment}>
@@ -146,7 +147,6 @@ export default function SourceSlideOver({
                                     {editing ? "Edit Source" : "Add Source"}
                                 </Dialog.Title>
 
-                                {/* Connects form state to SourceForm */}
                                 <SourceForm data={form} onChange={setForm} />
 
                                 <div className="pt-4 flex justify-end space-x-3">

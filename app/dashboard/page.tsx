@@ -24,11 +24,21 @@ export default function DashboardPage() {
   // Load user on mount
   // -----------------------------
   useEffect(() => {
-    const session = supabase.auth.getSession().then(({ data }) => {
+    if (!userId) return;
+    loadAll(userId);
+  }, [userId]);
+
+  // FORCE LOAD after session resolves
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => {
       const uid = data.session?.user?.id || null;
-      setUserId(uid);
+      if (uid) {
+        setUserId(uid);
+        loadAll(uid); // <- CRITICAL
+      }
     });
   }, []);
+
 
   // -----------------------------
   // Load all dashboard data

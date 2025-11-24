@@ -2,11 +2,12 @@
 
 import { supabase } from "@/lib/supabaseClient";
 import { useState } from "react";
+import type { IncomeSource } from "@/lib/types";
 
-interface SourceListProps {
-  sources: any[];
+interface Props {
+  sources: IncomeSource[];
   userId: string;
-  onEdit: (row: any) => void;
+  onEdit: (row: IncomeSource) => void;
   refreshAll: () => void;
 }
 
@@ -15,39 +16,50 @@ export default function SourceList({
   userId,
   onEdit,
   refreshAll
-}: SourceListProps) {
-  const [items, setItems] = useState(sources);
+}: Props) {
+  const [items, setItems] = useState<IncomeSource[]>(sources);
 
-  const refresh = async () => {
-    const { data } = await supabase
+  // Local update when parent data changes
+  // So the tab loads immediately on first render
+  if (items !== sources) {
+    setItems(sources);
+  }
+
+  // -----------------------------
+  // Archive a record
+  // -----------------------------
+  const handleArchive = async (row: IncomeSource) => {
+    await supabase
       .from("income_sources")
-      .select("*")
-      .eq("user_id", userId)
-      .eq("archived", false)
-      .order("created_at", { ascending: false });
+      .update({ archived: true, archived_at: new Date().toISOString() })
+      .eq("id", row.id);
 
-    setItems(data || []);
     refreshAll();
   };
 
-  const handleArchive = async (id: string) => {
+  // -----------------------------
+  // Delete a record
+  // -----------------------------
+  const handleDelete = async (row: IncomeSource) => {
+    if (!confirm("Are you sure you want to permanently delete this source?")) {
+      return;
+    }
+
     await supabase
       .from("income_sources")
-      .update({ archived: true })
-      .eq("id", id);
+      .update({
+        deleted: true,
+        deleted_at: new Date().toISOString(),
+        ready_for_delete: true
+      })
+      .eq("id", row.id);
 
-    refresh();
+    refreshAll();
   };
 
-  const handleDelete = async (id: string) => {
-    await supabase
-      .from("income_sources")
-      .delete()
-      .eq("id", id);
-
-    refresh();
-  };
-
+  // -----------------------------
+  // UI
+  // -----------------------------
   return (
     <div className="space-y-3">
       <h2 className="text-lg font-semibold">Active Sources</h2>
@@ -61,36 +73,46 @@ export default function SourceList({
           key={row.id}
           className="border rounded p-4 bg-white shadow-sm space-y-1"
         >
-          <div className="font-medium flex justify-between items-center">
-            <span>{row.source_name}</span>
+          <div className="font-medium">{row.source_name}</div>
 
-            <div className="flex items-center space-x-2">
-              <button
-                onClick={() => onEdit(row)}
-                className="px-3 py-1 text-sm border rounded hover:bg-gray-100"
-              >
-                Edit
-              </button>
+          {row.source_type && (
+            <div className="text-sm text-gray-500">{row.source_type}</div>
+          )}
 
-              <button
-                onClick={() => handleArchive(row.id)}
-                className="px-3 py-1 text-sm border rounded text-orange-600 hover:bg-orange-50"
-              >
-                Archive
-              </button>
-
-              <button
-                onClick={() => handleDelete(row.id)}
-                className="px-3 py-1 text-sm border rounded text-red-600 hover:bg-red-50"
-              >
-                Delete
-              </button>
-            </div>
-          </div>
-
-          <div className="text-sm text-gray-500">{row.source_type}</div>
           <div className="text-sm text-gray-500">
             Frequency: {row.frequency}
+          </div>
+
+          {row.expected_monthly != null && (
+            <div className="text-sm text-gray-500">
+              Monthly: $
+              {row.expected_monthly.toLocaleString("en-US", {
+                minimumFractionDigits: 2
+              })}
+            </div>
+          )}
+
+          <div className="flex space-x-3 pt-2">
+            <button
+              onClick={() => onEdit(row)}
+              className="px-3 py-1 text-xs border rounded"
+            >
+              Edit
+            </button>
+
+            <button
+              onClick={() => handleArchive(row)}
+              className="px-3 py-1 text-xs border rounded bg-yellow-100"
+            >
+              Archive
+            </button>
+
+            <button
+              onClick={() => handleDelete(row)}
+              className="px-3 py-1 text-xs border rounded bg-red-100"
+            >
+              Delete
+            </button>
           </div>
         </div>
       ))}

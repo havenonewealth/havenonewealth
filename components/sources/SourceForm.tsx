@@ -10,24 +10,43 @@ export default function SourceForm({
     data: Partial<IncomeSource>;
     onChange: (v: Partial<IncomeSource>) => void;
 }) {
-    function update<K extends keyof IncomeSource>(key: K, value: IncomeSource[K]) {
+
+    //---------------------------------------------------------------------
+    // Safe update helper
+    //---------------------------------------------------------------------
+    function update<K extends keyof IncomeSource>(
+        key: K,
+        value: IncomeSource[K] | null
+    ) {
         onChange({
             ...data,
             [key]: value
         });
     }
 
+    //---------------------------------------------------------------------
+    // Raw inputs (prevent formatting during typing)
+    //---------------------------------------------------------------------
     const [rawAmount, setRawAmount] = useState("");
     const [rawMonthly, setRawMonthly] = useState("");
 
     useEffect(() => {
-        setRawAmount(data.expected_amount != null ? String(data.expected_amount) : "");
-        setRawMonthly(data.expected_monthly != null ? String(data.expected_monthly) : "");
-    }, [data]); // FIXED: use full data object
+        setRawAmount(
+            data.expected_amount != null ? String(data.expected_amount) : ""
+        );
 
+        setRawMonthly(
+            data.expected_monthly != null ? String(data.expected_monthly) : ""
+        );
+    }, [data]);
+
+    //---------------------------------------------------------------------
+    // Currency parsing + formatting
+    //---------------------------------------------------------------------
     function parseCurrency(v: string): number | null {
         const cleaned = v.replace(/[^0-9.-]/g, "");
         if (!cleaned) return null;
+
         const num = Number(cleaned);
         return isNaN(num) ? null : num;
     }
@@ -40,18 +59,35 @@ export default function SourceForm({
         });
     }
 
+    //---------------------------------------------------------------------
+    // Monthly calculator (7 frequencies)
+    //---------------------------------------------------------------------
     function calculateMonthly(amount: number | null, frequency: string | null) {
         if (!amount || !frequency) return amount;
 
         switch (frequency) {
-            case "Weekly": return parseFloat((amount * 4.33).toFixed(2));
-            case "Monthly": return amount;
-            case "Quarterly": return parseFloat((amount / 3).toFixed(2));
-            case "Annual": return parseFloat((amount / 12).toFixed(2));
-            default: return amount;
+            case "Weekly":
+                return parseFloat((amount * 4.345).toFixed(2));
+            case "Bi-Weekly":
+                return parseFloat((amount * 2.172).toFixed(2));
+            case "Monthly":
+                return amount;
+            case "Quarterly":
+                return parseFloat((amount / 3).toFixed(2));
+            case "Annual":
+                return parseFloat((amount / 12).toFixed(2));
+            case "One-Time":
+                return amount;
+            case "Varies":
+                return amount;
+            default:
+                return amount;
         }
     }
 
+    //---------------------------------------------------------------------
+    // Expected Amount Updates
+    //---------------------------------------------------------------------
     function handleAmountChange(v: string) {
         setRawAmount(v);
 
@@ -69,6 +105,9 @@ export default function SourceForm({
         setRawAmount(formatCurrency(data.expected_amount ?? null));
     }
 
+    //---------------------------------------------------------------------
+    // Expected Monthly (editable but rare)
+    //---------------------------------------------------------------------
     function handleMonthlyChange(v: string) {
         setRawMonthly(v);
         const value = parseCurrency(v);
@@ -79,19 +118,27 @@ export default function SourceForm({
         setRawMonthly(formatCurrency(data.expected_monthly ?? null));
     }
 
+    //---------------------------------------------------------------------
+    // Frequency Selection
+    //---------------------------------------------------------------------
     function handleFrequencyChange(freq: string | null) {
-        update("frequency", freq);
+        const safeFreq = freq ?? "Monthly";
+        update("frequency", safeFreq);
 
         if (data.expected_amount != null) {
-            const monthly = calculateMonthly(data.expected_amount, freq);
+            const monthly = calculateMonthly(data.expected_amount, safeFreq);
             update("expected_monthly", monthly);
             setRawMonthly(monthly != null ? String(monthly) : "");
         }
     }
 
+    //---------------------------------------------------------------------
+    // FORM UI
+    //---------------------------------------------------------------------
     return (
         <div className="space-y-5">
 
+            {/* Source Name */}
             <div>
                 <label className="block text-sm font-medium text-gray-700">
                     Source Name *
@@ -104,6 +151,7 @@ export default function SourceForm({
                 />
             </div>
 
+            {/* Source Type */}
             <div>
                 <label className="block text-sm font-medium text-gray-700">
                     Source Type
@@ -122,6 +170,7 @@ export default function SourceForm({
                 </select>
             </div>
 
+            {/* Frequency */}
             <div>
                 <label className="block text-sm font-medium text-gray-700">
                     Frequency
@@ -134,15 +183,18 @@ export default function SourceForm({
                     <option value="">Select...</option>
                     <option value="Monthly">Monthly</option>
                     <option value="Weekly">Weekly</option>
+                    <option value="Bi-Weekly">Bi-Weekly</option>
                     <option value="Quarterly">Quarterly</option>
                     <option value="Annual">Annual</option>
-                    <option value="Other">Other</option>
+                    <option value="One-Time">One-Time</option>
+                    <option value="Varies">Varies</option>
                 </select>
             </div>
 
+            {/* Expected Amount */}
             <div>
                 <label className="block text-sm font-medium text-gray-700">
-                    Expected Amount
+                    Expected Amount *
                 </label>
                 <input
                     type="text"
@@ -154,6 +206,7 @@ export default function SourceForm({
                 />
             </div>
 
+            {/* Expected Monthly */}
             <div>
                 <label className="block text-sm font-medium text-gray-700">
                     Expected Monthly
@@ -168,6 +221,7 @@ export default function SourceForm({
                 />
             </div>
 
+            {/* Notes */}
             <div>
                 <label className="block text-sm font-medium text-gray-700">
                     Notes
