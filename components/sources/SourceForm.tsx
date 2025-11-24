@@ -10,15 +10,13 @@ export default function SourceForm({
     data: Partial<IncomeSource>;
     onChange: (v: Partial<IncomeSource>) => void;
 }) {
-    function update<K extends keyof IncomeSource>(key: K, value: IncomeSource[K]) {
-        // ❗ FIXED: no functional update. Always send full merged object.
+    const update = (field: keyof IncomeSource, value: any) => {
         onChange({
             ...data,
-            [key]: value
+            [field]: value
         });
-    }
+    };
 
-    // Raw input buffers
     const [rawAmount, setRawAmount] = useState("");
     const [rawMonthly, setRawMonthly] = useState("");
 
@@ -27,22 +25,22 @@ export default function SourceForm({
         setRawMonthly(data.expected_monthly != null ? String(data.expected_monthly) : "");
     }, [data.id]);
 
-    function parseCurrency(v: string): number | null {
+    const parseCurrency = (v: string): number | null => {
         const cleaned = v.replace(/[^0-9.-]/g, "");
         if (!cleaned) return null;
         const num = Number(cleaned);
         return isNaN(num) ? null : num;
-    }
+    };
 
-    function formatCurrency(val: number | null): string {
+    const formatCurrency = (val: number | null): string => {
         if (val == null) return "";
         return val.toLocaleString("en-US", {
             style: "currency",
             currency: "USD"
         });
-    }
+    };
 
-    function calculateMonthly(amount: number | null, frequency: string | null) {
+    const calculateMonthly = (amount: number | null, frequency: string | null) => {
         if (!amount || !frequency) return amount;
 
         switch (frequency) {
@@ -52,9 +50,9 @@ export default function SourceForm({
             case "Annual": return parseFloat((amount / 12).toFixed(2));
             default: return amount;
         }
-    }
+    };
 
-    function handleAmountChange(v: string) {
+    const handleAmountChange = (v: string) => {
         setRawAmount(v);
 
         const value = parseCurrency(v);
@@ -65,23 +63,22 @@ export default function SourceForm({
             update("expected_monthly", monthly);
             setRawMonthly(monthly != null ? String(monthly) : "");
         }
-    }
+    };
 
-    function handleAmountBlur() {
+    const handleAmountBlur = () => {
         setRawAmount(formatCurrency(data.expected_amount ?? null));
-    }
+    };
 
-    function handleMonthlyChange(v: string) {
+    const handleMonthlyChange = (v: string) => {
         setRawMonthly(v);
-        const value = parseCurrency(v);
-        update("expected_monthly", value);
-    }
+        update("expected_monthly", parseCurrency(v));
+    };
 
-    function handleMonthlyBlur() {
+    const handleMonthlyBlur = () => {
         setRawMonthly(formatCurrency(data.expected_monthly ?? null));
-    }
+    };
 
-    function handleFrequencyChange(freq: string | null) {
+    const handleFrequencyChange = (freq: string | null) => {
         update("frequency", freq);
 
         if (data.expected_amount != null) {
@@ -89,15 +86,13 @@ export default function SourceForm({
             update("expected_monthly", monthly);
             setRawMonthly(monthly != null ? String(monthly) : "");
         }
-    }
+    };
 
     return (
         <div className="space-y-5">
-
+            {/* SOURCE NAME */}
             <div>
-                <label className="block text-sm font-medium text-gray-700">
-                    Source Name *
-                </label>
+                <label className="block text-sm font-medium text-gray-700">Source Name *</label>
                 <input
                     type="text"
                     value={data.source_name ?? ""}
@@ -106,6 +101,7 @@ export default function SourceForm({
                 />
             </div>
 
+            {/* SOURCE TYPE */}
             <div>
                 <label className="block text-sm font-medium text-gray-700">Source Type</label>
                 <select
@@ -122,6 +118,7 @@ export default function SourceForm({
                 </select>
             </div>
 
+            {/* FREQUENCY */}
             <div>
                 <label className="block text-sm font-medium text-gray-700">Frequency</label>
                 <select
@@ -138,6 +135,7 @@ export default function SourceForm({
                 </select>
             </div>
 
+            {/* EXPECTED AMOUNT */}
             <div>
                 <label className="block text-sm font-medium text-gray-700">Expected Amount</label>
                 <input
@@ -150,6 +148,7 @@ export default function SourceForm({
                 />
             </div>
 
+            {/* EXPECTED MONTHLY */}
             <div>
                 <label className="block text-sm font-medium text-gray-700">Expected Monthly</label>
                 <input
@@ -162,6 +161,7 @@ export default function SourceForm({
                 />
             </div>
 
+            {/* NOTES */}
             <div>
                 <label className="block text-sm font-medium text-gray-700">Notes</label>
                 <textarea
@@ -171,7 +171,6 @@ export default function SourceForm({
                     rows={3}
                 />
             </div>
-
         </div>
     );
 }
