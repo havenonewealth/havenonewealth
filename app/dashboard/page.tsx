@@ -1,5 +1,6 @@
 "use client"
 
+import TestInsertButton from "./TestInsertButton"
 import { useEffect, useState } from "react"
 import { useTabs } from "./TabContext"
 import { supabase } from "@/lib/supabaseClient"
@@ -94,12 +95,12 @@ export default function DashboardPage() {
   if (loading) return <div>Loading...</div>
 
   // -------------------------------------------------------
-  // Archive (client-side Supabase call)
+  // Archive
   // -------------------------------------------------------
   async function doArchive() {
     if (!archiveTarget || !user) return
 
-    console.log("ARCHIVE: target", archiveTarget)
+    console.log("ARCHIVE:", archiveTarget)
 
     const { data, error } = await supabase
       .from("income_sources")
@@ -110,16 +111,13 @@ export default function DashboardPage() {
       })
       .eq("id", archiveTarget.id)
       .eq("user_id", user.id)
-      .select("id, archived, archived_at")
+      .select()
       .maybeSingle()
 
-    console.log("ARCHIVE: supabase data =", data, "error =", error)
+    console.log("ARCHIVE result =", data, error)
 
     if (error) {
-      toast({
-        title: "Archive failed",
-        description: error.message
-      })
+      toast({ title: "Archive failed", description: error.message })
       setConfirmArchive(false)
       setArchiveTarget(null)
       return
@@ -144,12 +142,12 @@ export default function DashboardPage() {
   }
 
   // -------------------------------------------------------
-  // Unarchive (client-side Supabase call)
+  // Unarchive
   // -------------------------------------------------------
   async function doUnarchive() {
     if (!unarchiveTarget || !user) return
 
-    console.log("UNARCHIVE: target", unarchiveTarget)
+    console.log("UNARCHIVE:", unarchiveTarget)
 
     const { data, error } = await supabase
       .from("income_sources")
@@ -160,16 +158,13 @@ export default function DashboardPage() {
       })
       .eq("id", unarchiveTarget.id)
       .eq("user_id", user.id)
-      .select("id, archived, archived_at")
+      .select()
       .maybeSingle()
 
-    console.log("UNARCHIVE: supabase data =", data, "error =", error)
+    console.log("UNARCHIVE result =", data, error)
 
     if (error) {
-      toast({
-        title: "Unarchive failed",
-        description: error.message
-      })
+      toast({ title: "Unarchive failed", description: error.message })
       setConfirmUnarchive(false)
       setUnarchiveTarget(null)
       return
@@ -184,10 +179,7 @@ export default function DashboardPage() {
     setSources(active)
     setArchivedSources(archived)
 
-    toast({
-      title: "Restored",
-      description: `${unarchiveTarget.source_name} restored.`
-    })
+    toast({ title: "Restored", description: `${unarchiveTarget.source_name} restored.` })
 
     setConfirmUnarchive(false)
     setUnarchiveTarget(null)
@@ -202,6 +194,10 @@ export default function DashboardPage() {
 
   return (
     <div className="mt-6">
+
+      {/* DEVELOPMENT TEST BUTTON */}
+      <TestInsertButton />
+
       {/* Archive dialog */}
       <ConfirmDialog
         open={confirmArchive}
@@ -232,15 +228,15 @@ export default function DashboardPage() {
           const active = await getActiveSources(user.id)
           const archived = await getArchivedSources(user.id)
 
-          console.log("DASHBOARD: refreshed active =", active)
-          console.log("DASHBOARD: refreshed archived =", archived)
+          console.log("DASHBOARD refreshed active =", active)
+          console.log("DASHBOARD refreshed archived =", archived)
 
           setSources(active)
           setArchivedSources(archived)
         }}
       />
 
-      {/* SOURCES */}
+      {/* SOURCES TAB */}
       {activeTab === "sources" && (
         <SourceList
           sources={sources}
@@ -250,7 +246,7 @@ export default function DashboardPage() {
         />
       )}
 
-      {/* ARCHIVED */}
+      {/* ARCHIVED TAB */}
       {activeTab === "archived" && (
         <ArchivedList
           sources={archivedSources}
@@ -258,7 +254,7 @@ export default function DashboardPage() {
         />
       )}
 
-      {/* PAYOUTS */}
+      {/* PAYOUTS TAB */}
       {activeTab === "payouts" && (
         <section>
           <h2 className="text-2xl font-semibold mb-4">Payouts</h2>
@@ -296,7 +292,7 @@ export default function DashboardPage() {
         </section>
       )}
 
-      {/* ANALYTICS */}
+      {/* ANALYTICS TAB */}
       {activeTab === "analytics" && (
         <section>
           <KPI insights={insights} />
