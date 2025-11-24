@@ -61,13 +61,19 @@ export default function SourceSlideOver({
 
     if (!open) return null
 
+    // ------------------------------------------------------
+    // SAVE HANDLER – only calls API route
+    // ------------------------------------------------------
     async function handleSave() {
-        if (!form.source_name || form.source_name.trim() === "") {
-            toast({ title: "Missing Name", description: "Source name is required." })
+        if (!form.source_name?.trim()) {
+            toast({
+                title: "Missing Name",
+                description: "Source name is required."
+            })
             return
         }
 
-        const response = await fetch("/api/sources/save", {
+        const res = await fetch("/api/sources/save", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
@@ -86,16 +92,19 @@ export default function SourceSlideOver({
 
         let json = null
         try {
-            json = await response.json()
+            json = await res.json()
         } catch {
-            toast({ title: "Error", description: "Unexpected server response." })
+            toast({
+                title: "Error",
+                description: "Invalid server response."
+            })
             return
         }
 
         if (!json.success) {
             toast({
                 title: "Error",
-                description: json.error || "Could not save the source."
+                description: json.error || "Save failed"
             })
             return
         }
@@ -112,7 +121,6 @@ export default function SourceSlideOver({
     return (
         <div className="fixed inset-0 bg-black/40 z-40 flex justify-end">
             <div className="bg-white w-full max-w-md h-full shadow-xl p-6 overflow-y-auto">
-
                 <div className="flex justify-between items-center mb-6">
                     <h2 className="text-xl font-semibold text-[#0A1E2D]">
                         {form.id ? "Edit Source" : "New Source"}
