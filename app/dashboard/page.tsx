@@ -13,7 +13,7 @@ import KPI from "@/components/analytics/KPI";
 import type { IncomeSource, RecentPayout } from "@/lib/types";
 
 export default function DashboardPage() {
-  const { activeTab } = useTabs(); // ← GLOBAL TAB STATE
+  const { activeTab } = useTabs();
 
   const [sources, setSources] = useState<IncomeSource[]>([]);
   const [archived, setArchived] = useState<IncomeSource[]>([]);
@@ -46,34 +46,62 @@ export default function DashboardPage() {
   }, [userId]);
 
   // -------------------------------------------
-  // Master loader
+  // Load ALL data including payouts
   // -------------------------------------------
   const loadAll = async (uid: string) => {
-    const [{ data: src }, { data: arc }, { data: ins }, { data: pays }] =
-      await Promise.all([
-        supabase
-          .from("income_sources")
-          .select("*")
-          .eq("user_id", uid)
-          .eq("archived", false)
-          .order("created_at", { ascending: false }),
+    const [{ data: src }, { data: arc }, { data: ins }] = await Promise.all([
+      supabase
+        .from("income_sources")
+        .select("*")
+        .eq("user_id", uid)
+        .eq("archived", false)
+        .order("created_at", { ascending: false }),
 
-        supabase
-          .from("income_sources")
-          .select("*")
-          .eq("user_id", uid)
-          .eq("archived", true)
-          .order("created_at", { ascending: false }),
+      supabase
+        .from("income_sources")
+        .select("*")
+        .eq("user_id", uid)
+        .eq("archived", true)
+        .order("created_at", { ascending: false }),
 
-        supabase.from("admin_insights").select("*"),
-
-        supabase.from("admin_recent_payouts").select("*")
-      ]);
+      supabase.from("admin_insights").select("*")
+    ]);
 
     setSources(src || []);
     setArchived(arc || []);
     setInsights(ins || []);
-    setPayouts((pays as RecentPayout[]) || []);
+
+    // ---------------------------------------------
+    // FIXED: load payouts with JOIN to income_sources
+    // ---------------------------------------------
+    const { data: payoutRows } = await supabase
+      .from("payouts")
+      .select(
+        `
+        id,
+        amount,
+        payment_date,
+        status,
+        user_id,
+        source_id,
+        income_sources (
+            source_name
+        )
+      `
+      )
+      .eq("user_id", uid)
+      .order("payment_date", { ascending: false });
+
+    if (payoutRows) {
+      const mapped: RecentPayout[] = payoutRows.map((p: any) => ({
+        source_name: p.income_sources?.source_name || "Unknown",
+        amount: p.amount,
+        status: p.status,
+        payout_date: p.payment_date, // normalize name
+      }));
+
+      setPayouts(mapped);
+    }
   };
 
   const refreshAll = () => {
@@ -91,12 +119,11 @@ export default function DashboardPage() {
   };
 
   // -----------------------------------------------------
-  // RENDER BY TAB (from GLOBAL CONTEXT)
+  // RENDER BY TAB
   // -----------------------------------------------------
   return (
     <div className="space-y-6">
 
-      {/* Action button only in Sources */}
       {activeTab === "sources" && (
         <div className="flex justify-end">
           <button
@@ -108,7 +135,6 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* Sources */}
       {activeTab === "sources" && (
         <SourceList
           sources={sources}
@@ -118,7 +144,6 @@ export default function DashboardPage() {
         />
       )}
 
-      {/* Archived */}
       {activeTab === "archived" && (
         <ArchivedList
           archived={archived}
@@ -127,34 +152,33 @@ export default function DashboardPage() {
         />
       )}
 
-      {/* Payouts */}
       {activeTab === "payouts" && (
         <div className="space-y-3">
           <h2 className="text-lg font-semibold">Recent Payouts</h2>
 
-          {payouts.length === 0 && (
+          {payouts.length === 0 ? (
             <p className="text-gray-500 text-sm">No payouts found.</p>
-          )}
+          ) : (
+            payouts.map((p, idx) => (
+              <div
+                key={idx}
+                className="border rounded p-4 bg-white shadow-sm space-y-1"
+              >
+                <div className="font-medium">${p.amount}</div>
 
-          {payouts.map((p) => (
-            <div
-              key={`${p.source_name}-${p.payout_date}`}
-              className="border rounded p-4 bg-white shadow-sm space-y-1"
-            >
-              <div className="font-medium">${p.amount}</div>
-              <div className="text-sm text-gray-500">
-                {new Date(p.payout_date).toLocaleDateString()}
+                <div className="text-sm text-gray-500">
+                  {new Date(p.payout_date).toLocaleDateString()}
+                </div>
+
+                <div className="text-sm text-gray-500">{p.source_name}</div>
               </div>
-              <div className="text-sm text-gray-500">{p.source_name}</div>
-            </div>
-          ))}
+            ))
+          )}
         </div>
       )}
 
-      {/* Analytics */}
       {activeTab === "analytics" && <KPI insights={insights} />}
 
-      {/* Slide Over */}
       <SourceSlideOver
         open={slideOpen}
         setOpen={setSlideOpen}

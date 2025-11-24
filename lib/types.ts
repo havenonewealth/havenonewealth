@@ -27,10 +27,12 @@ export interface MonthlyTrend {
 /* Recent Payouts */
 export interface RecentPayout {
    id?: string
+   source_id?: string
+   user_id?: string
    source_name: string
    amount: number
    status: string
-   payout_date: string
+   payout_date: string  // normalized from payment_date
 }
 
 /* Income Sources */
