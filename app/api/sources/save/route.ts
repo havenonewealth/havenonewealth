@@ -1,35 +1,59 @@
-// app/api/sources/save/route.ts
+import { supabase } from "@/lib/supabaseClient"
 import { NextResponse } from "next/server"
-import { saveSource } from "@/lib/supabase/sources"
 
 export async function POST(req: Request) {
     try {
         const { id, payload } = await req.json()
 
-        console.log("API /save REQUEST:", { id, payload })
-
         if (!payload || !payload.user_id) {
             return NextResponse.json(
-                { success: false, error: "Missing payload or user_id" },
+                { success: false, error: "Invalid payload." },
                 { status: 400 }
             )
         }
 
-        // Use the ACTUAL working saveSource function
-        const ok = await saveSource(id, payload)
+        // Strip fields that should NEVER be updated
+        const {
+            id: _ignoreId,
+            user_id: _ignoreUserId,
+            ...updateFields
+        } = payload
 
-        if (!ok) {
+        let result
+
+        if (id) {
+            // UPDATE
+            result = await supabase
+                .from("income_sources")
+                .update(updateFields)
+                .eq("id", id)
+                .select("*")
+                .maybeSingle()
+        } else {
+            // CREATE
+            result = await supabase
+                .from("income_sources")
+                .insert(payload)
+                .select("*")
+                .maybeSingle()
+        }
+
+        if (result.error) {
+            console.error("SAVE API ERROR:", result.error)
             return NextResponse.json(
-                { success: false, error: "Save failed (check logs)" },
+                { success: false, error: result.error.message },
                 { status: 400 }
             )
         }
 
-        return NextResponse.json({ success: true })
-    } catch (e: any) {
-        console.error("API /save ERROR:", e)
         return NextResponse.json(
-            { success: false, error: e.message || "Unhandled error" },
+            { success: true, data: result.data },
+            { status: 200 }
+        )
+    } catch (e: any) {
+        console.error("Unhandled API error:", e)
+        return NextResponse.json(
+            { success: false, error: e.message },
             { status: 500 }
         )
     }
