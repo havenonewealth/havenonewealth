@@ -19,38 +19,20 @@ export default function SourceList({
 }: Props) {
   const [items, setItems] = useState<IncomeSource[]>(sources);
 
-  // Local update when parent data changes
-  // So the tab loads immediately on first render
+  // Sync with parent when switching views
   if (items !== sources) {
     setItems(sources);
   }
 
   // -----------------------------
-  // Archive a record
+  // ARCHIVE
   // -----------------------------
   const handleArchive = async (row: IncomeSource) => {
     await supabase
       .from("income_sources")
-      .update({ archived: true, archived_at: new Date().toISOString() })
-      .eq("id", row.id);
-
-    refreshAll();
-  };
-
-  // -----------------------------
-  // Delete a record
-  // -----------------------------
-  const handleDelete = async (row: IncomeSource) => {
-    if (!confirm("Are you sure you want to permanently delete this source?")) {
-      return;
-    }
-
-    await supabase
-      .from("income_sources")
       .update({
-        deleted: true,
-        deleted_at: new Date().toISOString(),
-        ready_for_delete: true
+        archived: true,
+        archived_at: new Date().toISOString()
       })
       .eq("id", row.id);
 
@@ -83,6 +65,7 @@ export default function SourceList({
             Frequency: {row.frequency}
           </div>
 
+          {/* Expected Monthly */}
           {row.expected_monthly != null && (
             <div className="text-sm text-gray-500">
               Monthly: $
@@ -95,7 +78,7 @@ export default function SourceList({
           <div className="flex space-x-3 pt-2">
             <button
               onClick={() => onEdit(row)}
-              className="px-3 py-1 text-xs border rounded"
+              className="px-3 py-1 text-xs border rounded bg-blue-100"
             >
               Edit
             </button>
@@ -105,13 +88,6 @@ export default function SourceList({
               className="px-3 py-1 text-xs border rounded bg-yellow-100"
             >
               Archive
-            </button>
-
-            <button
-              onClick={() => handleDelete(row)}
-              className="px-3 py-1 text-xs border rounded bg-red-100"
-            >
-              Delete
             </button>
           </div>
         </div>

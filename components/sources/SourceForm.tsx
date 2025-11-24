@@ -10,9 +10,8 @@ export default function SourceForm({
     data: Partial<IncomeSource>;
     onChange: (v: Partial<IncomeSource>) => void;
 }) {
-
     //---------------------------------------------------------------------
-    // Safe update helper
+    // Safe update helper (supports null)
     //---------------------------------------------------------------------
     function update<K extends keyof IncomeSource>(
         key: K,
@@ -20,12 +19,12 @@ export default function SourceForm({
     ) {
         onChange({
             ...data,
-            [key]: value
+            [key]: value ?? null
         });
     }
 
     //---------------------------------------------------------------------
-    // Raw inputs (prevent formatting during typing)
+    // Local raw values (prevents formatting while typing)
     //---------------------------------------------------------------------
     const [rawAmount, setRawAmount] = useState("");
     const [rawMonthly, setRawMonthly] = useState("");
@@ -41,7 +40,7 @@ export default function SourceForm({
     }, [data]);
 
     //---------------------------------------------------------------------
-    // Currency parsing + formatting
+    // Currency helpers
     //---------------------------------------------------------------------
     function parseCurrency(v: string): number | null {
         const cleaned = v.replace(/[^0-9.-]/g, "");
@@ -60,7 +59,7 @@ export default function SourceForm({
     }
 
     //---------------------------------------------------------------------
-    // Monthly calculator (7 frequencies)
+    // 7-frequency calculator (matches SourceSlideOver)
     //---------------------------------------------------------------------
     function calculateMonthly(amount: number | null, frequency: string | null) {
         if (!amount || !frequency) return amount;
@@ -86,7 +85,7 @@ export default function SourceForm({
     }
 
     //---------------------------------------------------------------------
-    // Expected Amount Updates
+    // Expected Amount input
     //---------------------------------------------------------------------
     function handleAmountChange(v: string) {
         setRawAmount(v);
@@ -106,10 +105,11 @@ export default function SourceForm({
     }
 
     //---------------------------------------------------------------------
-    // Expected Monthly (editable but rare)
+    // Expected Monthly input
     //---------------------------------------------------------------------
     function handleMonthlyChange(v: string) {
         setRawMonthly(v);
+
         const value = parseCurrency(v);
         update("expected_monthly", value);
     }
@@ -119,26 +119,27 @@ export default function SourceForm({
     }
 
     //---------------------------------------------------------------------
-    // Frequency Selection
+    // Frequency selector
     //---------------------------------------------------------------------
     function handleFrequencyChange(freq: string | null) {
-        const safeFreq = freq ?? "Monthly";
-        update("frequency", safeFreq);
+        const amt = parseCurrency(rawAmount);
 
-        if (data.expected_amount != null) {
-            const monthly = calculateMonthly(data.expected_amount, safeFreq);
+        update("frequency", freq);
+
+        if (amt != null) {
+            const monthly = calculateMonthly(amt, freq);
             update("expected_monthly", monthly);
             setRawMonthly(monthly != null ? String(monthly) : "");
         }
     }
 
     //---------------------------------------------------------------------
-    // FORM UI
+    // UI
     //---------------------------------------------------------------------
     return (
         <div className="space-y-5">
 
-            {/* Source Name */}
+            {/* SOURCE NAME */}
             <div>
                 <label className="block text-sm font-medium text-gray-700">
                     Source Name *
@@ -151,7 +152,7 @@ export default function SourceForm({
                 />
             </div>
 
-            {/* Source Type */}
+            {/* SOURCE TYPE */}
             <div>
                 <label className="block text-sm font-medium text-gray-700">
                     Source Type
@@ -170,7 +171,7 @@ export default function SourceForm({
                 </select>
             </div>
 
-            {/* Frequency */}
+            {/* FREQUENCY */}
             <div>
                 <label className="block text-sm font-medium text-gray-700">
                     Frequency
@@ -191,10 +192,10 @@ export default function SourceForm({
                 </select>
             </div>
 
-            {/* Expected Amount */}
+            {/* EXPECTED AMOUNT */}
             <div>
                 <label className="block text-sm font-medium text-gray-700">
-                    Expected Amount *
+                    Expected Amount
                 </label>
                 <input
                     type="text"
@@ -206,7 +207,7 @@ export default function SourceForm({
                 />
             </div>
 
-            {/* Expected Monthly */}
+            {/* EXPECTED MONTHLY */}
             <div>
                 <label className="block text-sm font-medium text-gray-700">
                     Expected Monthly
@@ -221,7 +222,7 @@ export default function SourceForm({
                 />
             </div>
 
-            {/* Notes */}
+            {/* NOTES */}
             <div>
                 <label className="block text-sm font-medium text-gray-700">
                     Notes
@@ -229,8 +230,8 @@ export default function SourceForm({
                 <textarea
                     value={data.notes ?? ""}
                     onChange={(e) => update("notes", e.target.value)}
-                    className="mt-1 block w-full rounded border-gray-300"
                     rows={3}
+                    className="mt-1 block w-full rounded border-gray-300"
                 />
             </div>
 

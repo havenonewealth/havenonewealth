@@ -14,29 +14,29 @@ interface SlideProps {
     userId: string | null;
 }
 
-// ---------------------------------------------------------------
-// Frequency → Monthly Calculation
-// ---------------------------------------------------------------
-function computeMonthly(amount: number, frequency: string) {
-    if (!amount || amount <= 0) return null;
+// -----------------------------------------------------------------------------
+// Frequency → Monthly Calculation (MUST match SourceForm)
+// -----------------------------------------------------------------------------
+function computeMonthly(expected_amount: number, frequency: string | null) {
+    if (!expected_amount || expected_amount <= 0) return null;
 
     switch (frequency) {
         case "Weekly":
-            return parseFloat((amount * 4.345).toFixed(2));
+            return parseFloat((expected_amount * 4.345).toFixed(2));
         case "Bi-Weekly":
-            return parseFloat((amount * 2.172).toFixed(2));
+            return parseFloat((expected_amount * 2.172).toFixed(2));
         case "Monthly":
-            return amount;
+            return expected_amount;
         case "Quarterly":
-            return parseFloat((amount / 3).toFixed(2));
+            return parseFloat((expected_amount / 3).toFixed(2));
         case "Annual":
-            return parseFloat((amount / 12).toFixed(2));
+            return parseFloat((expected_amount / 12).toFixed(2));
         case "One-Time":
-            return amount;
+            return expected_amount;
         case "Varies":
-            return amount;
+            return expected_amount;
         default:
-            return amount;
+            return expected_amount;
     }
 }
 
@@ -47,25 +47,25 @@ export default function SourceSlideOver({
     refresh,
     userId
 }: SlideProps) {
-    // Form aligned with Partial<IncomeSource> to satisfy SourceForm
+    // Form matches Partial<IncomeSource>
     const [form, setForm] = useState<Partial<IncomeSource>>({
         source_name: "",
         source_type: "",
         frequency: "Monthly",
-        expected_amount: 0,
+        expected_amount: null,
+        expected_monthly: null,
         notes: ""
     });
 
-    // Load values when editing OR reset for new add flow
+    // Pre-fill form when editing or reset when adding new
     useEffect(() => {
         if (editing) {
             setForm({
-                id: editing.id,
-                source_name: editing.source_name,
-                source_type: editing.source_type ?? "",
-                frequency: editing.frequency ?? "Monthly",
-                expected_amount: editing.expected_amount ?? 0,
-                expected_monthly: editing.expected_monthly ?? 0,
+                source_name: editing.source_name || "",
+                source_type: editing.source_type || "",
+                frequency: editing.frequency || "Monthly",
+                expected_amount: editing.expected_amount ?? null,
+                expected_monthly: editing.expected_monthly ?? null,
                 notes: editing.notes ?? ""
             });
         } else {
@@ -73,40 +73,43 @@ export default function SourceSlideOver({
                 source_name: "",
                 source_type: "",
                 frequency: "Monthly",
-                expected_amount: 0,
-                expected_monthly: 0,
+                expected_amount: null,
+                expected_monthly: null,
                 notes: ""
             });
         }
     }, [editing]);
 
-    // ---------------------------------------------------------------
-    // Save Handler
-    // ---------------------------------------------------------------
+    // ---------------------------------------------------------------------------
+    // SAVE HANDLER: CREATE or UPDATE
+    // ---------------------------------------------------------------------------
     const handleSave = async () => {
         if (!userId) return;
 
-        const amount = form.expected_amount ?? 0;
-        if (amount <= 0) {
+        const expAmt = form.expected_amount ?? 0;
+
+        if (!expAmt || expAmt <= 0) {
             alert("Expected amount is required.");
             return;
         }
 
-        const monthly = computeMonthly(amount, form.frequency || "Monthly");
+        const monthly = computeMonthly(expAmt, form.frequency || "Monthly");
 
         const payload: Partial<IncomeSource> = {
             user_id: userId,
             source_name: form.source_name?.trim() || "",
-            source_type: form.source_type || "",
-            frequency: form.frequency || "Monthly",
-            expected_amount: amount,
+            source_type: form.source_type?.trim() || "",
+            frequency: form.frequency ?? "Monthly",
+            expected_amount: expAmt,
             expected_monthly: monthly,
             notes: form.notes?.trim() || null
         };
 
         if (editing?.id) {
+            // UPDATE
             await supabase.from("income_sources").update(payload).eq("id", editing.id);
         } else {
+            // CREATE
             await supabase.from("income_sources").insert(payload);
         }
 
@@ -114,7 +117,7 @@ export default function SourceSlideOver({
         setOpen(false);
     };
 
-    // ---------------------------------------------------------------
+    // ---------------------------------------------------------------------------
 
     return (
         <Transition.Root show={open} as={Fragment}>
@@ -147,6 +150,7 @@ export default function SourceSlideOver({
                                     {editing ? "Edit Source" : "Add Source"}
                                 </Dialog.Title>
 
+                                {/* PASS FORM STATE */}
                                 <SourceForm data={form} onChange={setForm} />
 
                                 <div className="pt-4 flex justify-end space-x-3">
