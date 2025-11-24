@@ -213,11 +213,24 @@ export default function DashboardPage() {
           setEditingSource(null)
         }}
         onSaved={async () => {
+          console.log("DASHBOARD: onSaved() triggered")
+
           const active = await getActiveSources(user.id)
           const archived = await getArchivedSources(user.id)
+
+          console.log("DASHBOARD refreshed active =", active)
+          console.log("DASHBOARD refreshed archived =", archived)
+
           setSources(active)
           setArchivedSources(archived)
+
+          // FIX: refresh editor state so edits show correctly
+          if (editingSource) {
+            const updated = [...active, ...archived].find(s => s.id === editingSource.id)
+            if (updated) setEditingSource(updated)
+          }
         }}
+
       />
 
       {/* SOURCES TAB */}
