@@ -15,15 +15,14 @@ import SourceInsightsTable from "@/components/analytics/SourceInsightsTable"
 import SourceList from "@/components/sources/SourceList"
 import ArchivedList from "@/components/sources/ArchivedList"
 import SourceSlideOver from "@/components/sources/SourceSlideOver"
-
 import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { useToast } from "@/components/ui/use-toast"
 
 import { getPayouts } from "@/lib/supabase/payouts"
-import { getActiveSources, getArchivedSources } from "@/lib/supabase/sources"
-
-import TestInsertButton from "./TestInsertButton"
-import TestUpdateButton from "./TestUpdateButton"
+import {
+  getActiveSources,
+  getArchivedSources
+} from "@/lib/supabase/sources"
 
 export default function DashboardPage() {
   const router = useRouter()
@@ -39,20 +38,16 @@ export default function DashboardPage() {
 
   const [user, setUser] = useState<any>(null)
 
-  // Slide-over editor
   const [slideOpen, setSlideOpen] = useState(false)
   const [editingSource, setEditingSource] = useState<IncomeSource | null>(null)
 
-  // Archive/unarchive confirmation
   const [confirmArchive, setConfirmArchive] = useState(false)
   const [archiveTarget, setArchiveTarget] = useState<IncomeSource | null>(null)
 
   const [confirmUnarchive, setConfirmUnarchive] = useState(false)
   const [unarchiveTarget, setUnarchiveTarget] = useState<IncomeSource | null>(null)
 
-  // -------------------------------------------------------
-  // Load all initial data
-  // -------------------------------------------------------
+  // Load initial data
   useEffect(() => {
     async function load() {
       const { data: { user: loggedIn } } = await supabase.auth.getUser()
@@ -96,9 +91,7 @@ export default function DashboardPage() {
 
   if (loading) return <div>Loading...</div>
 
-  // -------------------------------------------------------
-  // Archive source
-  // -------------------------------------------------------
+  // Archive
   async function doArchive() {
     if (!archiveTarget || !user) return
 
@@ -114,6 +107,7 @@ export default function DashboardPage() {
 
     if (error) {
       toast({ title: "Archive failed", description: error.message })
+      setConfirmArchive(false)
       return
     }
 
@@ -135,9 +129,7 @@ export default function DashboardPage() {
     setArchiveTarget(null)
   }
 
-  // -------------------------------------------------------
-  // Unarchive source
-  // -------------------------------------------------------
+  // Unarchive
   async function doUnarchive() {
     if (!unarchiveTarget || !user) return
 
@@ -153,6 +145,7 @@ export default function DashboardPage() {
 
     if (error) {
       toast({ title: "Unarchive failed", description: error.message })
+      setConfirmUnarchive(false)
       return
     }
 
@@ -181,11 +174,6 @@ export default function DashboardPage() {
   return (
     <div className="mt-6">
 
-      {/* DEV TEST BUTTONS */}
-      <TestInsertButton />
-      <TestUpdateButton />
-
-      {/* Archive dialog */}
       <ConfirmDialog
         open={confirmArchive}
         title="Archive Source"
@@ -194,7 +182,6 @@ export default function DashboardPage() {
         onConfirm={doArchive}
       />
 
-      {/* Unarchive dialog */}
       <ConfirmDialog
         open={confirmUnarchive}
         title="Unarchive Source"
@@ -203,37 +190,19 @@ export default function DashboardPage() {
         onConfirm={doUnarchive}
       />
 
-      {/* SlideOver editor */}
       <SourceSlideOver
         initial={editingSource}
         userId={user?.id}
         open={slideOpen}
-        onClose={() => {
-          setSlideOpen(false)
-          setEditingSource(null)
-        }}
+        onClose={() => { setSlideOpen(false); setEditingSource(null) }}
         onSaved={async () => {
-          console.log("DASHBOARD: onSaved() triggered")
-
           const active = await getActiveSources(user.id)
           const archived = await getArchivedSources(user.id)
-
-          console.log("DASHBOARD refreshed active =", active)
-          console.log("DASHBOARD refreshed archived =", archived)
-
           setSources(active)
           setArchivedSources(archived)
-
-          // FIX: refresh editor state so edits show correctly
-          if (editingSource) {
-            const updated = [...active, ...archived].find(s => s.id === editingSource.id)
-            if (updated) setEditingSource(updated)
-          }
         }}
-
       />
 
-      {/* SOURCES TAB */}
       {activeTab === "sources" && (
         <SourceList
           sources={sources}
@@ -243,7 +212,6 @@ export default function DashboardPage() {
         />
       )}
 
-      {/* ARCHIVED TAB */}
       {activeTab === "archived" && (
         <ArchivedList
           sources={archivedSources}
@@ -251,7 +219,6 @@ export default function DashboardPage() {
         />
       )}
 
-      {/* PAYOUTS TAB */}
       {activeTab === "payouts" && (
         <section>
           <h2 className="text-2xl font-semibold mb-4">Payouts</h2>
@@ -289,15 +256,13 @@ export default function DashboardPage() {
         </section>
       )}
 
-      {/* ANALYTICS */}
       {activeTab === "analytics" && (
         <section>
           <KPI insights={insights} />
-          {monthlyTrends.length === 0 ? (
-            <p className="text-gray-500">No trend data.</p>
-          ) : (
-            <MonthlyTrendsChart data={monthlyTrends} />
-          )}
+          {monthlyTrends.length === 0
+            ? <p className="text-gray-500">No trend data.</p>
+            : <MonthlyTrendsChart data={monthlyTrends} />
+          }
           <SourceInsightsTable insights={insights} />
         </section>
       )}
