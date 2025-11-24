@@ -1,64 +1,54 @@
-import { supabase } from "@/lib/supabaseClient"
-import { NextResponse } from "next/server"
+import { supabase } from "@/lib/supabaseClient";
+import { NextResponse } from "next/server";
 
 export async function POST(req: Request) {
     try {
-        const { id, payload } = await req.json()
+        const { id, payload } = await req.json();
 
-        // Build safe payload for BOTH create & update
-        const editableFields = {
-            source_name: payload.source_name?.trim() ?? null,
+        // Payload with allowed fields
+        const safePayload = {
+            source_name: payload.source_name,
             source_type: payload.source_type ?? null,
             frequency: payload.frequency ?? null,
             expected_amount: payload.expected_amount ?? null,
             expected_monthly: payload.expected_monthly ?? null,
-            notes: payload.notes ?? null
-        }
+            notes: payload.notes ?? null,
+            user_id: payload.user_id      // only used for CREATE
+        };
 
-        let result
+        let result;
 
         if (id) {
-            // -------------------------------
-            // UPDATE — NEVER update user_id
-            // -------------------------------
+            // UPDATE — remove user_id so it cannot be updated
+            const { user_id, ...updateFields } = safePayload;
+
             result = await supabase
                 .from("income_sources")
-                .update(editableFields)
+                .update(updateFields)
                 .eq("id", id)
-                .select()
-                .single()
+                .select("*");
         } else {
-            // -------------------------------
-            // CREATE — MUST include user_id
-            // -------------------------------
+            // CREATE — allow full payload
             result = await supabase
                 .from("income_sources")
-                .insert({
-                    ...editableFields,
-                    user_id: payload.user_id
-                })
-                .select()
-                .single()
+                .insert(safePayload)
+                .select("*");
         }
 
         if (result.error) {
-            console.error("API save error:", result.error)
-            return NextResponse.json({
-                success: false,
-                error: result.error.message
-            })
+            console.error("API save error:", result.error);
+            return NextResponse.json(
+                { success: false, error: result.error.message },
+                { status: 400 }
+            );
         }
 
-        return NextResponse.json({
-            success: true,
-            data: result.data
-        })
-
+        return NextResponse.json({ success: true });
     } catch (e: any) {
-        console.error("Unhandled save API error:", e)
-        return NextResponse.json({
-            success: false,
-            error: e.message
-        })
+        console.error("Unhandled save API error:", e);
+        return NextResponse.json(
+            { success: false, error: e.message },
+            { status: 500 }
+        );
     }
 }
