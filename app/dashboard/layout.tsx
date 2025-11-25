@@ -66,7 +66,7 @@ function Header({ isAdmin }: { isAdmin: boolean }) {
           Analytics
         </button>
 
-        {/* NEW: Admin Dashboard button, visible only to admins */}
+        {/* ADMIN DASHBOARD BUTTON */}
         {isAdmin && (
           <button
             onClick={() => router.push('/admin-dashboard')}
@@ -95,16 +95,22 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   useEffect(() => {
     async function validate() {
       const { data: { session } } = await supabase.auth.getSession()
-      if (!session) return router.push('/login')
 
-      // Fetch admin role
+      if (!session) {
+        router.push('/login')
+        return
+      }
+
+      // Load role from public.users
       const { data: profile } = await supabase
         .from('users')
         .select('role')
         .eq('id', session.user.id)
         .single()
 
-      if (profile?.role === 'admin') setIsAdmin(true)
+      if (profile?.role === 'admin') {
+        setIsAdmin(true)
+      }
 
       setLoading(false)
     }

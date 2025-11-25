@@ -6,74 +6,115 @@ import { useRouter } from 'next/navigation'
 
 export default function LoginPage() {
   const router = useRouter()
-
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState('')
+  const [email, setEmail] = useState('')
+  const [redirecting, setRedirecting] = useState(false)
 
-  // Handle login with password
-  const handleLogin = async (e: React.FormEvent) => {
+  // ---------------------------------------------------------
+  // Handle Google Login
+  // ---------------------------------------------------------
+  const handleGoogleLogin = async () => {
+    setLoading(true)
+
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: `${window.location.origin}/auth/callback`
+      }
+    })
+
+    if (error) {
+      console.error(error)
+      setMessage('Google login failed.')
+    }
+
+    setLoading(false)
+  }
+
+  // ---------------------------------------------------------
+  // Magic Link Login (optional — keep for fallback)
+  // ---------------------------------------------------------
+  const handleMagicLink = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
     setMessage('')
 
     try {
-      // Authenticate with Supabase
-      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+      const { error } = await supabase.auth.signInWithOtp({
         email,
-        password
+        options: { emailRedirectTo: `${window.location.origin}/login` }
       })
 
-      if (authError) throw authError
-      if (!authData.user) throw new Error('Authentication failed.')
+      if (error) throw error
+      setMessage('Check your email for a sign-in link!')
 
-      // Ensure user exists in the custom "users" table
+      // Ensure user exists in users table
       const { data: existingUser } = await supabase
         .from('users')
-        .select('id, role')
+        .select('email')
         .eq('email', email)
         .maybeSingle()
 
       if (!existingUser) {
-        // Create user record with default role = user
-        const { error: insertError } = await supabase
-          .from('users')
-          .insert([{ email, role: 'user' }])
-
-        if (insertError) throw insertError
+        await supabase.from('users').insert([{ email, role: 'user' }])
       }
 
-      // Fetch role for redirect
-      const { data: roleData, error: roleErr } = await supabase
-        .from('users')
-        .select('role')
-        .eq('email', email)
-        .single()
-
-      if (roleErr) throw roleErr
-
-      if (roleData.role === 'admin') {
-        router.push('/admin-dashboard')
-      } else {
-        router.push('/dashboard')
-      }
     } catch (err: any) {
-      setMessage(err.message)
-    } finally {
-      setLoading(false)
+      setMessage('Error: ' + err.message)
     }
+
+    setLoading(false)
+  }
+
+  // ---------------------------------------------------------
+  // Auto-redirect when session becomes available
+  // ---------------------------------------------------------
+  useEffect(() => {
+    const sub = supabase.auth.onAuthStateChange(async (event) => {
+      if (event === 'SIGNED_IN') {
+        setRedirecting(true)
+        router.push('/login') // temporary hold while callback redirects
+      }
+    })
+
+    return () => {
+      sub.data.subscription.unsubscribe()
+    }
+  }, [router])
+
+  if (redirecting) {
+    return (
+      <main className="flex flex-col items-center justify-center min-h-screen">
+        <p className="text-lg">Signing you in…</p>
+      </main>
+    )
   }
 
   return (
     <main className="flex flex-col items-center justify-center min-h-screen bg-[#f8f9fa] text-[#0A1E2D]">
       <div className="bg-white p-8 rounded-xl shadow-md w-[90%] max-w-[400px]">
-        <h1 className="text-2xl font-semibold text-center mb-2">
-          Haven One Wealth
-        </h1>
-        <p className="text-center mb-6">Sign in with your account</p>
 
-        <form onSubmit={handleLogin} className="flex flex-col gap-3">
+        <h1 className="text-2xl font-semibold text-center mb-6">
+          Haven One Wealth — Login
+        </h1>
+
+        {/* Google Login */}
+        <button
+          onClick={handleGoogleLogin}
+          disabled={loading}
+          className="w-full py-2 mb-6 bg-[#0A1E2D] text-white font-semibold rounded-md hover:bg-black transition"
+        >
+          Sign in with Google
+        </button>
+
+        {/* Divider */}
+        <div className="text-center text-sm text-gray-500 mb-4">
+          or continue with email
+        </div>
+
+        {/* Magic Link */}
+        <form onSubmit={handleMagicLink} className="flex flex-col gap-3">
           <input
             type="email"
             placeholder="you@example.com"
@@ -83,27 +124,16 @@ export default function LoginPage() {
             className="p-2 border border-gray-300 rounded-md"
           />
 
-          <input
-            type="password"
-            placeholder="Enter password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-            className="p-2 border border-gray-300 rounded-md"
-          />
-
           <button
             type="submit"
             disabled={loading}
-            className="bg-[#C6A664] text-[#0A1E2D] font-semibold py-2 rounded-md hover:bg-[#b59655] transition disabled:opacity-50"
+            className="bg-[#C6A664] text-[#0A1E2D] font-semibold py-2 rounded-md hover:bg-[#b59655]"
           >
-            {loading ? 'Signing in…' : 'Login'}
+            {loading ? 'Sending…' : 'Send Magic Link'}
           </button>
         </form>
 
-        {message && (
-          <p className="mt-3 text-center text-sm text-red-600">{message}</p>
-        )}
+        {message && <p className="mt-3 text-center text-sm">{message}</p>}
       </div>
     </main>
   )
