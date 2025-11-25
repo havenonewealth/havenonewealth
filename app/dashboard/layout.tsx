@@ -9,8 +9,28 @@ import { TabProvider, useTabs } from './TabContext'
 function Header() {
   const router = useRouter()
   const { activeTab, setActiveTab } = useTabs()
+  const [isAdmin, setIsAdmin] = useState(false)
 
-  // Unified tab styling
+  // Load user role to determine admin visibility
+  useEffect(() => {
+    async function loadRole() {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) return
+
+      const { data } = await supabase
+        .from('users')
+        .select('role')
+        .eq('id', session.user.id)
+        .single()
+
+      if (data?.role === 'admin') {
+        setIsAdmin(true)
+      }
+    }
+    loadRole()
+  }, [])
+
+  // Tab styling
   const tabBase =
     'px-4 py-2 rounded-md font-semibold border transition text-sm'
 
@@ -67,6 +87,16 @@ function Header() {
           Analytics
         </button>
 
+        {/* Admin Navigation Button (NOT a dashboard tab) */}
+        {isAdmin && (
+          <button
+            onClick={() => router.push('/admin-dashboard')}
+            className="px-4 py-2 rounded-md font-semibold bg-[#0A1E2D] text-white"
+          >
+            Admin
+          </button>
+        )}
+
         <button
           onClick={handleLogout}
           className="px-4 py-2 font-semibold bg-[#0A1E2D] text-white rounded-md"
@@ -86,7 +116,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     async function validate() {
       const { data: { session } } = await supabase.auth.getSession()
       if (!session) return router.push('/login')
-
       setLoading(false)
     }
 

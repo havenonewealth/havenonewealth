@@ -13,12 +13,12 @@ interface Props {
 export default function ArchivedList({ archived, userId, refreshAll }: Props) {
     const [items, setItems] = useState<IncomeSource[]>([]);
 
-    // Keep internal state updated with parent props
+    // Keep internal list in sync with parent
     useEffect(() => {
         setItems(archived);
     }, [archived]);
 
-    // Unarchive a record
+    // Unarchive
     const handleUnarchive = async (id: string) => {
         await supabase
             .from("income_sources")
@@ -31,7 +31,7 @@ export default function ArchivedList({ archived, userId, refreshAll }: Props) {
         refreshAll();
     };
 
-    // Permanently delete (soft delete pattern)
+    // Soft delete
     const handleDelete = async (id: string) => {
         const confirmed = window.confirm(
             "Are you sure you want to permanently delete this source?"
@@ -65,19 +65,24 @@ export default function ArchivedList({ archived, userId, refreshAll }: Props) {
                 >
                     <div>
                         <div className="font-medium">{row.source_name}</div>
-                        <div className="text-sm text-gray-500">{row.source_type}</div>
+
+                        <div className="text-sm text-gray-500">
+                            {row.source_type || "—"}
+                        </div>
+
                         <div className="text-sm text-gray-500">
                             Frequency: {row.frequency}
                         </div>
+
                         <div className="text-sm text-gray-500">
                             Expected: $
                             {row.expected_amount != null
-                                ? row.expected_amount.toLocaleString("en-US")
+                                ? Number(row.expected_amount).toLocaleString("en-US")
                                 : "0"}
                         </div>
                     </div>
 
-                    <div className="flex space-x-3">
+                    <div className="flex space-x-4">
                         <button
                             onClick={() => handleUnarchive(row.id!)}
                             className="text-green-600 hover:underline"

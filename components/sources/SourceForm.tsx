@@ -10,8 +10,7 @@ export default function SourceForm({
     data: Partial<IncomeSource>;
     onChange: (v: Partial<IncomeSource>) => void;
 }) {
-
-    // Generic safe updater
+    // Safe update helper
     function update<K extends keyof IncomeSource>(
         key: K,
         value: IncomeSource[K] | null | undefined
@@ -22,20 +21,22 @@ export default function SourceForm({
         });
     }
 
-    // Local raw states for editing currency
+    // Raw input states (prevent formatting while typing)
     const [rawAmount, setRawAmount] = useState("");
     const [rawMonthly, setRawMonthly] = useState("");
 
+    // Sync form state when SlideOver changes
     useEffect(() => {
         setRawAmount(
             data.expected_amount != null ? String(data.expected_amount) : ""
         );
+
         setRawMonthly(
             data.expected_monthly != null ? String(data.expected_monthly) : ""
         );
     }, [data]);
 
-    // Parse "$1,234.56" → 1234.56
+    // Currency utilities
     function parseCurrency(v: string): number | null {
         const cleaned = v.replace(/[^0-9.-]/g, "");
         if (!cleaned) return null;
@@ -43,7 +44,6 @@ export default function SourceForm({
         return isNaN(num) ? null : num;
     }
 
-    // Format → "$1,234.56"
     function formatCurrency(val: number | null): string {
         if (val == null) return "";
         return val.toLocaleString("en-US", {
@@ -52,7 +52,7 @@ export default function SourceForm({
         });
     }
 
-    // Monthly calculation
+    // Frequency → Monthly calc
     function calculateMonthly(amount: number | null, frequency: string | null) {
         if (!amount || !frequency) return amount;
 
@@ -82,7 +82,6 @@ export default function SourceForm({
         const value = parseCurrency(v);
         update("expected_amount", value ?? undefined);
 
-        // Auto-recalc monthly
         if (value != null && data.frequency) {
             const monthly = calculateMonthly(value, data.frequency);
             update("expected_monthly", monthly ?? undefined);
@@ -118,7 +117,6 @@ export default function SourceForm({
 
     return (
         <div className="space-y-5">
-
             {/* Source Name */}
             <div>
                 <label className="block text-sm font-medium text-gray-700">
@@ -158,7 +156,9 @@ export default function SourceForm({
                 </label>
                 <select
                     value={data.frequency ?? ""}
-                    onChange={(e) => handleFrequencyChange(e.target.value || null)}
+                    onChange={(e) =>
+                        handleFrequencyChange(e.target.value || null)
+                    }
                     className="mt-1 block w-full rounded border-gray-300"
                 >
                     <option value="">Select...</option>
@@ -214,7 +214,6 @@ export default function SourceForm({
                     rows={3}
                 />
             </div>
-
         </div>
     );
 }

@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
-
 import { useTabs } from "./TabContext";
 
 import SourceList from "@/components/sources/SourceList";
@@ -13,99 +12,112 @@ import KPI from "@/components/analytics/KPI";
 import type { IncomeSource, RecentPayout } from "@/lib/types";
 
 export default function DashboardPage() {
-  const { activeTab } = useTabs();
+  const { activeTab } = useTabs(); // GLOBAL TAB
 
   const [sources, setSources] = useState<IncomeSource[]>([]);
   const [archived, setArchived] = useState<IncomeSource[]>([]);
   const [insights, setInsights] = useState<any[]>([]);
   const [payouts, setPayouts] = useState<RecentPayout[]>([]);
+
   const [userId, setUserId] = useState<string | null>(null);
 
   const [editing, setEditing] = useState<IncomeSource | null>(null);
   const [slideOpen, setSlideOpen] = useState(false);
 
-  // -----------------------------------------------
-  // LOAD AUTH SESSION → THEN LOAD DATA
-  // -----------------------------------------------
+  const [role, setRole] = useState<string | null>(null);
+
+  // -----------------------------------------
+  // Load session → user → role → user data
+  // -----------------------------------------
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      const uid = data.session?.user?.id ?? null;
-      if (uid) {
-        setUserId(uid);
-      }
-    });
+    async function init() {
+      const session = await supabase.auth.getSession();
+      const uid = session.data.session?.user?.id || null;
+      if (!uid) return;
+
+      setUserId(uid);
+
+      const { data: userRow } = await supabase
+        .from("users")
+        .select("role")
+        .eq("id", uid)
+        .single();
+
+      setRole(userRow?.role || "user");
+
+      await loadAll(uid);
+    }
+
+    init();
   }, []);
 
-  // Load data AFTER userId is known
+  // -----------------------------------------
+  // Reload whenever userId becomes available
+  // -----------------------------------------
   useEffect(() => {
     if (userId) loadAll(userId);
   }, [userId]);
 
-  // -----------------------------------------------
-  // UNIVERSAL DATA LOADER
-  // -----------------------------------------------
+  // -----------------------------------------
+  // Load all dashboard data
+  // -----------------------------------------
   const loadAll = async (uid: string) => {
-    const [srcRes, arcRes, insRes, payRes] = await Promise.all([
-      supabase
-        .from("income_sources")
-        .select("*")
-        .eq("user_id", uid)
-        .eq("archived", false)
-        .order("created_at", { ascending: false }),
+    const [{ data: src }, { data: arc }, { data: ins }, { data: pays }] =
+      await Promise.all([
+        supabase
+          .from("income_sources")
+          .select("*")
+          .eq("user_id", uid)
+          .eq("archived", false)
+          .order("created_at", { ascending: false }),
 
-      supabase
-        .from("income_sources")
-        .select("*")
-        .eq("user_id", uid)
-        .eq("archived", true)
-        .order("created_at", { ascending: false }),
+        supabase
+          .from("income_sources")
+          .select("*")
+          .eq("user_id", uid)
+          .eq("archived", true)
+          .order("created_at", { ascending: false }),
 
-      supabase.from("admin_insights").select("*"),
+        supabase
+          .from("v_user_insights")
+          .select("*")
+          .eq("user_id", uid),
 
-      supabase
-        .from("payouts")
-        .select(
-          `
-          id,
-          source_id,
-          user_id,
-          amount,
-          payment_date,
-          status,
-          created_at,
-          income_sources(
-            source_name
+        supabase
+          .from("payouts")
+          .select(
+            `
+              id,
+              amount,
+              status,
+              payment_date,
+              source_id,
+              income_sources ( source_name )
+            `
           )
-        `
-        )
-        .order("payment_date", { ascending: false })
-    ]);
+          .eq("user_id", uid)
+          .order("payment_date", { ascending: false })
+      ]);
 
-    setSources(srcRes.data || []);
-    setArchived(arcRes.data || []);
-    setInsights(insRes.data || []);
+    const payoutsClean: RecentPayout[] =
+      pays?.map((p: any) => ({
+        id: p.id,
+        amount: Number(p.amount),
+        status: p.status,
+        payout_date: p.payment_date,
+        source_name: p.income_sources?.[0]?.source_name ?? ""
+      })) || [];
 
-    // FIX payout mapping
-    const payoutMapped = (payRes.data || []).map((p: any) => ({
-      id: p.id,
-      source_id: p.source_id,
-      user_id: p.user_id,
-      amount: p.amount,
-      status: p.status,
-      payout_date: p.payment_date,
-      source_name: p.income_sources?.source_name || "Unknown"
-    }));
-
-    setPayouts(payoutMapped);
+    setSources(src || []);
+    setArchived(arc || []);
+    setInsights(ins || []);
+    setPayouts(payoutsClean);
   };
 
   const refreshAll = () => {
     if (userId) loadAll(userId);
   };
 
-  // -----------------------------------------------
-  // SLIDE ACTIONS
-  // -----------------------------------------------
   const handleAdd = () => {
     setEditing(null);
     setSlideOpen(true);
@@ -116,12 +128,24 @@ export default function DashboardPage() {
     setSlideOpen(true);
   };
 
-  // -----------------------------------------------
-  // RENDER BY TAB
-  // -----------------------------------------------
+  // ==================================================
+  // RENDER
+  // ==================================================
+  if (!role) return <div>Loading...</div>;
+
+  // ADMIN TAB → go to admin dashboard
+  if (activeTab === "admin") {
+    return (
+      <div>
+        <h1 className="text-xl font-semibold mb-4">Admin Dashboard</h1>
+        <p>Loading admin view...</p>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
-      {/* Action button: Sources only */}
+
       {activeTab === "sources" && (
         <div className="flex justify-end">
           <button
@@ -133,7 +157,6 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* Active Sources */}
       {activeTab === "sources" && (
         <SourceList
           sources={sources}
@@ -143,7 +166,6 @@ export default function DashboardPage() {
         />
       )}
 
-      {/* Archived Sources */}
       {activeTab === "archived" && (
         <ArchivedList
           archived={archived}
@@ -152,7 +174,6 @@ export default function DashboardPage() {
         />
       )}
 
-      {/* Payouts */}
       {activeTab === "payouts" && (
         <div className="space-y-3">
           <h2 className="text-lg font-semibold">Recent Payouts</h2>
@@ -169,19 +190,21 @@ export default function DashboardPage() {
               <div className="font-medium">
                 ${p.amount.toLocaleString("en-US")}
               </div>
+
               <div className="text-sm text-gray-500">
                 {new Date(p.payout_date).toLocaleDateString()}
               </div>
-              <div className="text-sm text-gray-500">{p.source_name}</div>
+
+              <div className="text-sm text-gray-500">
+                {p.source_name}
+              </div>
             </div>
           ))}
         </div>
       )}
 
-      {/* Analytics */}
       {activeTab === "analytics" && <KPI insights={insights} />}
 
-      {/* SlideOver */}
       <SourceSlideOver
         open={slideOpen}
         setOpen={setSlideOpen}

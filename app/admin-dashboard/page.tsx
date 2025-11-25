@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from 'react'
 import Image from 'next/image'
+import { useRouter } from 'next/navigation'
+import { supabase } from '@/lib/supabaseClient'
 
 import {
   getAdminGlobalSummary,
@@ -23,14 +25,44 @@ import RecentPayoutsTable from '@/components/admin-dashboard/RecentPayoutsTable'
 import UserManagementTable from '@/components/admin-dashboard/UserManagementTable'
 
 export default function AdminDashboardPage() {
+  const router = useRouter()
+
   const [summary, setSummary] = useState<AdminSummary | null>(null)
   const [aggregates, setAggregates] = useState<PortfolioAggregate[]>([])
   const [monthlyTrends, setMonthlyTrends] = useState<MonthlyTrend[]>([])
   const [recentPayouts, setRecentPayouts] = useState<RecentPayout[]>([])
   const [users, setUsers] = useState<AppUser[]>([])
+  const [loading, setLoading] = useState(true)
 
+  // --------------------------------------------------------------
+  // Validate user is logged in AND is admin
+  // --------------------------------------------------------------
   useEffect(() => {
-    async function load() {
+    async function validateSession() {
+      const { data: { session } } = await supabase.auth.getSession()
+
+      if (!session) {
+        router.push('/login')
+        return
+      }
+
+      const { data: profile } = await supabase
+        .from('users')
+        .select('role')
+        .eq('id', session.user.id)
+        .single()
+
+      if (!profile || profile.role !== 'admin') {
+        router.push('/dashboard')
+        return
+      }
+
+      loadData()
+    }
+
+    async function loadData() {
+      setLoading(true)
+
       const s = await getAdminGlobalSummary()
       const a = await getAdminPortfolioAggregates()
       const m = await getAdminMonthlyTrends()
@@ -42,47 +74,78 @@ export default function AdminDashboardPage() {
       setMonthlyTrends(m)
       setRecentPayouts(r)
       setUsers(u)
-    }
-    load()
-  }, [])
 
-  if (!summary) {
-    return <div className="p-10 text-gray-500">Loading dashboard...</div>
+      setLoading(false)
+    }
+
+    validateSession()
+  }, [router])
+
+  if (loading || !summary) {
+    return <div className="p-10 text-gray-500">Loading admin dashboard...</div>
   }
 
+  // --------------------------------------------------------------
+  // Render
+  // --------------------------------------------------------------
   return (
     <div className="p-10 max-w-7xl mx-auto">
+
       {/* Header */}
       <div className="flex justify-between items-center mb-10">
-        <Image src="/havenone-logo.png" alt="Haven One Wealth" width={150} height={150} />
+        <Image
+          src="/HOW2Logo.png"
+          width={150}
+          height={50}
+          alt="Haven One Wealth Logo"
+        />
+
         <div className="flex gap-4">
-          <button className="px-4 py-2 bg-gray-100 rounded text-sm">Switch to User View</button>
-          <button className="px-4 py-2 bg-black text-white rounded text-sm">Logout</button>
+
+          {/* Switch to user dashboard */}
+          <button
+            onClick={() => router.push('/dashboard')}
+            className="px-4 py-2 bg-gray-200 text-[#0A1E2D] font-semibold rounded-md hover:bg-gray-300 transition"
+          >
+            User View
+          </button>
+
+          {/* Logout */}
+          <button
+            onClick={async () => {
+              await supabase.auth.signOut()
+              router.push('/login')
+            }}
+            className="px-4 py-2 bg-[#0A1E2D] text-white font-semibold rounded-md"
+          >
+            Logout
+          </button>
+
         </div>
       </div>
 
       <h1 className="text-3xl font-semibold mb-8">Admin Dashboard</h1>
 
-      {/* KPI Grid */}
+      {/* KPI Summary Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-12">
         <KPI
           title="Total Portfolio Value"
           value={summary.total_payout_amount}
-          sub={`${summary.total_sources} Sources  •  ${summary.total_payouts} Payouts`}
+          sub={`${summary.total_sources} Sources • ${summary.total_payouts} Payouts`}
         />
         <KPI
           title="Average Payout"
           value={summary.avg_payout_amount}
-          sub="Across all income sources"
+          sub="Across entire portfolio"
         />
         <KPI
           title="Active Users"
           value={users.length}
-          sub="Administrators and earners"
+          sub="Admins + Earners"
         />
       </div>
 
-      {/* Global Payout Distribution */}
+      {/* Distribution by Source */}
       <div className="mb-14">
         <h2 className="text-xl font-semibold mb-4">Payout Distribution by Source</h2>
         <div className="bg-white rounded-xl shadow-sm p-6 border">

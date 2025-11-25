@@ -14,26 +14,26 @@ interface SlideProps {
     userId: string | null;
 }
 
-// Monthly calculation logic (same as form)
-function computeMonthly(expected_amount: number, frequency: string) {
-    if (!expected_amount || expected_amount <= 0) return null;
+// Same logic as SourceForm
+function computeMonthly(amount: number, freq: string | null | undefined) {
+    if (!amount || amount <= 0) return null;
 
-    switch (frequency) {
-        case "Monthly":
-            return expected_amount;
+    switch (freq) {
         case "Weekly":
-            return expected_amount * 4.345;
+            return parseFloat((amount * 4.345).toFixed(2));
         case "Bi-Weekly":
-            return expected_amount * 2.172;
+            return parseFloat((amount * 2.172).toFixed(2));
+        case "Monthly":
+            return amount;
         case "Quarterly":
-            return expected_amount / 3;
+            return parseFloat((amount / 3).toFixed(2));
         case "Annual":
-            return expected_amount / 12;
+            return parseFloat((amount / 12).toFixed(2));
         case "One-Time":
         case "Varies":
-            return expected_amount;
+            return amount;
         default:
-            return expected_amount;
+            return amount;
     }
 }
 
@@ -44,26 +44,26 @@ export default function SourceSlideOver({
     refresh,
     userId
 }: SlideProps) {
-
     const [form, setForm] = useState<Partial<IncomeSource>>({
         source_name: "",
         source_type: "",
         frequency: "Monthly",
         expected_amount: undefined,
         expected_monthly: undefined,
-        notes: undefined
+        notes: ""
     });
 
-    // Load existing values when editing
+    // Load edit values or reset for new
     useEffect(() => {
         if (editing) {
             setForm({
+                id: editing.id,
                 source_name: editing.source_name ?? "",
                 source_type: editing.source_type ?? "",
                 frequency: editing.frequency ?? "Monthly",
                 expected_amount: editing.expected_amount ?? undefined,
                 expected_monthly: editing.expected_monthly ?? undefined,
-                notes: editing.notes ?? undefined
+                notes: editing.notes ?? ""
             });
         } else {
             setForm({
@@ -72,7 +72,7 @@ export default function SourceSlideOver({
                 frequency: "Monthly",
                 expected_amount: undefined,
                 expected_monthly: undefined,
-                notes: undefined
+                notes: ""
             });
         }
     }, [editing]);
@@ -101,13 +101,8 @@ export default function SourceSlideOver({
         };
 
         if (editing?.id) {
-            // UPDATE
-            await supabase
-                .from("income_sources")
-                .update(payload)
-                .eq("id", editing.id);
+            await supabase.from("income_sources").update(payload).eq("id", editing.id);
         } else {
-            // CREATE
             await supabase.from("income_sources").insert(payload);
         }
 
@@ -146,7 +141,6 @@ export default function SourceSlideOver({
                                     {editing ? "Edit Source" : "Add Source"}
                                 </Dialog.Title>
 
-                                {/* Shared form component */}
                                 <SourceForm data={form} onChange={setForm} />
 
                                 <div className="pt-4 flex justify-end space-x-3">

@@ -14,16 +14,19 @@ interface Props {
 export default function SourceList({ sources, userId, onEdit, refreshAll }: Props) {
   const [items, setItems] = useState<IncomeSource[]>([]);
 
-  // Keep internal state synced with parent
+  // Keep internal list synced with props
   useEffect(() => {
     setItems(sources);
   }, [sources]);
 
-  // Archive
+  // Archive a record
   const handleArchive = async (id: string) => {
     await supabase
       .from("income_sources")
-      .update({ archived: true, archived_at: new Date().toISOString() })
+      .update({
+        archived: true,
+        archived_at: new Date().toISOString()
+      })
       .eq("id", id);
 
     refreshAll();
@@ -45,11 +48,13 @@ export default function SourceList({ sources, userId, onEdit, refreshAll }: Prop
           <div>
             <div className="font-medium">{row.source_name}</div>
             <div className="text-sm text-gray-500">{row.source_type}</div>
-            <div className="text-sm text-gray-500">Frequency: {row.frequency}</div>
+            <div className="text-sm text-gray-500">
+              Frequency: {row.frequency}
+            </div>
             <div className="text-sm text-gray-500">
               Expected: $
               {row.expected_amount != null
-                ? row.expected_amount.toLocaleString("en-US")
+                ? Number(row.expected_amount).toLocaleString("en-US")
                 : "0"}
             </div>
           </div>

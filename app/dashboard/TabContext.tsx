@@ -2,7 +2,13 @@
 
 import { createContext, useContext, useState, ReactNode } from "react"
 
-type Tab = "sources" | "archived" | "payouts" | "analytics"
+type Tab =
+  | "sources"
+  | "archived"
+  | "payouts"
+  | "analytics"
+  | "admin"        // NEW
+  | "user";        // NEW (admin dashboard only)
 
 interface TabContextType {
   activeTab: Tab
