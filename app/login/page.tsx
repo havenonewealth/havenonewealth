@@ -14,9 +14,9 @@ export default function LoginPage() {
     const [redirecting, setRedirecting] = useState(false)
 
     // -----------------------------------------------------
-    // SEND MAGIC LINK + ENSURE USER ROW EXISTS
+    // SEND MAGIC LINK
     // -----------------------------------------------------
-    const handleLogin = async (e: React.FormEvent) => {
+    const handleMagicLink = async (e: React.FormEvent) => {
         e.preventDefault()
         setLoading(true)
         setMessage('')
@@ -36,14 +36,14 @@ export default function LoginPage() {
 
         setMessage('Check your email for a sign-in link.')
 
-        // Create user entry in public.users if missing
-        const { data: existing } = await supabase
+        // Ensure user row exists
+        const { data: existingUser } = await supabase
             .from('users')
             .select('email')
             .eq('email', email)
             .maybeSingle()
 
-        if (!existing) {
+        if (!existingUser) {
             await supabase.from('users').insert([{ email, role: 'user' }])
         }
 
@@ -51,34 +51,53 @@ export default function LoginPage() {
     }
 
     // -----------------------------------------------------
-    // ROLE-BASED REDIRECT AFTER MAGIC LINK COMPLETES
+    // GOOGLE LOGIN
     // -----------------------------------------------------
-    useEffect(() => {
-        const sub = supabase.auth.onAuthStateChange(async (event, session) => {
-            if (event !== 'SIGNED_IN' || !session) return
-
-            setRedirecting(true)
-
-            const { data: profile } = await supabase
-                .from('users')
-                .select('role')
-                .eq('email', session.user.email)
-                .single()
-
-            if (profile?.role === 'admin') {
-                router.push('/admin-dashboard')
-            } else {
-                router.push('/dashboard')
+    const signInWithGoogle = async () => {
+        const { error } = await supabase.auth.signInWithOAuth({
+            provider: 'google',
+            options: {
+                redirectTo: `${window.location.origin}/auth/callback`
             }
         })
 
+        if (error) {
+            console.error('Google login error:', error)
+            setMessage('Google login failed: ' + error.message)
+        }
+    }
+
+    // -----------------------------------------------------
+    // ROLE-BASED REDIRECT AFTER LOGIN
+    // -----------------------------------------------------
+    useEffect(() => {
+        const { data: listener } = supabase.auth.onAuthStateChange(
+            async (event, session) => {
+                if (event !== 'SIGNED_IN' || !session) return
+
+                setRedirecting(true)
+
+                const { data: profile } = await supabase
+                    .from('users')
+                    .select('role')
+                    .eq('email', session.user.email)
+                    .single()
+
+                if (profile?.role === 'admin') {
+                    router.push('/admin-dashboard')
+                } else {
+                    router.push('/dashboard')
+                }
+            }
+        )
+
         return () => {
-            sub.data.subscription.unsubscribe()
+            listener.subscription.unsubscribe()
         }
     }, [router, supabase])
 
     // -----------------------------------------------------
-    // REDIRECTING STATE
+    // REDIRECT STATE
     // -----------------------------------------------------
     if (redirecting) {
         return (
@@ -112,16 +131,17 @@ export default function LoginPage() {
     }
 
     // -----------------------------------------------------
-    // LOGIN FORM
+    // LOGIN UI
     // -----------------------------------------------------
     return (
         <main className="flex flex-col items-center justify-center min-h-screen bg-[#f8f9fa] text-[#0A1E2D]">
             <div className="bg-white p-8 rounded-xl shadow-md w-[90%] max-w-[400px]">
 
                 <h1 className="text-2xl font-semibold text-center mb-2">Haven One Wealth</h1>
-                <p className="text-center mb-6">Sign in via magic link</p>
+                <p className="text-center mb-6">Sign in to continue</p>
 
-                <form onSubmit={handleLogin} className="flex flex-col gap-3">
+                {/* MAGIC LINK LOGIN */}
+                <form onSubmit={handleMagicLink} className="flex flex-col gap-3 mb-6">
                     <input
                         type="email"
                         placeholder="you@example.com"
@@ -139,6 +159,14 @@ export default function LoginPage() {
                         {loading ? 'Sending…' : 'Send Magic Link'}
                     </button>
                 </form>
+
+                {/* GOOGLE BUTTON */}
+                <button
+                    onClick={signInWithGoogle}
+                    className="w-full text-center py-2 border border-gray-300 rounded-md hover:bg-gray-100 transition mb-4"
+                >
+                    Continue with Google
+                </button>
 
                 {message && <p className="mt-3 text-center text-sm">{message}</p>}
             </div>
