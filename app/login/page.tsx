@@ -162,8 +162,13 @@ export default function LoginPage() {
 
                 {/* GOOGLE BUTTON */}
                 <button
-                    onClick={signInWithGoogle}
-                    className="w-full text-center py-2 border border-gray-300 rounded-md hover:bg-gray-100 transition mb-4"
+                    onClick={() => supabase.auth.signInWithOAuth({
+                        provider: 'google',
+                        options: {
+                            redirectTo: `${window.location.origin}/auth/callback`
+                        }
+                    })}
+                    className="w-full mt-4 bg-[#0A1E2D] text-white py-2 rounded-md font-semibold hover:bg-black transition"
                 >
                     Continue with Google
                 </button>
