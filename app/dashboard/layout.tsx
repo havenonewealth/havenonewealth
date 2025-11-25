@@ -6,31 +6,10 @@ import { useEffect, useState } from 'react'
 import Image from 'next/image'
 import { TabProvider, useTabs } from './TabContext'
 
-function Header() {
+function Header({ isAdmin }: { isAdmin: boolean }) {
   const router = useRouter()
   const { activeTab, setActiveTab } = useTabs()
-  const [isAdmin, setIsAdmin] = useState(false)
 
-  // Load user role to determine admin visibility
-  useEffect(() => {
-    async function loadRole() {
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!session) return
-
-      const { data } = await supabase
-        .from('users')
-        .select('role')
-        .eq('id', session.user.id)
-        .single()
-
-      if (data?.role === 'admin') {
-        setIsAdmin(true)
-      }
-    }
-    loadRole()
-  }, [])
-
-  // Tab styling
   const tabBase =
     'px-4 py-2 rounded-md font-semibold border transition text-sm'
 
@@ -87,11 +66,11 @@ function Header() {
           Analytics
         </button>
 
-        {/* Admin Navigation Button (NOT a dashboard tab) */}
+        {/* NEW: Admin Dashboard button, visible only to admins */}
         {isAdmin && (
           <button
             onClick={() => router.push('/admin-dashboard')}
-            className="px-4 py-2 rounded-md font-semibold bg-[#0A1E2D] text-white"
+            className="px-4 py-2 rounded-md font-semibold bg-[#0A1E2D] text-white border border-[#0A1E2D] hover:bg-gray-900 transition text-sm"
           >
             Admin
           </button>
@@ -111,11 +90,22 @@ function Header() {
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter()
   const [loading, setLoading] = useState(true)
+  const [isAdmin, setIsAdmin] = useState(false)
 
   useEffect(() => {
     async function validate() {
       const { data: { session } } = await supabase.auth.getSession()
       if (!session) return router.push('/login')
+
+      // Fetch admin role
+      const { data: profile } = await supabase
+        .from('users')
+        .select('role')
+        .eq('id', session.user.id)
+        .single()
+
+      if (profile?.role === 'admin') setIsAdmin(true)
+
       setLoading(false)
     }
 
@@ -134,7 +124,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     <main className="min-h-screen bg-[#f8f9fa] text-[#0A1E2D] px-6 py-10 font-[Lato]">
       <div className="max-w-6xl mx-auto bg-white p-10 rounded-2xl shadow-md border border-gray-100">
         <TabProvider>
-          <Header />
+          <Header isAdmin={isAdmin} />
           {children}
         </TabProvider>
       </div>

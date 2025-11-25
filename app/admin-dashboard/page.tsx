@@ -3,7 +3,6 @@
 import { useEffect, useState } from 'react'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
-import { supabase } from '@/lib/supabaseClient'
 
 import {
   getAdminGlobalSummary,
@@ -17,6 +16,8 @@ import {
   type RecentPayout,
   type AppUser
 } from '@/lib/supabase/admin'
+
+import { supabase } from '@/lib/supabaseClient'
 
 import KPI from '@/components/admin-dashboard/KPI'
 import GlobalPayoutChart from '@/components/admin-dashboard/GlobalPayoutChart'
@@ -34,12 +35,11 @@ export default function AdminDashboardPage() {
   const [users, setUsers] = useState<AppUser[]>([])
   const [loading, setLoading] = useState(true)
 
-  // --------------------------------------------------------------
-  // Validate user is logged in AND is admin
-  // --------------------------------------------------------------
+  // Validate session and admin role
   useEffect(() => {
-    async function validateSession() {
-      const { data: { session } } = await supabase.auth.getSession()
+    async function validate() {
+      const { data: sessionData } = await supabase.auth.getSession()
+      const session = sessionData?.session
 
       if (!session) {
         router.push('/login')
@@ -57,7 +57,7 @@ export default function AdminDashboardPage() {
         return
       }
 
-      loadData()
+      await loadData()
     }
 
     async function loadData() {
@@ -78,16 +78,19 @@ export default function AdminDashboardPage() {
       setLoading(false)
     }
 
-    validateSession()
+    validate()
   }, [router])
 
+  // Loading state
   if (loading || !summary) {
-    return <div className="p-10 text-gray-500">Loading admin dashboard...</div>
+    return (
+      <div className="p-10 text-gray-500">
+        Loading admin dashboard...
+      </div>
+    )
   }
 
-  // --------------------------------------------------------------
-  // Render
-  // --------------------------------------------------------------
+  // Render admin dashboard
   return (
     <div className="p-10 max-w-7xl mx-auto">
 
@@ -95,19 +98,19 @@ export default function AdminDashboardPage() {
       <div className="flex justify-between items-center mb-10">
         <Image
           src="/HOW2Logo.png"
+          alt="Haven One Wealth"
           width={150}
           height={50}
-          alt="Haven One Wealth Logo"
         />
 
         <div className="flex gap-4">
 
-          {/* Switch to user dashboard */}
+          {/* Switch back to User Dashboard */}
           <button
             onClick={() => router.push('/dashboard')}
             className="px-4 py-2 bg-gray-200 text-[#0A1E2D] font-semibold rounded-md hover:bg-gray-300 transition"
           >
-            User View
+            User Dashboard
           </button>
 
           {/* Logout */}
@@ -120,32 +123,31 @@ export default function AdminDashboardPage() {
           >
             Logout
           </button>
-
         </div>
       </div>
 
       <h1 className="text-3xl font-semibold mb-8">Admin Dashboard</h1>
 
-      {/* KPI Summary Grid */}
+      {/* KPI Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-12">
         <KPI
           title="Total Portfolio Value"
           value={summary.total_payout_amount}
-          sub={`${summary.total_sources} Sources • ${summary.total_payouts} Payouts`}
+          sub={`${summary.total_sources} Sources  •  ${summary.total_payouts} Payouts`}
         />
         <KPI
           title="Average Payout"
           value={summary.avg_payout_amount}
-          sub="Across entire portfolio"
+          sub="Across all income sources"
         />
         <KPI
           title="Active Users"
           value={users.length}
-          sub="Admins + Earners"
+          sub="Administrators and earners"
         />
       </div>
 
-      {/* Distribution by Source */}
+      {/* Global Payout Distribution */}
       <div className="mb-14">
         <h2 className="text-xl font-semibold mb-4">Payout Distribution by Source</h2>
         <div className="bg-white rounded-xl shadow-sm p-6 border">
@@ -161,7 +163,7 @@ export default function AdminDashboardPage() {
         </div>
       </div>
 
-      {/* Recent Payout Activity */}
+      {/* Recent Payouts */}
       <div className="mb-14">
         <h2 className="text-xl font-semibold mb-4">Recent Payout Activity</h2>
         <div className="bg-white rounded-xl shadow-sm p-6 border">
