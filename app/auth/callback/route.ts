@@ -3,11 +3,11 @@ import { createServerClient } from "@supabase/ssr"
 import { cookies } from "next/headers"
 
 export async function GET(request: Request) {
-    const { searchParams } = new URL(request.url)
-    const code = searchParams.get("code")
+    const requestUrl = new URL(request.url)
+    const code = requestUrl.searchParams.get("code")
 
     if (!code) {
-        return NextResponse.redirect(new URL("/login?error=missing_code", request.url))
+        return NextResponse.redirect(`${requestUrl.origin}/login?error=missing_code`)
     }
 
     const cookieStore = await cookies()
@@ -21,44 +21,39 @@ export async function GET(request: Request) {
                     return cookieStore.get(name)?.value
                 },
                 set(name: string, value: string, options: any) {
-                    cookieStore.set({ name, value, ...options })
+                    cookieStore.set(name, value, options)
                 },
                 remove(name: string, options: any) {
-                    cookieStore.delete({ name, ...options })
+                    cookieStore.set(name, "", { ...options, maxAge: 0 })
                 }
             }
         }
     )
 
-    // Exchange code for a session
-    const { error } = await supabase.auth.exchangeCodeForSession(code)
+    const { error: exchangeError } =
+        await supabase.auth.exchangeCodeForSession(code)
 
-    if (error) {
-        console.error("OAuth exchange error:", error)
-        return NextResponse.redirect(new URL("/login?error=oauth_failed", request.url))
+    if (exchangeError) {
+        console.error("OAuth exchange failed:", exchangeError)
+        return NextResponse.redirect(`${requestUrl.origin}/login?error=oauth_failed`)
     }
 
-    // Get the logged-in user
-    const {
-        data: { user }
-    } = await supabase.auth.getUser()
+    const { data: { user } } = await supabase.auth.getUser()
 
     if (!user?.email) {
-        return NextResponse.redirect(new URL("/login?error=no_user", request.url))
+        return NextResponse.redirect(`${requestUrl.origin}/login?error=no_user`)
     }
 
-    // Look up role
+    // fetch role
     const { data: profile } = await supabase
         .from("users")
         .select("role")
         .eq("email", user.email)
-        .single()
+        .maybeSingle()
 
-    // Redirect admins to admin dashboard
-    if (profile?.role === "admin") {
-        return NextResponse.redirect("https://havenonewealth.vercel.app/admin-dashboard")
-    }
+    const redirectTo = profile?.role === "admin"
+        ? "/admin-dashboard"
+        : "/dashboard"
 
-    // Everyone else to dashboard
-    return NextResponse.redirect("https://havenonewealth.vercel.app/dashboard")
+    return NextResponse.redirect(`${requestUrl.origin}${redirectTo}`)
 }
