@@ -1,61 +1,43 @@
-// app/auth/callback/route.ts
 import { NextResponse } from "next/server"
+import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs"
 import { cookies } from "next/headers"
-import { createServerClient } from "@supabase/ssr"
 
-export async function GET(request: Request) {
-    const requestUrl = new URL(request.url)
-    const code = requestUrl.searchParams.get("code")
+export async function GET(req: Request) {
+    try {
+        // In your Next.js version cookies() is sync, so no await
+        const cookieStore = cookies()
 
-    if (!code) {
-        return NextResponse.redirect(`${requestUrl.origin}/login?error=missing_code`)
-    }
+        const supabase = createRouteHandlerClient({
+            cookies: async () => cookieStore   // MUST return a Promise
+        })
 
-    // MUST AWAIT — this was causing the 500
-    const cookieStore = await cookies()
+        const url = new URL(req.url)
+        const code = url.searchParams.get("code")
 
-    const supabase = createServerClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-        {
-            cookies: {
-                get(name: string) {
-                    return cookieStore.get(name)?.value
-                },
-                set(name: string, value: string, options: any) {
-                    cookieStore.set({ name, value, ...options })
-                },
-                remove(name: string, options: any) {
-                    cookieStore.delete({ name, ...options })
-                }
-            }
+        if (!code) {
+            return NextResponse.redirect(new URL("/login?error=missing_code", req.url))
         }
-    )
 
-    const { error } = await supabase.auth.exchangeCodeForSession(code)
+        // Exchange code for session
+        const { error } = await supabase.auth.exchangeCodeForSession(code)
 
-    if (error) {
-        console.error("OAuth exchange error:", error)
-        return NextResponse.redirect(`${requestUrl.origin}/login?error=oauth_failed`)
+        if (error) {
+            console.error("Auth error:", error)
+            return NextResponse.redirect(new URL("/login?error=auth_failed", req.url))
+        }
+
+        // Get session user
+        const { data: { user } } = await supabase.auth.getUser()
+
+        if (!user?.email) {
+            return NextResponse.redirect(new URL("/login?error=no_user", req.url))
+        }
+
+        // Redirect all users to dashboard (keep simple for now)
+        return NextResponse.redirect(new URL("/dashboard", req.url))
+
+    } catch (err) {
+        console.error("Callback fatal error:", err)
+        return NextResponse.redirect(new URL("/login?error=callback_crash", req.url))
     }
-
-    // Get the user
-    const { data: { user } } = await supabase.auth.getUser()
-
-    if (!user?.email) {
-        return NextResponse.redirect(`${requestUrl.origin}/login?error=no_user`)
-    }
-
-    // Get role
-    const { data: profile } = await supabase
-        .from("users")
-        .select("role")
-        .eq("email", user.email)
-        .single()
-
-    const redirectPath = profile?.role === "admin"
-        ? "/admin-dashboard"
-        : "/dashboard"
-
-    return NextResponse.redirect(`${requestUrl.origin}${redirectPath}`)
 }

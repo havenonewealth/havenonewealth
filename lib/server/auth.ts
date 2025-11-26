@@ -1,36 +1,11 @@
-"use server"
-
-import { createServerClient } from "@supabase/ssr"
 import { cookies } from "next/headers"
+import { createServerComponentClient } from "@supabase/auth-helpers-nextjs"
 
-export async function getServerSupabase() {
-    // Your environment: cookies() returns a Promise → MUST AWAIT
-    const cookieStore = await cookies()
+export function getServerSupabase() {
+    // cookies() is sync in your version
+    const cookieStore = cookies()
 
-    return createServerClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-        {
-            auth: {
-                persistSession: true,
-                autoRefreshToken: true,
-                detectSessionInUrl: true,
-            },
-            global: {
-                fetch: (...args) => fetch(...args),
-            },
-            cookies: {
-                get(name: string) {
-                    return cookieStore.get(name)?.value
-                },
-                // Next.js App Router does not allow modifying cookies inside server actions
-                set() {
-                    /* ignored */
-                },
-                remove() {
-                    /* ignored */
-                },
-            },
-        }
-    )
+    return createServerComponentClient({
+        cookies: async () => cookieStore   // must be async to satisfy TS type
+    })
 }
