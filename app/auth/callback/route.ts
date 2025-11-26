@@ -4,15 +4,17 @@ import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs"
 
 export async function GET(request: Request) {
     try {
-        const requestUrl = new URL(request.url)
-        const code = requestUrl.searchParams.get("code")
+        const url = new URL(request.url)
+        const code = url.searchParams.get("code")
 
         if (!code) {
             return NextResponse.redirect("/login?error=missing_code")
         }
 
         const cookieStore = cookies()
-        const supabase = createRouteHandlerClient({ cookies: () => cookieStore })
+        const supabase = createRouteHandlerClient({
+            cookies: () => cookieStore
+        })
 
         const { error } = await supabase.auth.exchangeCodeForSession(code)
 
@@ -22,8 +24,8 @@ export async function GET(request: Request) {
         }
 
         return NextResponse.redirect("/admin-dashboard")
-    } catch (e) {
-        console.error("callback_crash:", e)
+    } catch (err) {
+        console.error("callback_crash:", err)
         return NextResponse.redirect("/login?error=callback_crash")
     }
 }
