@@ -1,31 +1,39 @@
+// app/auth/callback/route.ts
 import { NextResponse } from "next/server"
-import { cookies } from "next/headers"
-import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs"
+import { createClient } from "@/lib/supabase/server";
 
 export async function GET(request: Request) {
-    try {
-        const url = new URL(request.url)
-        const code = url.searchParams.get("code")
+    const { searchParams } = new URL(request.url)
+    const code = searchParams.get("code")
 
-        if (!code) {
-            return NextResponse.redirect("/login?error=missing_code")
-        }
-
-        const cookieStore = cookies()
-        const supabase = createRouteHandlerClient({
-            cookies: () => cookieStore
-        })
-
-        const { error } = await supabase.auth.exchangeCodeForSession(code)
-
-        if (error) {
-            console.error("exchangeCodeForSession error:", error)
-            return NextResponse.redirect("/login?error=exchange_failed")
-        }
-
-        return NextResponse.redirect("/admin-dashboard")
-    } catch (err) {
-        console.error("callback_crash:", err)
-        return NextResponse.redirect("/login?error=callback_crash")
+    if (!code) {
+        return NextResponse.redirect(new URL("/login?error=missing_code", request.url))
     }
+
+    const supabase = await createClient();
+    const { error } = await supabase.auth.exchangeCodeForSession(code)
+
+    if (error) {
+        console.error("OAuth exchange error:", error)
+        return NextResponse.redirect(new URL("/login?error=oauth_failed", request.url))
+    }
+
+    const { data: { user } } = await supabase.auth.getUser()
+
+    if (!user?.email) {
+        return NextResponse.redirect(new URL("/login?error=no_user", request.url))
+    }
+
+    // Lookup user role
+    const { data: profile } = await supabase
+        .from("users")
+        .select("role")
+        .eq("email", user.email)
+        .single()
+
+    const redirectTo = profile?.role === "admin"
+        ? "/admin-dashboard"
+        : "/dashboard"
+
+    return NextResponse.redirect(new URL(redirectTo, request.url))
 }

@@ -2,11 +2,16 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { createPagesBrowserClient } from '@supabase/auth-helpers-nextjs'
+import { createBrowserClient } from '@supabase/ssr'
 
 export default function LoginPage() {
     const router = useRouter()
-    const supabase = createPagesBrowserClient()
+
+    // Create a NEW browser client (NOT deprecated)
+    const supabase = createBrowserClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    )
 
     const [email, setEmail] = useState('')
     const [loading, setLoading] = useState(false)
@@ -14,7 +19,7 @@ export default function LoginPage() {
     const [redirecting, setRedirecting] = useState(false)
 
     // -----------------------------------------------------
-    // SEND MAGIC LINK
+    // MAGIC LINK LOGIN
     // -----------------------------------------------------
     const handleMagicLink = async (e: React.FormEvent) => {
         e.preventDefault()
@@ -37,13 +42,13 @@ export default function LoginPage() {
         setMessage('Check your email for a sign-in link.')
 
         // Ensure user row exists
-        const { data: existingUser } = await supabase
+        const { data: existing } = await supabase
             .from('users')
             .select('email')
             .eq('email', email)
             .maybeSingle()
 
-        if (!existingUser) {
+        if (!existing) {
             await supabase.from('users').insert([{ email, role: 'user' }])
         }
 
@@ -53,7 +58,7 @@ export default function LoginPage() {
     // -----------------------------------------------------
     // GOOGLE LOGIN
     // -----------------------------------------------------
-    const signInWithGoogle = async () => {
+    const handleGoogle = async () => {
         const { error } = await supabase.auth.signInWithOAuth({
             provider: 'google',
             options: {
@@ -68,15 +73,16 @@ export default function LoginPage() {
     }
 
     // -----------------------------------------------------
-    // ROLE-BASED REDIRECT AFTER LOGIN
+    // LISTEN FOR SIGN-IN EVENTS
     // -----------------------------------------------------
     useEffect(() => {
-        const { data: listener } = supabase.auth.onAuthStateChange(
+        const { data: authListener } = supabase.auth.onAuthStateChange(
             async (event, session) => {
                 if (event !== 'SIGNED_IN' || !session) return
 
                 setRedirecting(true)
 
+                // Fetch user role
                 const { data: profile } = await supabase
                     .from('users')
                     .select('role')
@@ -92,12 +98,12 @@ export default function LoginPage() {
         )
 
         return () => {
-            listener.subscription.unsubscribe()
+            authListener.subscription.unsubscribe()
         }
     }, [router, supabase])
 
     // -----------------------------------------------------
-    // REDIRECT STATE
+    // REDIRECTING UI
     // -----------------------------------------------------
     if (redirecting) {
         return (
@@ -136,11 +142,10 @@ export default function LoginPage() {
     return (
         <main className="flex flex-col items-center justify-center min-h-screen bg-[#f8f9fa] text-[#0A1E2D]">
             <div className="bg-white p-8 rounded-xl shadow-md w-[90%] max-w-[400px]">
-
                 <h1 className="text-2xl font-semibold text-center mb-2">Haven One Wealth</h1>
                 <p className="text-center mb-6">Sign in to continue</p>
 
-                {/* MAGIC LINK LOGIN */}
+                {/* MAGIC LINK */}
                 <form onSubmit={handleMagicLink} className="flex flex-col gap-3 mb-6">
                     <input
                         type="email"
@@ -160,14 +165,9 @@ export default function LoginPage() {
                     </button>
                 </form>
 
-                {/* GOOGLE BUTTON */}
+                {/* GOOGLE LOGIN */}
                 <button
-                    onClick={() => supabase.auth.signInWithOAuth({
-                        provider: 'google',
-                        options: {
-                            redirectTo: `${window.location.origin}/auth/callback`
-                        }
-                    })}
+                    onClick={handleGoogle}
                     className="w-full mt-4 bg-[#0A1E2D] text-white py-2 rounded-md font-semibold hover:bg-black transition"
                 >
                     Continue with Google
