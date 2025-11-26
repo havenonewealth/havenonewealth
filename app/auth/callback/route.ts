@@ -1,27 +1,35 @@
-// app/auth/callback/route.ts
-import { NextResponse } from "next/server"
+import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 
 export async function GET(request: Request) {
-    const { searchParams } = new URL(request.url)
-    const code = searchParams.get("code")
+    const { searchParams } = new URL(request.url);
+    const code = searchParams.get("code");
 
     if (!code) {
-        return NextResponse.redirect(new URL("/login?error=missing_code", request.url))
+        return NextResponse.redirect(new URL("/login?error=missing_code", request.url));
     }
 
+    // Create a response object for Supabase to attach cookies to
+    const response = NextResponse.next();
+
+    // Supabase client
     const supabase = await createClient();
-    const { error } = await supabase.auth.exchangeCodeForSession(code)
+
+    // Exchange code for session (one-argument signature)
+    const { error } = await supabase.auth.exchangeCodeForSession(code);
 
     if (error) {
-        console.error("OAuth exchange error:", error)
-        return NextResponse.redirect(new URL("/login?error=oauth_failed", request.url))
+        console.error("OAuth exchange error:", error);
+        return NextResponse.redirect(new URL("/login?error=oauth_failed", request.url));
     }
 
-    const { data: { user } } = await supabase.auth.getUser()
+    // Fetch user
+    const {
+        data: { user },
+    } = await supabase.auth.getUser();
 
     if (!user?.email) {
-        return NextResponse.redirect(new URL("/login?error=no_user", request.url))
+        return NextResponse.redirect(new URL("/login?error=no_user", request.url));
     }
 
     // Lookup user role
@@ -29,11 +37,22 @@ export async function GET(request: Request) {
         .from("users")
         .select("role")
         .eq("email", user.email)
-        .single()
+        .single();
 
-    const redirectTo = profile?.role === "admin"
-        ? "/admin-dashboard"
-        : "/dashboard"
+    const redirectTo =
+        profile?.role === "admin" ? "/admin-dashboard" : "/dashboard";
 
-    return NextResponse.redirect(new URL(redirectTo, request.url))
+    const redirectResponse = NextResponse.redirect(
+        new URL(redirectTo, request.url)
+    );
+
+    // Copy cookies that Supabase wrote into `response`
+    response.cookies.getAll().forEach((cookie) => {
+        redirectResponse.cookies.set({
+            name: cookie.name,
+            value: cookie.value,
+        });
+    });
+
+    return redirectResponse;
 }
