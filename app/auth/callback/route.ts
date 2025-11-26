@@ -1,59 +1,44 @@
-import { NextResponse } from "next/server"
-import { createServerClient } from "@supabase/ssr"
-import { cookies } from "next/headers"
+import { NextResponse } from "next/server";
+import { cookies } from "next/headers";
+import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
 
 export async function GET(request: Request) {
-    const requestUrl = new URL(request.url)
-    const code = requestUrl.searchParams.get("code")
+    const url = new URL(request.url);
+    const code = url.searchParams.get("code");
 
     if (!code) {
-        return NextResponse.redirect(`${requestUrl.origin}/login?error=missing_code`)
+        return NextResponse.redirect("/login?error=missing_code");
     }
 
-    const cookieStore = await cookies()
+    const cookieStore = cookies();
+    const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
 
-    const supabase = createServerClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-        {
-            cookies: {
-                get(name: string) {
-                    return cookieStore.get(name)?.value
-                },
-                set(name: string, value: string, options: any) {
-                    cookieStore.set(name, value, options)
-                },
-                remove(name: string, options: any) {
-                    cookieStore.set(name, "", { ...options, maxAge: 0 })
-                }
-            }
-        }
-    )
+    // Exchange code for session
+    const { data, error } = await supabase.auth.exchangeCodeForSession(code);
 
-    const { error: exchangeError } =
-        await supabase.auth.exchangeCodeForSession(code)
-
-    if (exchangeError) {
-        console.error("OAuth exchange failed:", exchangeError)
-        return NextResponse.redirect(`${requestUrl.origin}/login?error=oauth_failed`)
+    if (error) {
+        console.error("OAuth exchange error:", error);
+        return NextResponse.redirect("/login?error=oauth_failed");
     }
 
-    const { data: { user } } = await supabase.auth.getUser()
+    // Fetch user
+    const {
+        data: { user }
+    } = await supabase.auth.getUser();
 
     if (!user?.email) {
-        return NextResponse.redirect(`${requestUrl.origin}/login?error=no_user`)
+        return NextResponse.redirect("/login?error=no_user");
     }
 
-    // fetch role
+    // Lookup role
     const { data: profile } = await supabase
         .from("users")
         .select("role")
         .eq("email", user.email)
-        .maybeSingle()
+        .single();
 
-    const redirectTo = profile?.role === "admin"
-        ? "/admin-dashboard"
-        : "/dashboard"
+    const redirectTo =
+        profile?.role === "admin" ? "/admin-dashboard" : "/dashboard";
 
-    return NextResponse.redirect(`${requestUrl.origin}${redirectTo}`)
+    return NextResponse.redirect(redirectTo);
 }
