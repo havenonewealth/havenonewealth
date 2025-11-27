@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { IncomeSource } from "@/lib/types";
+import { useEffect, useState, useRef } from "react";
+import type { IncomeSource } from "@/lib/types";
 
 export default function SourceForm({
     data,
@@ -10,50 +10,46 @@ export default function SourceForm({
     data: Partial<IncomeSource>;
     onChange: (v: Partial<IncomeSource>) => void;
 }) {
-    // Safe update helper
-    function update<K extends keyof IncomeSource>(
-        key: K,
-        value: IncomeSource[K] | null | undefined
-    ) {
-        onChange({
-            ...data,
-            [key]: value
-        });
-    }
-
-    // Raw input states (prevent formatting while typing)
+    // ---------------------------------------------
+    // Local raw fields (debounced updates)
+    // ---------------------------------------------
     const [rawAmount, setRawAmount] = useState("");
     const [rawMonthly, setRawMonthly] = useState("");
 
-    // Sync form state when SlideOver changes
-    useEffect(() => {
-        setRawAmount(
-            data.expected_amount != null ? String(data.expected_amount) : ""
-        );
+    const [errors, setErrors] = useState<{ amount?: string; name?: string }>({});
 
-        setRawMonthly(
-            data.expected_monthly != null ? String(data.expected_monthly) : ""
-        );
+    const debounceTimer = useRef<any>(null);
+
+    // ---------------------------------------------
+    // Sync local raw values when editing changes
+    // ---------------------------------------------
+    useEffect(() => {
+        setRawAmount(data.expected_amount != null ? String(data.expected_amount) : "");
+        setRawMonthly(data.expected_monthly != null ? String(data.expected_monthly) : "");
     }, [data]);
 
+    // ---------------------------------------------
     // Currency utilities
-    function parseCurrency(v: string): number | null {
+    // ---------------------------------------------
+    const parseCurrency = (v: string): number | null => {
         const cleaned = v.replace(/[^0-9.-]/g, "");
         if (!cleaned) return null;
         const num = Number(cleaned);
         return isNaN(num) ? null : num;
-    }
+    };
 
-    function formatCurrency(val: number | null): string {
+    const formatCurrency = (val: number | null): string => {
         if (val == null) return "";
         return val.toLocaleString("en-US", {
             style: "currency",
             currency: "USD"
         });
-    }
+    };
 
-    // Frequency → Monthly calc
-    function calculateMonthly(amount: number | null, frequency: string | null) {
+    // ---------------------------------------------
+    // Frequency to Monthly calculation
+    // ---------------------------------------------
+    const calculateMonthly = (amount: number | null, frequency: string | null) => {
         if (!amount || !frequency) return amount;
 
         switch (frequency) {
@@ -73,71 +69,93 @@ export default function SourceForm({
             default:
                 return amount;
         }
-    }
+    };
 
-    // Expected Amount
-    function handleAmountChange(v: string) {
+    // ---------------------------------------------
+    // Debounced parent state update
+    // ---------------------------------------------
+    const debouncedUpdate = (changes: Partial<IncomeSource>) => {
+        if (debounceTimer.current) clearTimeout(debounceTimer.current);
+
+        debounceTimer.current = setTimeout(() => {
+            onChange({ ...data, ...changes });
+        }, 500); // feels natural
+    };
+
+    // ---------------------------------------------
+    // Field handlers
+    // ---------------------------------------------
+    const handleNameChange = (v: string) => {
+        if (!v.trim()) {
+            setErrors((e) => ({ ...e, name: "Source name is required." }));
+        } else {
+            setErrors((e) => ({ ...e, name: undefined }));
+        }
+        debouncedUpdate({ source_name: v });
+    };
+
+    const handleAmountChange = (v: string) => {
         setRawAmount(v);
+        const num = parseCurrency(v);
 
-        const value = parseCurrency(v);
-        update("expected_amount", value ?? undefined);
-
-        if (value != null && data.frequency) {
-            const monthly = calculateMonthly(value, data.frequency);
-            update("expected_monthly", monthly ?? undefined);
-            setRawMonthly(monthly != null ? String(monthly) : "");
+        if (num == null || num <= 0) {
+            setErrors((e) => ({ ...e, amount: "Expected amount must be greater than zero." }));
+        } else {
+            setErrors((e) => ({ ...e, amount: undefined }));
         }
-    }
 
-    function handleAmountBlur() {
-        setRawAmount(formatCurrency(data.expected_amount ?? null));
-    }
+        const monthly = calculateMonthly(num, data.frequency ?? "Monthly");
 
-    // Expected Monthly
-    function handleMonthlyChange(v: string) {
+        setRawMonthly(monthly != null ? String(monthly) : "");
+        debouncedUpdate({
+            expected_amount: num ?? undefined,
+            expected_monthly: monthly ?? undefined
+        });
+    };
+
+    const handleMonthlyChange = (v: string) => {
         setRawMonthly(v);
-        const value = parseCurrency(v);
-        update("expected_monthly", value ?? undefined);
-    }
+        const num = parseCurrency(v);
+        debouncedUpdate({ expected_monthly: num ?? undefined });
+    };
 
-    function handleMonthlyBlur() {
-        setRawMonthly(formatCurrency(data.expected_monthly ?? null));
-    }
+    const handleFrequencyChange = (freq: string) => {
+        const num = data.expected_amount ?? null;
+        const monthly = calculateMonthly(num, freq);
 
-    // Frequency
-    function handleFrequencyChange(freq: string | null) {
-        update("frequency", freq);
+        setRawMonthly(monthly != null ? String(monthly) : "");
+        debouncedUpdate({
+            frequency: freq,
+            expected_monthly: monthly ?? undefined
+        });
+    };
 
-        if (data.expected_amount != null) {
-            const monthly = calculateMonthly(data.expected_amount, freq);
-            update("expected_monthly", monthly ?? undefined);
-            setRawMonthly(monthly != null ? String(monthly) : "");
-        }
-    }
-
+    // ---------------------------------------------
+    // UI
+    // ---------------------------------------------
     return (
-        <div className="space-y-5">
+        <div className="space-y-6">
+
             {/* Source Name */}
             <div>
-                <label className="block text-sm font-medium text-gray-700">
-                    Source Name *
-                </label>
+                <label className="block text-sm font-medium">Source Name *</label>
                 <input
                     type="text"
-                    value={data.source_name ?? ""}
-                    onChange={(e) => update("source_name", e.target.value)}
+                    defaultValue={data.source_name ?? ""}
+                    onChange={(e) => handleNameChange(e.target.value)}
                     className="mt-1 block w-full rounded border-gray-300"
                 />
+                {errors.name && (
+                    <p className="text-red-600 text-xs mt-1">{errors.name}</p>
+                )}
             </div>
 
             {/* Source Type */}
             <div>
-                <label className="block text-sm font-medium text-gray-700">
-                    Source Type
-                </label>
+                <label className="block text-sm font-medium">Source Type</label>
                 <select
-                    value={data.source_type ?? ""}
-                    onChange={(e) => update("source_type", e.target.value)}
+                    defaultValue={data.source_type ?? ""}
+                    onChange={(e) => debouncedUpdate({ source_type: e.target.value })}
                     className="mt-1 block w-full rounded border-gray-300"
                 >
                     <option value="">Select...</option>
@@ -151,14 +169,10 @@ export default function SourceForm({
 
             {/* Frequency */}
             <div>
-                <label className="block text-sm font-medium text-gray-700">
-                    Frequency
-                </label>
+                <label className="block text-sm font-medium">Frequency</label>
                 <select
-                    value={data.frequency ?? ""}
-                    onChange={(e) =>
-                        handleFrequencyChange(e.target.value || null)
-                    }
+                    defaultValue={data.frequency ?? ""}
+                    onChange={(e) => handleFrequencyChange(e.target.value)}
                     className="mt-1 block w-full rounded border-gray-300"
                 >
                     <option value="">Select...</option>
@@ -174,42 +188,47 @@ export default function SourceForm({
 
             {/* Expected Amount */}
             <div>
-                <label className="block text-sm font-medium text-gray-700">
-                    Expected Amount
-                </label>
+                <label className="block text-sm font-medium">Expected Amount</label>
                 <input
                     type="text"
                     value={rawAmount}
                     onChange={(e) => handleAmountChange(e.target.value)}
-                    onBlur={handleAmountBlur}
+                    onBlur={() => setRawAmount(formatCurrency(data.expected_amount ?? null))}
                     className="mt-1 block w-full rounded border-gray-300"
                     placeholder="$0.00"
                 />
+                {errors.amount && (
+                    <p className="text-red-600 text-xs mt-1">{errors.amount}</p>
+                )}
             </div>
 
             {/* Expected Monthly */}
             <div>
-                <label className="block text-sm font-medium text-gray-700">
-                    Expected Monthly
-                </label>
+                <label className="block text-sm font-medium">Expected Monthly</label>
                 <input
                     type="text"
                     value={rawMonthly}
                     onChange={(e) => handleMonthlyChange(e.target.value)}
-                    onBlur={handleMonthlyBlur}
+                    onBlur={() => setRawMonthly(formatCurrency(data.expected_monthly ?? null))}
                     className="mt-1 block w-full rounded border-gray-300"
                     placeholder="$0.00"
                 />
             </div>
 
+            {/* Live preview panel */}
+            <div className="mt-3 p-3 bg-gray-50 rounded border text-sm text-gray-700">
+                <div>
+                    <strong>Projected Monthly:</strong>{" "}
+                    {data.expected_monthly ? formatCurrency(data.expected_monthly) : "$0.00"}
+                </div>
+            </div>
+
             {/* Notes */}
             <div>
-                <label className="block text-sm font-medium text-gray-700">
-                    Notes
-                </label>
+                <label className="block text-sm font-medium">Notes</label>
                 <textarea
-                    value={data.notes ?? ""}
-                    onChange={(e) => update("notes", e.target.value)}
+                    defaultValue={data.notes ?? ""}
+                    onChange={(e) => debouncedUpdate({ notes: e.target.value })}
                     className="mt-1 block w-full rounded border-gray-300"
                     rows={3}
                 />
