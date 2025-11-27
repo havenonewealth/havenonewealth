@@ -35,12 +35,16 @@ export interface MonthlyTrend {
   user_id: string
 }
 
+/* MUST MATCH /lib/types.ts EXACTLY */
 export interface RecentPayout {
-  id?: string
+  id: string
+  user_id: string
+  source_id: string
   source_name: string
   amount: number
   status: string
   payout_date: string
+  notes: string | null
 }
 
 export interface AppUser {
@@ -86,15 +90,38 @@ export async function getAdminMonthlyTrends(): Promise<MonthlyTrend[]> {
   return error ? [] : (data as MonthlyTrend[])
 }
 
+/* ============================================================
+   FIXED: Converts admin payouts to match global RecentPayout
+============================================================ */
 export async function getAdminRecentPayouts(): Promise<RecentPayout[]> {
   const supabase = createClient()
 
   const { data, error } = await supabase
     .from('v_admin_recent_payouts')
-    .select('*')
+    .select(`
+      id,
+      user_id,
+      source_id,
+      amount,
+      status,
+      payout_date,
+      notes,
+      income_sources ( source_name )
+    `)
     .order('payout_date', { ascending: false })
 
-  return error ? [] : (data as RecentPayout[])
+  if (error || !data) return []
+
+  return data.map((p: any) => ({
+    id: p.id,
+    user_id: p.user_id,
+    source_id: p.source_id,
+    amount: Number(p.amount),
+    status: p.status,
+    payout_date: p.payout_date,
+    notes: p.notes ?? null,
+    source_name: p.income_sources?.source_name ?? ""
+  })) as RecentPayout[]
 }
 
 export async function getAllUsers(): Promise<AppUser[]> {
