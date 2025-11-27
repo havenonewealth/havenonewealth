@@ -86,7 +86,7 @@ export async function getAdminGlobalSummary(): Promise<AdminSummary | null> {
 export async function getAdminPortfolioAggregates() {
   const supabase = createClient();
   const { data, error } = await supabase
-    .from('v_admin_earnings_by_source_all')
+    .from('v_admin_earnings_by_source')
     .select('*')
     .order('total_earned', { ascending: false });
 
