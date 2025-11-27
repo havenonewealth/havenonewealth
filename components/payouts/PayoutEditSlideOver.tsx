@@ -11,6 +11,7 @@ interface Props {
     payout: RecentPayout | null;
     sources: { id: string; source_name: string }[];
     refreshAll: () => void;
+    role: string | null;
 }
 
 export default function PayoutEditSlideOver({
@@ -18,63 +19,63 @@ export default function PayoutEditSlideOver({
     setOpen,
     payout,
     sources,
-    refreshAll
+    refreshAll,
+    role
 }: Props) {
     const supabase = createClient();
 
     if (!payout) return null;
 
-    // Normalize date for date input (YYYY-MM-DD)
-    const normalizedDate =
-        payout.payout_date
-            ? new Date(payout.payout_date).toISOString().substring(0, 10)
-            : "";
+    const isAdmin = role === "admin";
 
-    // Local state
-    const [amount, setAmount] = useState<number>(payout.amount);
-    const [status, setStatus] = useState<string>(payout.status);
-    const [date, setDate] = useState<string>(normalizedDate);
-    const [sourceId, setSourceId] = useState<string>(payout.source_id || "");
-    const [notes, setNotes] = useState<string>(payout.notes ?? "");
-
-    const [saving, setSaving] = useState(false);
+    const [amount, setAmount] = useState(payout.amount);
+    const [status, setStatus] = useState(payout.status);
+    const [date, setDate] = useState(payout.payout_date);
+    const [sourceId, setSourceId] = useState(payout.source_id);
+    const [notes, setNotes] = useState(payout.notes ?? "");
 
     const handleSave = async () => {
-        setSaving(true);
+        const payload: any = {
+            notes
+        };
+
+        // Admins can update all fields
+        if (isAdmin) {
+            payload.amount = amount;
+            payload.status = status;
+            payload.payment_date = date;
+            payload.source_id = sourceId;
+        }
 
         await supabase
             .from("payouts")
-            .update({
-                amount,
-                status,
-                payment_date: date,
-                source_id: sourceId,
-                notes: notes.trim() === "" ? null : notes
-            })
+            .update(payload)
             .eq("id", payout.id);
-
-        setSaving(false);
 
         refreshAll();
         setOpen(false);
     };
 
     const handleDelete = async () => {
-        const confirmed = window.confirm(
-            "Are you sure you want to permanently delete this payout?"
-        );
+        if (!isAdmin) return;
+
+        const confirmed = window.confirm("Are you sure you want to delete this payout?");
         if (!confirmed) return;
 
-        await supabase.from("payouts").delete().eq("id", payout.id);
+        await supabase
+            .from("payouts")
+            .delete()
+            .eq("id", payout.id);
 
         refreshAll();
         setOpen(false);
     };
 
+    const lockClass = "bg-gray-100 text-gray-500 border-gray-200 cursor-not-allowed";
+
     return (
         <Transition.Root show={open} as={Fragment}>
             <Dialog as="div" className="relative z-50" onClose={setOpen}>
-                {/* Background overlay */}
                 <Transition.Child
                     as={Fragment}
                     enter="ease-out duration-300"
@@ -90,7 +91,6 @@ export default function PayoutEditSlideOver({
                 <div className="fixed inset-0 overflow-hidden">
                     <div className="absolute inset-y-0 right-0 flex max-w-full pl-10">
 
-                        {/* Slide-over panel */}
                         <Transition.Child
                             as={Fragment}
                             enter="transform transition ease-out duration-300"
@@ -104,10 +104,7 @@ export default function PayoutEditSlideOver({
 
                                 {/* HEADER */}
                                 <div className="p-6 border-b flex justify-between items-center">
-                                    <Dialog.Title className="text-lg font-semibold">
-                                        Edit Payout
-                                    </Dialog.Title>
-
+                                    <Dialog.Title className="text-lg font-semibold">Edit Payout</Dialog.Title>
                                     <button
                                         className="text-gray-400 hover:text-gray-600"
                                         onClick={() => setOpen(false)}
@@ -119,35 +116,39 @@ export default function PayoutEditSlideOver({
                                 {/* BODY */}
                                 <div className="p-6 space-y-6 overflow-y-auto">
 
-                                    {/* AMOUNT */}
+                                    {/* AMOUNT (ADMIN ONLY) */}
                                     <div>
                                         <label className="text-sm text-gray-600">Amount</label>
                                         <input
                                             type="number"
-                                            className="mt-1 w-full border rounded px-3 py-2"
+                                            disabled={!isAdmin}
+                                            className={`mt-1 w-full border rounded px-3 py-2 ${!isAdmin ? lockClass : ""
+                                                }`}
                                             value={amount}
-                                            onChange={(e) =>
-                                                setAmount(Number(e.target.value))
-                                            }
+                                            onChange={(e) => setAmount(Number(e.target.value))}
                                         />
                                     </div>
 
-                                    {/* DATE */}
+                                    {/* DATE (ADMIN ONLY) */}
                                     <div>
                                         <label className="text-sm text-gray-600">Payment Date</label>
                                         <input
                                             type="date"
-                                            className="mt-1 w-full border rounded px-3 py-2"
-                                            value={date}
+                                            disabled={!isAdmin}
+                                            className={`mt-1 w-full border rounded px-3 py-2 ${!isAdmin ? lockClass : ""
+                                                }`}
+                                            value={date.substring(0, 10)}
                                             onChange={(e) => setDate(e.target.value)}
                                         />
                                     </div>
 
-                                    {/* STATUS */}
+                                    {/* STATUS (ADMIN ONLY) */}
                                     <div>
                                         <label className="text-sm text-gray-600">Status</label>
                                         <select
-                                            className="mt-1 w-full border rounded px-3 py-2"
+                                            disabled={!isAdmin}
+                                            className={`mt-1 w-full border rounded px-3 py-2 ${!isAdmin ? lockClass : ""
+                                                }`}
                                             value={status}
                                             onChange={(e) => setStatus(e.target.value)}
                                         >
@@ -158,11 +159,13 @@ export default function PayoutEditSlideOver({
                                         </select>
                                     </div>
 
-                                    {/* SOURCE */}
+                                    {/* SOURCE (ADMIN ONLY) */}
                                     <div>
                                         <label className="text-sm text-gray-600">Source</label>
                                         <select
-                                            className="mt-1 w-full border rounded px-3 py-2"
+                                            disabled={!isAdmin}
+                                            className={`mt-1 w-full border rounded px-3 py-2 ${!isAdmin ? lockClass : ""
+                                                }`}
                                             value={sourceId}
                                             onChange={(e) => setSourceId(e.target.value)}
                                         >
@@ -174,7 +177,7 @@ export default function PayoutEditSlideOver({
                                         </select>
                                     </div>
 
-                                    {/* NOTES */}
+                                    {/* NOTES (ALWAYS EDITABLE) */}
                                     <div>
                                         <label className="text-sm text-gray-600">Notes</label>
                                         <textarea
@@ -190,15 +193,18 @@ export default function PayoutEditSlideOver({
                                 {/* FOOTER */}
                                 <div className="border-t p-4 flex justify-between">
 
-                                    {/* DELETE */}
-                                    <button
-                                        onClick={handleDelete}
-                                        className="px-4 py-2 text-red-600 hover:underline"
-                                    >
-                                        Delete
-                                    </button>
+                                    {/* DELETE — ADMIN ONLY */}
+                                    {isAdmin ? (
+                                        <button
+                                            onClick={handleDelete}
+                                            className="px-4 py-2 text-red-600 hover:underline"
+                                        >
+                                            Delete
+                                        </button>
+                                    ) : (
+                                        <div />
+                                    )}
 
-                                    {/* ACTIONS */}
                                     <div className="flex gap-3">
                                         <button
                                             onClick={() => setOpen(false)}
@@ -209,10 +215,9 @@ export default function PayoutEditSlideOver({
 
                                         <button
                                             onClick={handleSave}
-                                            disabled={saving}
-                                            className="px-4 py-2 bg-black text-white rounded disabled:opacity-50"
+                                            className="px-4 py-2 bg-black text-white rounded"
                                         >
-                                            {saving ? "Saving..." : "Save Changes"}
+                                            Save Changes
                                         </button>
                                     </div>
 

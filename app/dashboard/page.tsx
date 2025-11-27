@@ -440,12 +440,12 @@ export default function DashboardPage() {
                     <td className="p-3">
                       <span
                         className={`px-2 py-1 text-xs rounded font-semibold ${p.status === "Paid"
-                            ? "bg-green-100 text-green-700"
-                            : p.status === "Pending"
-                              ? "bg-yellow-100 text-yellow-700"
-                              : p.status === "Scheduled"
-                                ? "bg-blue-100 text-blue-700"
-                                : "bg-red-100 text-red-700"
+                          ? "bg-green-100 text-green-700"
+                          : p.status === "Pending"
+                            ? "bg-yellow-100 text-yellow-700"
+                            : p.status === "Scheduled"
+                              ? "bg-blue-100 text-blue-700"
+                              : "bg-red-100 text-red-700"
                           }`}
                       >
                         {p.status}
@@ -453,15 +453,17 @@ export default function DashboardPage() {
                     </td>
 
                     <td className="p-3">
-                      <button
-                        onClick={() => {
-                          setSelectedPayout(p);
-                          setEditOpen(true);
-                        }}
-                        className="text-blue-600 hover:underline"
-                      >
-                        Edit
-                      </button>
+                      {role === "admin" && (
+                        <button
+                          onClick={() => {
+                            setSelectedPayout(p);
+                            setEditOpen(true);
+                          }}
+                          className="text-blue-600 hover:underline"
+                        >
+                          Edit
+                        </button>
+                      )}
                     </td>
                   </tr>
                 ))}
@@ -526,6 +528,7 @@ export default function DashboardPage() {
             source_name: s.source_name,
           }))}
         refreshAll={refreshAll}
+        role={role}   // <-- REQUIRED NEW PROP
       />
     </div>
   );
