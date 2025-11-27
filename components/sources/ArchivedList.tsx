@@ -1,6 +1,5 @@
 "use client";
 
-import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabaseClient";
 import type { IncomeSource } from "@/lib/types";
 
@@ -11,29 +10,11 @@ interface Props {
 
 export default function ArchivedList({ archived, refreshAll }: Props) {
     const supabase = createClient();
-    const [items, setItems] = useState<IncomeSource[]>([]);
 
-    useEffect(() => {
-        setItems(archived);
-    }, [archived]);
-
-    const handleUnarchive = async (id: string) => {
-        await supabase
-            .from("income_sources")
-            .update({ archived: false, archived_at: null })
-            .eq("id", id);
-        refreshAll();
-    };
-
-    const handleMoveToTrash = async (id: string) => {
-        const ok = window.confirm("Move this item to Trash?");
-        if (!ok) return;
-
+    const handleRestore = async (id: string) => {
         await supabase
             .from("income_sources")
             .update({
-                deleted: true,
-                deleted_at: new Date().toISOString(),
                 archived: false,
                 archived_at: null
             })
@@ -42,33 +23,63 @@ export default function ArchivedList({ archived, refreshAll }: Props) {
         refreshAll();
     };
 
+    const handleMoveToTrash = async (id: string) => {
+        await supabase
+            .from("income_sources")
+            .update({
+                deleted: true,
+                deleted_at: new Date().toISOString()
+            })
+            .eq("id", id);
+
+        refreshAll();
+    };
+
     return (
-        <div className="space-y-4">
+        <div className="space-y-5">
             <h2 className="text-lg font-semibold">Archived Sources</h2>
 
-            {items.length === 0 && (
+            {archived.length === 0 && (
                 <p className="text-gray-500 text-sm">No archived sources.</p>
             )}
 
-            {items.map((row) => (
+            {archived.map((row) => (
                 <div
                     key={row.id}
                     className="border rounded p-4 bg-white shadow-sm flex justify-between items-center"
                 >
                     <div>
                         <div className="font-medium">{row.source_name}</div>
-                        <div className="text-sm text-gray-500">{row.source_type}</div>
+
+                        {row.source_type && (
+                            <div className="text-sm text-gray-500">{row.source_type}</div>
+                        )}
+
                         <div className="text-sm text-gray-500">
-                            ${row.expected_amount?.toLocaleString()}
+                            Frequency: {row.frequency}
+                        </div>
+
+                        <div className="text-sm text-gray-500">
+                            Expected: $
+                            {row.expected_amount != null
+                                ? Number(row.expected_amount).toLocaleString("en-US")
+                                : "0"}
+                        </div>
+
+                        <div className="text-sm text-gray-500">
+                            Archived:{" "}
+                            {row.archived_at
+                                ? new Date(row.archived_at).toLocaleDateString()
+                                : "Unknown"}
                         </div>
                     </div>
 
-                    <div className="flex space-x-4">
+                    <div className="flex gap-4">
                         <button
-                            onClick={() => handleUnarchive(row.id!)}
+                            onClick={() => handleRestore(row.id!)}
                             className="text-green-600 hover:underline"
                         >
-                            Unarchive
+                            Restore
                         </button>
 
                         <button

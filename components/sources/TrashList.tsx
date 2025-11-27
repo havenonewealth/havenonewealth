@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { createClient } from "@/lib/supabaseClient";
 import type { IncomeSource } from "@/lib/types";
 
@@ -11,11 +11,7 @@ interface Props {
 
 export default function TrashList({ trashed, refreshAll }: Props) {
     const supabase = createClient();
-    const [items, setItems] = useState<IncomeSource[]>([]);
-
-    useEffect(() => {
-        setItems(trashed);
-    }, [trashed]);
+    const [deletingId, setDeletingId] = useState<string | null>(null);
 
     const handleRestore = async (id: string) => {
         await supabase
@@ -29,27 +25,27 @@ export default function TrashList({ trashed, refreshAll }: Props) {
         refreshAll();
     };
 
-    const handlePermanentDelete = async (id: string) => {
-        const ok = window.confirm(
-            "This will permanently delete this source. Continue?"
-        );
+    const handleDeleteForever = async () => {
+        if (!deletingId) return;
 
-        if (!ok) return;
+        await supabase
+            .from("income_sources")
+            .delete()
+            .eq("id", deletingId);
 
-        await supabase.from("income_sources").delete().eq("id", id);
-
+        setDeletingId(null);
         refreshAll();
     };
 
     return (
-        <div className="space-y-4">
+        <div className="space-y-5">
             <h2 className="text-lg font-semibold">Trash</h2>
 
-            {items.length === 0 && (
+            {trashed.length === 0 && (
                 <p className="text-gray-500 text-sm">Trash is empty.</p>
             )}
 
-            {items.map((row) => (
+            {trashed.map((row) => (
                 <div
                     key={row.id}
                     className="border rounded p-4 bg-white shadow-sm flex justify-between items-center"
@@ -57,18 +53,24 @@ export default function TrashList({ trashed, refreshAll }: Props) {
                     <div>
                         <div className="font-medium">{row.source_name}</div>
                         <div className="text-sm text-gray-500">{row.source_type}</div>
+                        <div className="text-sm text-gray-500">
+                            Deleted:{" "}
+                            {row.deleted_at
+                                ? new Date(row.deleted_at).toLocaleDateString()
+                                : "Unknown"}
+                        </div>
                     </div>
 
-                    <div className="flex space-x-4">
+                    <div className="flex gap-3">
                         <button
                             onClick={() => handleRestore(row.id!)}
-                            className="text-blue-600 hover:underline"
+                            className="text-green-600 hover:underline"
                         >
                             Restore
                         </button>
 
                         <button
-                            onClick={() => handlePermanentDelete(row.id!)}
+                            onClick={() => setDeletingId(row.id!)}
                             className="text-red-600 hover:underline"
                         >
                             Delete Forever
@@ -76,6 +78,34 @@ export default function TrashList({ trashed, refreshAll }: Props) {
                     </div>
                 </div>
             ))}
+
+            {deletingId && (
+                <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+                    <div className="bg-white w-80 rounded-lg shadow-lg p-6 space-y-4">
+                        <h3 className="text-lg font-semibold">Delete Forever?</h3>
+
+                        <p className="text-sm text-gray-600">
+                            This action cannot be undone. The source will be permanently deleted.
+                        </p>
+
+                        <div className="flex justify-end gap-3 pt-2">
+                            <button
+                                onClick={() => setDeletingId(null)}
+                                className="px-4 py-2 border rounded"
+                            >
+                                Cancel
+                            </button>
+
+                            <button
+                                onClick={handleDeleteForever}
+                                className="px-4 py-2 bg-red-600 text-white rounded"
+                            >
+                                Delete Forever
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

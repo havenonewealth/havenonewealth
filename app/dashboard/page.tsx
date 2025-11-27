@@ -12,6 +12,20 @@ import KPI from "@/components/analytics/KPI";
 
 import type { IncomeSource, RecentPayout } from "@/lib/types";
 
+import PayoutDetailsSlideOver from "@/components/payouts/PayoutDetailsSlideOver";
+
+// Sparkline setup
+import { Line } from "react-chartjs-2";
+import {
+  Chart as ChartJS,
+  LineElement,
+  CategoryScale,
+  LinearScale,
+  PointElement,
+} from "chart.js";
+
+ChartJS.register(LineElement, CategoryScale, LinearScale, PointElement);
+
 export default function DashboardPage() {
   const supabase = createClient();
   const { activeTab } = useTabs();
@@ -27,6 +41,10 @@ export default function DashboardPage() {
   const [slideOpen, setSlideOpen] = useState(false);
   const [role, setRole] = useState<string | null>(null);
 
+  const [detailOpen, setDetailOpen] = useState(false);
+  const [selectedPayout, setSelectedPayout] = useState<RecentPayout | null>(null);
+
+  // Load session + user role
   useEffect(() => {
     async function init() {
       const { data: sessionData } = await supabase.auth.getSession();
@@ -53,6 +71,7 @@ export default function DashboardPage() {
     if (userId) loadAll(userId);
   }, [userId]);
 
+  // FULL data loader
   const loadAll = async (uid: string) => {
     const [
       { data: src },
@@ -128,18 +147,20 @@ export default function DashboardPage() {
     setSlideOpen(true);
   };
 
-  // -------------------------------------------------------------------
-  // Payout Filters & Sorting
-  // -------------------------------------------------------------------
-
+  // PAYOUT filters
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [sourceFilter, setSourceFilter] = useState<string>("all");
   const [sortBy, setSortBy] = useState<string>("date-desc");
+  const [search, setSearch] = useState("");
 
   const uniqueSources = useMemo(() => {
     const names = payouts.map((p) => p.source_name).filter(Boolean);
     return Array.from(new Set(names));
   }, [payouts]);
+
+  // Pagination
+  const [page, setPage] = useState(1);
+  const pageSize = 15;
 
   const filteredPayouts = useMemo(() => {
     let temp = [...payouts];
@@ -152,18 +173,19 @@ export default function DashboardPage() {
       temp = temp.filter((p) => p.source_name === sourceFilter);
     }
 
+    if (search.trim()) {
+      const term = search.toLowerCase();
+      temp = temp.filter(
+        (p) =>
+          p.source_name.toLowerCase().includes(term) ||
+          String(p.amount).includes(term)
+      );
+    }
+
     if (sortBy === "date-desc") {
-      temp.sort(
-        (a, b) =>
-          new Date(b.payout_date).getTime() -
-          new Date(a.payout_date).getTime()
-      );
+      temp.sort((a, b) => new Date(b.payout_date).getTime() - new Date(a.payout_date).getTime());
     } else if (sortBy === "date-asc") {
-      temp.sort(
-        (a, b) =>
-          new Date(a.payout_date).getTime() -
-          new Date(b.payout_date).getTime()
-      );
+      temp.sort((a, b) => new Date(a.payout_date).getTime() - new Date(b.payout_date).getTime());
     } else if (sortBy === "amount-desc") {
       temp.sort((a, b) => b.amount - a.amount);
     } else if (sortBy === "amount-asc") {
@@ -171,31 +193,58 @@ export default function DashboardPage() {
     }
 
     return temp;
-  }, [payouts, statusFilter, sourceFilter, sortBy]);
+  }, [payouts, statusFilter, sourceFilter, sortBy, search]);
+
+  const paginated = filteredPayouts.slice(
+    (page - 1) * pageSize,
+    page * pageSize
+  );
+
+  const totalPages = Math.ceil(filteredPayouts.length / pageSize);
 
   const totalThisMonth = useMemo(() => {
     const now = new Date();
     return payouts
       .filter((p) => {
         const d = new Date(p.payout_date);
-        return (
-          d.getMonth() === now.getMonth() &&
-          d.getFullYear() === now.getFullYear()
-        );
+        return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
       })
       .reduce((sum, p) => sum + p.amount, 0);
+  }, [payouts]);
+
+  const monthlySpark = useMemo(() => {
+    const map = new Map<string, number>();
+
+    payouts.forEach((p) => {
+      const d = new Date(p.payout_date);
+      const key = `${d.getFullYear()}-${d.getMonth() + 1}`;
+      map.set(key, (map.get(key) || 0) + p.amount);
+    });
+
+    const sorted = [...map.entries()].sort();
+
+    return {
+      labels: sorted.map((x) => x[0]),
+      datasets: [
+        {
+          data: sorted.map((x) => x[1]),
+          borderColor: "#000",
+          tension: 0.3,
+          pointRadius: 0,
+        },
+      ],
+    };
   }, [payouts]);
 
   if (!role) return <div>Loading...</div>;
 
   // ====================================================================
-  // UI
+  // RENDER
   // ====================================================================
-
   return (
     <div className="space-y-6">
 
-      {/* SOURCES TAB */}
+      {/* SOURCES */}
       {activeTab === "sources" && (
         <>
           <div className="flex justify-end">
@@ -218,31 +267,23 @@ export default function DashboardPage() {
 
       {/* ARCHIVED */}
       {activeTab === "archived" && (
-        <ArchivedList
-          archived={archived}
-          refreshAll={refreshAll}
-        />
+        <ArchivedList archived={archived} refreshAll={refreshAll} />
       )}
 
       {/* TRASH */}
       {activeTab === "trash" && (
-        <TrashList
-          trashed={trashed}
-          refreshAll={refreshAll}
-        />
+        <TrashList trashed={trashed} refreshAll={refreshAll} />
       )}
 
-      {/* PAYOUTS TAB (UPGRADED) */}
+      {/* PAYOUTS */}
       {activeTab === "payouts" && (
         <div className="space-y-8">
 
-          {/* KPI Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          {/* KPI row */}
+          <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
             <div className="shadow-sm border p-4 rounded bg-white">
               <div className="text-sm text-gray-600">Total payouts</div>
-              <div className="text-xl font-semibold">
-                {payouts.length.toLocaleString()}
-              </div>
+              <div className="text-xl font-semibold">{payouts.length}</div>
             </div>
 
             <div className="shadow-sm border p-4 rounded bg-white">
@@ -255,19 +296,41 @@ export default function DashboardPage() {
             <div className="shadow-sm border p-4 rounded bg-white">
               <div className="text-sm text-gray-600">Total earned</div>
               <div className="text-xl font-semibold">
-                $
-                {payouts
-                  .reduce((a, b) => a + b.amount, 0)
-                  .toLocaleString()}
+                ${payouts.reduce((a, b) => a + b.amount, 0).toLocaleString()}
               </div>
+            </div>
+
+            <div className="shadow-sm border p-4 rounded bg-white">
+              <div className="text-sm text-gray-600">Earnings trend</div>
+              <Line
+                data={monthlySpark}
+                options={{
+                  plugins: { legend: { display: false } },
+                  scales: { x: { display: false }, y: { display: false } },
+                }}
+              />
             </div>
           </div>
 
           {/* Filters */}
           <div className="flex flex-wrap gap-3 items-center">
+            <input
+              type="text"
+              placeholder="Search payouts..."
+              value={search}
+              onChange={(e) => {
+                setPage(1);
+                setSearch(e.target.value);
+              }}
+              className="border rounded px-3 py-2 w-48"
+            />
+
             <select
               value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
+              onChange={(e) => {
+                setPage(1);
+                setStatusFilter(e.target.value);
+              }}
               className="border rounded px-3 py-2"
             >
               <option value="all">Status: All</option>
@@ -279,7 +342,10 @@ export default function DashboardPage() {
 
             <select
               value={sourceFilter}
-              onChange={(e) => setSourceFilter(e.target.value)}
+              onChange={(e) => {
+                setPage(1);
+                setSourceFilter(e.target.value);
+              }}
               className="border rounded px-3 py-2"
             >
               <option value="all">Source: All</option>
@@ -292,7 +358,10 @@ export default function DashboardPage() {
 
             <select
               value={sortBy}
-              onChange={(e) => setSortBy(e.target.value)}
+              onChange={(e) => {
+                setPage(1);
+                setSortBy(e.target.value);
+              }}
               className="border rounded px-3 py-2"
             >
               <option value="date-desc">Sort: Date (Newest)</option>
@@ -315,11 +384,15 @@ export default function DashboardPage() {
               </thead>
 
               <tbody>
-                {filteredPayouts.map((p, idx) => (
+                {paginated.map((p, idx) => (
                   <tr
                     key={p.id}
-                    className={`border-b hover:bg-gray-50 ${idx % 2 === 0 ? "bg-white" : "bg-gray-50/30"
+                    className={`border-b hover:bg-gray-50 cursor-pointer ${idx % 2 === 0 ? "bg-white" : "bg-gray-50/30"
                       }`}
+                    onClick={() => {
+                      setSelectedPayout(p);
+                      setDetailOpen(true);
+                    }}
                   >
                     <td className="p-3 font-medium">
                       ${p.amount.toLocaleString("en-US")}
@@ -350,12 +423,37 @@ export default function DashboardPage() {
               </tbody>
             </table>
 
-            {filteredPayouts.length === 0 && (
+            {paginated.length === 0 && (
               <div className="p-8 text-center text-gray-500">
                 No payouts match your filters.
               </div>
             )}
           </div>
+
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-center gap-3 pt-4">
+              <button
+                disabled={page === 1}
+                onClick={() => setPage((p) => p - 1)}
+                className="px-3 py-1 border rounded disabled:opacity-40"
+              >
+                Prev
+              </button>
+
+              <span className="text-sm text-gray-600">
+                Page {page} of {totalPages}
+              </span>
+
+              <button
+                disabled={page === totalPages}
+                onClick={() => setPage((p) => p + 1)}
+                className="px-3 py-1 border rounded disabled:opacity-40"
+              >
+                Next
+              </button>
+            </div>
+          )}
         </div>
       )}
 
@@ -368,6 +466,12 @@ export default function DashboardPage() {
         editing={editing}
         refresh={refreshAll}
         userId={userId}
+      />
+
+      <PayoutDetailsSlideOver
+        open={detailOpen}
+        setOpen={setDetailOpen}
+        payout={selectedPayout}
       />
     </div>
   );
