@@ -27,9 +27,6 @@ export default function DashboardPage() {
   const [slideOpen, setSlideOpen] = useState(false);
   const [role, setRole] = useState<string | null>(null);
 
-  // --------------------------
-  // Load session → role → data
-  // --------------------------
   useEffect(() => {
     async function init() {
       const { data: sessionData } = await supabase.auth.getSession();
@@ -56,9 +53,6 @@ export default function DashboardPage() {
     if (userId) loadAll(userId);
   }, [userId]);
 
-  // --------------------------
-  // Load everything
-  // --------------------------
   const loadAll = async (uid: string) => {
     const [
       { data: src },
@@ -94,16 +88,14 @@ export default function DashboardPage() {
 
       supabase
         .from("payouts")
-        .select(
-          `
-            id,
-            amount,
-            status,
-            payment_date,
-            source_id,
-            income_sources ( source_name )
-          `
-        )
+        .select(`
+          id,
+          amount,
+          status,
+          payment_date,
+          source_id,
+          income_sources ( source_name )
+        `)
         .eq("user_id", uid)
         .order("payment_date", { ascending: false }),
     ]);
@@ -136,13 +128,13 @@ export default function DashboardPage() {
     setSlideOpen(true);
   };
 
-  // ============================================================
-  // Payouts Filters + Sorting
-  // ============================================================
+  // -------------------------------------------------------------------
+  // Payout Filters & Sorting
+  // -------------------------------------------------------------------
 
-  const [statusFilter, setStatusFilter] = useState("all");
-  const [sourceFilter, setSourceFilter] = useState("all");
-  const [sortBy, setSortBy] = useState("date-desc");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [sourceFilter, setSourceFilter] = useState<string>("all");
+  const [sortBy, setSortBy] = useState<string>("date-desc");
 
   const uniqueSources = useMemo(() => {
     const names = payouts.map((p) => p.source_name).filter(Boolean);
@@ -194,14 +186,14 @@ export default function DashboardPage() {
       .reduce((sum, p) => sum + p.amount, 0);
   }, [payouts]);
 
-  // ============================================================
-  // Render
-  // ============================================================
-
   if (!role) return <div>Loading...</div>;
 
+  // ====================================================================
+  // UI
+  // ====================================================================
+
   return (
-    <div className="space-y-6 p-4 md:p-6">
+    <div className="space-y-6">
 
       {/* SOURCES TAB */}
       {activeTab === "sources" && (
@@ -224,35 +216,45 @@ export default function DashboardPage() {
         </>
       )}
 
-      {/* ARCHIVED TAB */}
+      {/* ARCHIVED */}
       {activeTab === "archived" && (
-        <ArchivedList archived={archived} refreshAll={refreshAll} />
+        <ArchivedList
+          archived={archived}
+          refreshAll={refreshAll}
+        />
       )}
 
-      {/* TRASH TAB */}
+      {/* TRASH */}
       {activeTab === "trash" && (
-        <TrashList trashed={trashed} refreshAll={refreshAll} />
+        <TrashList
+          trashed={trashed}
+          refreshAll={refreshAll}
+        />
       )}
 
-      {/* PAYOUTS TAB */}
+      {/* PAYOUTS TAB (UPGRADED) */}
       {activeTab === "payouts" && (
-        <div className="space-y-6">
+        <div className="space-y-8">
 
-          {/* KPI ROW */}
+          {/* KPI Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div className="p-4 bg-white shadow-sm border rounded">
-              <div className="text-sm text-gray-500">Total payouts</div>
-              <div className="text-2xl font-semibold">{payouts.length}</div>
+            <div className="shadow-sm border p-4 rounded bg-white">
+              <div className="text-sm text-gray-600">Total payouts</div>
+              <div className="text-xl font-semibold">
+                {payouts.length.toLocaleString()}
+              </div>
             </div>
-            <div className="p-4 bg-white shadow-sm border rounded">
-              <div className="text-sm text-gray-500">Total this month</div>
-              <div className="text-2xl font-semibold">
+
+            <div className="shadow-sm border p-4 rounded bg-white">
+              <div className="text-sm text-gray-600">Total this month</div>
+              <div className="text-xl font-semibold">
                 ${totalThisMonth.toLocaleString()}
               </div>
             </div>
-            <div className="p-4 bg-white shadow-sm border rounded">
-              <div className="text-sm text-gray-500">Total earned</div>
-              <div className="text-2xl font-semibold">
+
+            <div className="shadow-sm border p-4 rounded bg-white">
+              <div className="text-sm text-gray-600">Total earned</div>
+              <div className="text-xl font-semibold">
                 $
                 {payouts
                   .reduce((a, b) => a + b.amount, 0)
@@ -261,7 +263,7 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          {/* FILTER BAR */}
+          {/* Filters */}
           <div className="flex flex-wrap gap-3 items-center">
             <select
               value={statusFilter}
@@ -271,6 +273,7 @@ export default function DashboardPage() {
               <option value="all">Status: All</option>
               <option value="Paid">Paid</option>
               <option value="Pending">Pending</option>
+              <option value="Scheduled">Scheduled</option>
               <option value="Failed">Failed</option>
             </select>
 
@@ -299,34 +302,44 @@ export default function DashboardPage() {
             </select>
           </div>
 
-          {/* PAYOUT TABLE */}
-          <div className="bg-white border rounded shadow-sm">
+          {/* Table */}
+          <div className="bg-white border rounded-xl shadow-sm overflow-hidden">
             <table className="min-w-full text-sm">
-              <thead className="bg-gray-100 border-b">
+              <thead className="bg-gray-50 border-b">
                 <tr>
-                  <th className="px-4 py-2 text-left">Amount</th>
-                  <th className="px-4 py-2 text-left">Date</th>
-                  <th className="px-4 py-2 text-left">Source</th>
-                  <th className="px-4 py-2 text-left">Status</th>
+                  <th className="text-left p-3 font-medium text-gray-600">Amount</th>
+                  <th className="text-left p-3 font-medium text-gray-600">Date</th>
+                  <th className="text-left p-3 font-medium text-gray-600">Source</th>
+                  <th className="text-left p-3 font-medium text-gray-600">Status</th>
                 </tr>
               </thead>
+
               <tbody>
-                {filteredPayouts.map((p) => (
-                  <tr key={p.id} className="border-b hover:bg-gray-50">
-                    <td className="px-4 py-2 font-medium">
-                      ${p.amount.toLocaleString()}
+                {filteredPayouts.map((p, idx) => (
+                  <tr
+                    key={p.id}
+                    className={`border-b hover:bg-gray-50 ${idx % 2 === 0 ? "bg-white" : "bg-gray-50/30"
+                      }`}
+                  >
+                    <td className="p-3 font-medium">
+                      ${p.amount.toLocaleString("en-US")}
                     </td>
-                    <td className="px-4 py-2">
+
+                    <td className="p-3">
                       {new Date(p.payout_date).toLocaleDateString()}
                     </td>
-                    <td className="px-4 py-2">{p.source_name}</td>
-                    <td className="px-4 py-2">
+
+                    <td className="p-3">{p.source_name}</td>
+
+                    <td className="p-3">
                       <span
-                        className={`px-2 py-1 text-xs rounded ${p.status === "Paid"
-                          ? "bg-green-100 text-green-700"
-                          : p.status === "Pending"
-                            ? "bg-yellow-100 text-yellow-700"
-                            : "bg-red-100 text-red-700"
+                        className={`px-2 py-1 text-xs rounded font-semibold ${p.status === "Paid"
+                            ? "bg-green-100 text-green-700"
+                            : p.status === "Pending"
+                              ? "bg-yellow-100 text-yellow-700"
+                              : p.status === "Scheduled"
+                                ? "bg-blue-100 text-blue-700"
+                                : "bg-red-100 text-red-700"
                           }`}
                       >
                         {p.status}
@@ -336,18 +349,19 @@ export default function DashboardPage() {
                 ))}
               </tbody>
             </table>
-          </div>
 
-          {filteredPayouts.length === 0 && (
-            <p className="text-gray-500 text-sm">No payouts found.</p>
-          )}
+            {filteredPayouts.length === 0 && (
+              <div className="p-8 text-center text-gray-500">
+                No payouts match your filters.
+              </div>
+            )}
+          </div>
         </div>
       )}
 
       {/* ANALYTICS */}
       {activeTab === "analytics" && <KPI insights={insights} />}
 
-      {/* SLIDEOVER (Add/Edit Source) */}
       <SourceSlideOver
         open={slideOpen}
         setOpen={setSlideOpen}
