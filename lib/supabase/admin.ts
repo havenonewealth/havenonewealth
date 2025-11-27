@@ -83,14 +83,15 @@ export async function getAdminGlobalSummary(): Promise<AdminSummary | null> {
   return data as AdminSummary
 }
 
-export async function getAdminPortfolioAggregates(): Promise<PortfolioAggregate[]> {
-  const supabase = createClient()
-
+export async function getAdminPortfolioAggregates() {
+  const supabase = createClient();
   const { data, error } = await supabase
-    .from('v_admin_portfolio_aggregates')
+    .from('v_admin_earnings_by_source_all')
     .select('*')
+    .order('total_earned', { ascending: false });
 
-  return error ? [] : (data as PortfolioAggregate[])
+  if (error) throw error;
+  return data ?? [];
 }
 
 export async function getAdminMonthlyTrends(): Promise<MonthlyTrend[]> {
