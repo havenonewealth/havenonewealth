@@ -21,14 +21,13 @@ import {
 
 import { createClient } from '@/lib/supabaseClient'
 
-// Existing components
+// Components
 import KPI from '@/components/admin-dashboard/KPI'
 import GlobalPayoutChart from '@/components/admin-dashboard/GlobalPayoutChart'
 import MonthlyTrendsChart from '@/components/admin-dashboard/MonthlyTrendsChart'
 import RecentPayoutsTable from '@/components/admin-dashboard/RecentPayoutsTable'
 import UserManagementTable from '@/components/admin-dashboard/UserManagementTable'
 
-// New analytics components
 import EarningsBySourceChart from '@/components/analytics/EarningsBySourceChart'
 import SourceContributionPie from '@/components/analytics/SourceContributionPie'
 import SourceInsightsTable from '@/components/analytics/SourceInsightsTable'
@@ -59,11 +58,13 @@ function OverviewTab({
           title="Total Portfolio Value"
           value={summary.total_payout_amount}
           sub={`${summary.total_sources} Sources • ${summary.total_payouts} Payouts`}
+          isMoney
         />
         <KPI
           title="Average Payout"
           value={summary.avg_payout_amount}
           sub="Across all income sources"
+          isMoney
         />
         <KPI
           title="Active Users"
@@ -88,7 +89,7 @@ function OverviewTab({
         </div>
       </div>
 
-      {/* Recent payouts */}
+      {/* Recent Payouts */}
       <div>
         <h2 className="text-xl font-semibold mb-4">Recent Payout Activity</h2>
         <div className="bg-white rounded-xl shadow-sm p-6 border">
@@ -251,7 +252,7 @@ export default function AdminDashboardPage() {
 
       <h1 className="text-3xl font-semibold mb-8">Admin Analytics</h1>
 
-      {/* TABS */}
+      {/* Tabs */}
       <div className="flex gap-3 mb-10">
         {[
           { key: 'overview', label: 'Overview' },
@@ -273,7 +274,7 @@ export default function AdminDashboardPage() {
         ))}
       </div>
 
-      {/* TAB CONTENT */}
+      {/* Tab Content */}
       {activeTab === 'overview' && (
         <OverviewTab
           summary={summary}

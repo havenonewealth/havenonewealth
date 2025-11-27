@@ -1,18 +1,30 @@
 'use client'
 
-import { money } from '@/lib/utils'
-
 interface AdminKPIProps {
   title: string
   value: number | string
   sub?: string
-  isMoney?: boolean // NEW FLAG
+  isMoney?: boolean
 }
 
 export default function KPI({ title, value, sub, isMoney = false }: AdminKPIProps) {
+  const formatMoney = (n: number | string) => {
+    const asNum = typeof n === 'number' ? n : Number(n)
+    if (isNaN(asNum)) return n
+
+    return asNum.toLocaleString('en-US', {
+      style: 'currency',
+      currency: 'USD',
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    })
+  }
+
   const formatted =
-    isMoney && typeof value === 'number'
-      ? money(value)
+    isMoney ||
+      title.toLowerCase().includes('payout') ||
+      title.toLowerCase().includes('portfolio')
+      ? formatMoney(value)
       : typeof value === 'number'
         ? value.toLocaleString()
         : value
@@ -26,7 +38,9 @@ export default function KPI({ title, value, sub, isMoney = false }: AdminKPIProp
       </p>
 
       {sub && (
-        <p className="text-xs text-gray-500 mt-1">{sub}</p>
+        <p className="text-xs text-gray-500 mt-1">
+          {sub}
+        </p>
       )}
     </div>
   )
