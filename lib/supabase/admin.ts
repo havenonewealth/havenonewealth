@@ -17,15 +17,26 @@ export interface AdminSummary {
   payouts_this_month: number
   payouts_last_month: number
   month_over_month_growth: number
+
   top_source_name: string
   top_source_amount: number
+
   new_users_this_month: number
   active_users: number
 }
 
+/* ============================================
+   UPDATED: PortfolioAggregate MUST match the view
+   v_admin_earnings_by_source
+============================================ */
+
 export interface PortfolioAggregate {
-  source_name: string
-  total_expected: number
+  source_id: string
+  name: string
+  total_earned: number
+  payout_count: number
+  percent_of_total: number | null
+  last_payment_date: string | null
 }
 
 export interface MonthlyTrend {
@@ -56,6 +67,7 @@ export interface AppUser {
 
 /* =======================================
    NEW: Earnings By Source (Admin)
+   (same as PortfolioAggregate but kept for clarity)
 ======================================= */
 
 export interface EarningsBySource {
@@ -63,7 +75,7 @@ export interface EarningsBySource {
   name: string
   total_earned: number
   payout_count: number
-  percent_of_total: number
+  percent_of_total: number | null
   last_payment_date: string | null
 }
 
@@ -83,15 +95,16 @@ export async function getAdminGlobalSummary(): Promise<AdminSummary | null> {
   return data as AdminSummary
 }
 
-export async function getAdminPortfolioAggregates() {
-  const supabase = createClient();
+export async function getAdminPortfolioAggregates(): Promise<PortfolioAggregate[]> {
+  const supabase = createClient()
+
   const { data, error } = await supabase
     .from('v_admin_earnings_by_source')
     .select('*')
-    .order('total_earned', { ascending: false });
+    .order('total_earned', { ascending: false })
 
-  if (error) throw error;
-  return data ?? [];
+  if (error) throw error
+  return data ?? []
 }
 
 export async function getAdminMonthlyTrends(): Promise<MonthlyTrend[]> {
@@ -107,6 +120,7 @@ export async function getAdminMonthlyTrends(): Promise<MonthlyTrend[]> {
 /* ============================================================
    FIXED: Converts admin payouts to match global RecentPayout
 ============================================================ */
+
 export async function getAdminRecentPayouts(): Promise<RecentPayout[]> {
   const supabase = createClient()
 
@@ -156,8 +170,6 @@ export async function getAdminEarningsBySource(): Promise<EarningsBySource[]> {
   const supabase = createClient()
 
   const { data, error } = await supabase
-    // You will create this database view or RPC next:
-    // v_admin_earnings_by_source or admin_earnings_by_source()
     .from('v_admin_earnings_by_source')
     .select('*')
 

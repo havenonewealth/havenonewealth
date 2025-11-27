@@ -8,6 +8,12 @@ interface Props {
 }
 
 export default function GlobalPayoutChart({ aggregates }: Props) {
+
+  const chartData = aggregates.map(a => ({
+    name: a.name,
+    value: a.total_earned
+  }))
+
   const option = {
     tooltip: {
       trigger: 'item',
@@ -23,13 +29,8 @@ export default function GlobalPayoutChart({ aggregates }: Props) {
           borderColor: '#fff',
           borderWidth: 2
         },
-        label: {
-          show: false
-        },
-        data: aggregates.map(a => ({
-          value: a.total_expected,
-          name: a.source_name
-        }))
+        label: { show: false },
+        data: chartData
       }
     ]
   }
