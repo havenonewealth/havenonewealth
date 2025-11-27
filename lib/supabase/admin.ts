@@ -50,6 +50,7 @@ export interface MonthlyTrend {
 export interface RecentPayout {
   id: string
   user_id: string
+  user_email: string
   source_id: string
   source_name: string
   amount: number
@@ -126,30 +127,12 @@ export async function getAdminRecentPayouts(): Promise<RecentPayout[]> {
 
   const { data, error } = await supabase
     .from('v_admin_recent_payouts')
-    .select(`
-      id,
-      user_id,
-      source_id,
-      amount,
-      status,
-      payout_date,
-      notes,
-      income_sources ( source_name )
-    `)
+    .select('*')
     .order('payout_date', { ascending: false })
 
   if (error || !data) return []
 
-  return data.map((p: any) => ({
-    id: p.id,
-    user_id: p.user_id,
-    source_id: p.source_id,
-    amount: Number(p.amount),
-    status: p.status,
-    payout_date: p.payout_date,
-    notes: p.notes ?? null,
-    source_name: p.income_sources?.source_name ?? ''
-  })) as RecentPayout[]
+  return data as RecentPayout[]
 }
 
 export async function getAllUsers(): Promise<AppUser[]> {
