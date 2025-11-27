@@ -54,6 +54,19 @@ export interface AppUser {
   created_at: string
 }
 
+/* =======================================
+   NEW: Earnings By Source (Admin)
+======================================= */
+
+export interface EarningsBySource {
+  source_id: string
+  name: string
+  total_earned: number
+  payout_count: number
+  percent_of_total: number
+  last_payment_date: string | null
+}
+
 /* ================================
    ADMIN QUERY FUNCTIONS
 ================================ */
@@ -120,7 +133,7 @@ export async function getAdminRecentPayouts(): Promise<RecentPayout[]> {
     status: p.status,
     payout_date: p.payout_date,
     notes: p.notes ?? null,
-    source_name: p.income_sources?.source_name ?? ""
+    source_name: p.income_sources?.source_name ?? ''
   })) as RecentPayout[]
 }
 
@@ -132,4 +145,22 @@ export async function getAllUsers(): Promise<AppUser[]> {
     .select('*')
 
   return error ? [] : (data as AppUser[])
+}
+
+/* =======================================
+   NEW: getAdminEarningsBySource()
+======================================= */
+
+export async function getAdminEarningsBySource(): Promise<EarningsBySource[]> {
+  const supabase = createClient()
+
+  const { data, error } = await supabase
+    // You will create this database view or RPC next:
+    // v_admin_earnings_by_source or admin_earnings_by_source()
+    .from('v_admin_earnings_by_source')
+    .select('*')
+
+  if (error || !data) return []
+
+  return data as EarningsBySource[]
 }
