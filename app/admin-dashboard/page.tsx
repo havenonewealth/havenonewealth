@@ -1,8 +1,8 @@
-'use client';
+'use client'
 
-import { useEffect, useState } from 'react';
-import Image from 'next/image';
-import { useRouter } from 'next/navigation';
+import { useEffect, useState } from 'react'
+import Image from 'next/image'
+import { useRouter } from 'next/navigation'
 
 import {
   getAdminGlobalSummary,
@@ -10,178 +10,287 @@ import {
   getAdminMonthlyTrends,
   getAdminRecentPayouts,
   getAllUsers,
+  getAdminEarningsBySource,
   type AdminSummary,
   type PortfolioAggregate,
   type MonthlyTrend,
   type RecentPayout,
-  type AppUser
-} from '@/lib/supabase/admin';
+  type AppUser,
+  type EarningsBySource
+} from '@/lib/supabase/admin'
 
-import { createClient } from '@/lib/supabaseClient';
+import { createClient } from '@/lib/supabaseClient'
 
-import KPI from '@/components/admin-dashboard/KPI';
-import GlobalPayoutChart from '@/components/admin-dashboard/GlobalPayoutChart';
-import MonthlyTrendsChart from '@/components/admin-dashboard/MonthlyTrendsChart';
-import RecentPayoutsTable from '@/components/admin-dashboard/RecentPayoutsTable';
-import UserManagementTable from '@/components/admin-dashboard/UserManagementTable';
+// Existing components
+import KPI from '@/components/admin-dashboard/KPI'
+import GlobalPayoutChart from '@/components/admin-dashboard/GlobalPayoutChart'
+import MonthlyTrendsChart from '@/components/admin-dashboard/MonthlyTrendsChart'
+import RecentPayoutsTable from '@/components/admin-dashboard/RecentPayoutsTable'
+import UserManagementTable from '@/components/admin-dashboard/UserManagementTable'
+
+// New analytics components
+import EarningsBySourceChart from '@/components/analytics/EarningsBySourceChart'
+import SourceContributionPie from '@/components/analytics/SourceContributionPie'
+import SourceInsightsTable from '@/components/analytics/SourceInsightsTable'
+
+// ---------------------------------------------------------------------------
+// TABS
+// ---------------------------------------------------------------------------
+
+function OverviewTab({
+  summary,
+  aggregates,
+  monthlyTrends,
+  recentPayouts,
+  users
+}: {
+  summary: AdminSummary
+  aggregates: PortfolioAggregate[]
+  monthlyTrends: MonthlyTrend[]
+  recentPayouts: RecentPayout[]
+  users: AppUser[]
+}) {
+  return (
+    <div className="space-y-14">
+
+      {/* KPIs */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+        <KPI
+          title="Total Portfolio Value"
+          value={summary.total_payout_amount}
+          sub={`${summary.total_sources} Sources • ${summary.total_payouts} Payouts`}
+        />
+        <KPI
+          title="Average Payout"
+          value={summary.avg_payout_amount}
+          sub="Across all income sources"
+        />
+        <KPI
+          title="Active Users"
+          value={users.length}
+          sub="Administrators and earners"
+        />
+      </div>
+
+      {/* Payout Distribution */}
+      <div>
+        <h2 className="text-xl font-semibold mb-4">Payout Distribution by Source</h2>
+        <div className="bg-white rounded-xl shadow-sm p-6 border">
+          <GlobalPayoutChart aggregates={aggregates} />
+        </div>
+      </div>
+
+      {/* Monthly Trends */}
+      <div>
+        <h2 className="text-xl font-semibold mb-4">Monthly Portfolio Trends</h2>
+        <div className="bg-white rounded-xl shadow-sm p-6 border">
+          <MonthlyTrendsChart trends={monthlyTrends} />
+        </div>
+      </div>
+
+      {/* Recent payouts */}
+      <div>
+        <h2 className="text-xl font-semibold mb-4">Recent Payout Activity</h2>
+        <div className="bg-white rounded-xl shadow-sm p-6 border">
+          <RecentPayoutsTable payouts={recentPayouts} />
+        </div>
+      </div>
+
+      {/* User Management */}
+      <div className="mb-20">
+        <h2 className="text-xl font-semibold mb-4">User Management</h2>
+        <div className="bg-white rounded-xl shadow-sm p-6 border">
+          <UserManagementTable users={users} />
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function TrendsTab({ monthlyTrends }: { monthlyTrends: MonthlyTrend[] }) {
+  return (
+    <div className="space-y-10">
+      <h2 className="text-xl font-semibold">Monthly Trend Analysis</h2>
+      <div className="bg-white rounded-xl shadow-sm p-6 border">
+        <MonthlyTrendsChart trends={monthlyTrends} />
+      </div>
+    </div>
+  )
+}
+
+function SourcesTab({ data }: { data: EarningsBySource[] }) {
+  const insights = data.map(s => ({
+    source_name: s.name,
+    total_earned: s.total_earned,
+    avg_payment: s.payout_count ? s.total_earned / s.payout_count : 0,
+    payout_count: s.payout_count,
+    first_payment: null,
+    last_payment: s.last_payment_date
+  }))
+
+  return (
+    <div className="space-y-12">
+      <div>
+        <h2 className="text-xl font-semibold mb-4">Earnings by Source</h2>
+        <EarningsBySourceChart data={data} />
+      </div>
+
+      <div>
+        <h2 className="text-xl font-semibold mb-4">Contribution Mix</h2>
+        <SourceContributionPie data={data} />
+      </div>
+
+      <div>
+        <h2 className="text-xl font-semibold mb-4">Source Insights</h2>
+        <SourceInsightsTable insights={insights} />
+      </div>
+    </div>
+  )
+}
+
+function TimelineTab() {
+  return (
+    <div className="p-8 text-gray-600">
+      Timeline visualizations will be here (payout events, heatmap, etc)
+    </div>
+  )
+}
+
+function InsightsTab() {
+  return (
+    <div className="p-8 text-gray-600 text-lg">
+      AI-generated portfolio insights will be displayed here.
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// MAIN PAGE
+// ---------------------------------------------------------------------------
 
 export default function AdminDashboardPage() {
-  const router = useRouter();
-  const supabase = createClient();
+  const router = useRouter()
+  const supabase = createClient()
 
-  const [summary, setSummary] = useState<AdminSummary | null>(null);
-  const [aggregates, setAggregates] = useState<PortfolioAggregate[]>([]);
-  const [monthlyTrends, setMonthlyTrends] = useState<MonthlyTrend[]>([]);
-  const [recentPayouts, setRecentPayouts] = useState<RecentPayout[]>([]);
-  const [users, setUsers] = useState<AppUser[]>([]);
+  const [summary, setSummary] = useState<AdminSummary | null>(null)
+  const [aggregates, setAggregates] = useState<PortfolioAggregate[]>([])
+  const [monthlyTrends, setMonthlyTrends] = useState<MonthlyTrend[]>([])
+  const [recentPayouts, setRecentPayouts] = useState<RecentPayout[]>([])
+  const [users, setUsers] = useState<AppUser[]>([])
+  const [sourcesData, setSourcesData] = useState<EarningsBySource[]>([])
+  const [loading, setLoading] = useState(true)
 
-  const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState('overview')
 
-  // ==========================================
-  // ROLE VALIDATION + DATA LOAD
-  // ==========================================
   useEffect(() => {
     async function init() {
-      const { data: sessionData } = await supabase.auth.getSession();
-      const session = sessionData?.session;
+      const { data: sessionData } = await supabase.auth.getSession()
+      const session = sessionData?.session
 
-      if (!session) {
-        router.push('/login');
-        return;
-      }
+      if (!session) return router.push('/login')
 
       const { data: profile } = await supabase
         .from('users')
         .select('role')
         .eq('id', session.user.id)
-        .single();
+        .single()
 
       if (!profile || profile.role !== 'admin') {
-        router.push('/dashboard');
-        return;
+        return router.push('/dashboard')
       }
 
-      await loadData();
+      await loadData()
     }
 
     async function loadData() {
-      setLoading(true);
+      setLoading(true)
 
-      const s = await getAdminGlobalSummary();
-      const a = await getAdminPortfolioAggregates();
-      const m = await getAdminMonthlyTrends();
-      const r = await getAdminRecentPayouts();
-      const u = await getAllUsers();
+      setSummary(await getAdminGlobalSummary())
+      setAggregates(await getAdminPortfolioAggregates())
+      setMonthlyTrends(await getAdminMonthlyTrends())
+      setRecentPayouts(await getAdminRecentPayouts())
+      setUsers(await getAllUsers())
+      setSourcesData(await getAdminEarningsBySource())
 
-      setSummary(s);
-      setAggregates(a);
-      setMonthlyTrends(m);
-      setRecentPayouts(r);
-      setUsers(u);
-
-      setLoading(false);
+      setLoading(false)
     }
 
-    init();
-  }, [router, supabase]);
+    init()
+  }, [router, supabase])
 
-  // ==========================================
-  // LOADING STATE
-  // ==========================================
   if (loading || !summary) {
-    return (
-      <div className='p-10 text-gray-500'>
-        Loading admin dashboard...
-      </div>
-    );
+    return <div className="p-10 text-gray-500">Loading admin analytics…</div>
   }
 
-  // ==========================================
-  // RENDER
-  // ==========================================
   return (
-    <div className='p-10 max-w-7xl mx-auto'>
-      {/* HEADER */}
-      <div className='flex justify-between items-center mb-10'>
-        <Image
-          src='/HOW2Logo.png'
-          alt='Haven One Wealth'
-          width={150}
-          height={50}
-        />
+    <div className="p-10 max-w-7xl mx-auto">
 
-        <div className='flex gap-4'>
+      {/* Header */}
+      <div className="flex justify-between items-center mb-10">
+        <Image src="/HOW2Logo.png" alt="HOW" width={150} height={50} />
+
+        <div className="flex gap-4">
           <button
             onClick={() => router.push('/dashboard')}
-            className='px-4 py-2 bg-gray-200 text-[#0A1E2D] font-semibold rounded-md hover:bg-gray-300 transition'
+            className="px-4 py-2 bg-gray-200 text-[#0A1E2D] font-semibold rounded-md hover:bg-gray-300"
           >
             User Dashboard
           </button>
 
           <button
             onClick={async () => {
-              await supabase.auth.signOut();
-              router.push('/login');
+              await supabase.auth.signOut()
+              router.push('/login')
             }}
-            className='px-4 py-2 bg-[#0A1E2D] text-white font-semibold rounded-md'
+            className="px-4 py-2 bg-[#0A1E2D] text-white font-semibold rounded-md"
           >
             Logout
           </button>
         </div>
       </div>
 
-      <h1 className='text-3xl font-semibold mb-8'>Admin Dashboard</h1>
+      <h1 className="text-3xl font-semibold mb-8">Admin Analytics</h1>
 
-      {/* KPI ROW */}
-      <div className='grid grid-cols-1 sm:grid-cols-3 gap-6 mb-12'>
-        <KPI
-          title='Total Portfolio Value'
-          value={summary.total_payout_amount}
-          sub={`${summary.total_sources} Sources • ${summary.total_payouts} Payouts`}
+      {/* TABS */}
+      <div className="flex gap-3 mb-10">
+        {[
+          { key: 'overview', label: 'Overview' },
+          { key: 'trends', label: 'Trends' },
+          { key: 'sources', label: 'Sources' },
+          { key: 'timeline', label: 'Timeline' },
+          { key: 'insights', label: 'Insights' }
+        ].map(tab => (
+          <button
+            key={tab.key}
+            onClick={() => setActiveTab(tab.key)}
+            className={`px-5 py-2 rounded-lg text-sm border font-medium ${activeTab === tab.key
+                ? 'bg-[#0A1E2D] text-white border-[#0A1E2D]'
+                : 'bg-white text-black border-gray-300 hover:bg-gray-100'
+              }`}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {/* TAB CONTENT */}
+      {activeTab === 'overview' && (
+        <OverviewTab
+          summary={summary}
+          aggregates={aggregates}
+          monthlyTrends={monthlyTrends}
+          recentPayouts={recentPayouts}
+          users={users}
         />
-        <KPI
-          title='Average Payout'
-          value={summary.avg_payout_amount}
-          sub='Across all income sources'
-        />
-        <KPI
-          title='Active Users'
-          value={users.length}
-          sub='Administrators and earners'
-        />
-      </div>
+      )}
 
-      {/* CHART — Payout Distribution */}
-      <div className='mb-14'>
-        <h2 className='text-xl font-semibold mb-4'>Payout Distribution by Source</h2>
-        <div className='bg-white rounded-xl shadow-sm p-6 border'>
-          <GlobalPayoutChart aggregates={aggregates} />
-        </div>
-      </div>
+      {activeTab === 'trends' && <TrendsTab monthlyTrends={monthlyTrends} />}
 
-      {/* CHART — Monthly Trends */}
-      <div className='mb-14'>
-        <h2 className='text-xl font-semibold mb-4'>Monthly Portfolio Trends</h2>
-        <div className='bg-white rounded-xl shadow-sm p-6 border'>
-          <MonthlyTrendsChart trends={monthlyTrends} />
-        </div>
-      </div>
+      {activeTab === 'sources' && <SourcesTab data={sourcesData} />}
 
-      {/* TABLE — Recent Payouts */}
-      <div className='mb-14'>
-        <h2 className='text-xl font-semibold mb-4'>Recent Payout Activity</h2>
-        <div className='bg-white rounded-xl shadow-sm p-6 border'>
-          <RecentPayoutsTable payouts={recentPayouts} />
-        </div>
-      </div>
+      {activeTab === 'timeline' && <TimelineTab />}
 
-      {/* TABLE — Users */}
-      <div className='mb-20'>
-        <h2 className='text-xl font-semibold mb-4'>User Management</h2>
-        <div className='bg-white rounded-xl shadow-sm p-6 border'>
-          <UserManagementTable users={users} />
-        </div>
-      </div>
+      {activeTab === 'insights' && <InsightsTab />}
     </div>
-  );
+  )
 }
