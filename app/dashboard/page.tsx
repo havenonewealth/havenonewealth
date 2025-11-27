@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabaseClient";
 import { useTabs } from "./TabContext";
 
@@ -25,7 +25,9 @@ export default function DashboardPage() {
   const [slideOpen, setSlideOpen] = useState(false);
   const [role, setRole] = useState<string | null>(null);
 
-  // Load session → role → dashboard data
+  // --------------------------
+  // Load session → role → data
+  // --------------------------
   useEffect(() => {
     async function init() {
       const { data: sessionData } = await supabase.auth.getSession();
@@ -48,12 +50,13 @@ export default function DashboardPage() {
     init();
   }, [supabase]);
 
-  // Reload when userId arrives
   useEffect(() => {
     if (userId) loadAll(userId);
   }, [userId]);
 
-  // Load all dashboard data
+  // --------------------------
+  // Load everything
+  // --------------------------
   const loadAll = async (uid: string) => {
     const [{ data: src }, { data: arc }, { data: ins }, { data: pays }] =
       await Promise.all([
@@ -104,9 +107,7 @@ export default function DashboardPage() {
     setPayouts(payoutsClean);
   };
 
-  const refreshAll = () => {
-    if (userId) loadAll(userId);
-  };
+  const refreshAll = () => userId && loadAll(userId);
 
   const handleAdd = () => {
     setEditing(null);
@@ -118,7 +119,57 @@ export default function DashboardPage() {
     setSlideOpen(true);
   };
 
+  // ============================================================
+  // Payouts — Filters + Sorting
+  // ============================================================
+
+  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [sourceFilter, setSourceFilter] = useState<string>("all");
+  const [sortBy, setSortBy] = useState<string>("date-desc");
+
+  const uniqueSources = useMemo(() => {
+    const names = payouts.map((p) => p.source_name).filter(Boolean);
+    return Array.from(new Set(names));
+  }, [payouts]);
+
+  const filteredPayouts = useMemo(() => {
+    let temp = [...payouts];
+
+    if (statusFilter !== "all") {
+      temp = temp.filter((p) => p.status === statusFilter);
+    }
+
+    if (sourceFilter !== "all") {
+      temp = temp.filter((p) => p.source_name === sourceFilter);
+    }
+
+    if (sortBy === "date-desc") {
+      temp.sort((a, b) => new Date(b.payout_date).getTime() - new Date(a.payout_date).getTime());
+    } else if (sortBy === "date-asc") {
+      temp.sort((a, b) => new Date(a.payout_date).getTime() - new Date(b.payout_date).getTime());
+    } else if (sortBy === "amount-desc") {
+      temp.sort((a, b) => b.amount - a.amount);
+    } else if (sortBy === "amount-asc") {
+      temp.sort((a, b) => a.amount - b.amount);
+    }
+
+    return temp;
+  }, [payouts, statusFilter, sourceFilter, sortBy]);
+
+  const totalThisMonth = useMemo(() => {
+    const now = new Date();
+    return payouts
+      .filter((p) => {
+        const d = new Date(p.payout_date);
+        return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+      })
+      .reduce((sum, p) => sum + p.amount, 0);
+  }, [payouts]);
+
+  // ============================================================
   // Render
+  // ============================================================
+
   if (!role) return <div>Loading...</div>;
 
   if (activeTab === "admin") {
@@ -132,26 +183,29 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-6">
+
+      {/* SOURCES TAB */}
       {activeTab === "sources" && (
-        <div className="flex justify-end">
-          <button
-            onClick={handleAdd}
-            className="px-4 py-2 bg-black text-white rounded"
-          >
-            Add Source
-          </button>
-        </div>
+        <>
+          <div className="flex justify-end">
+            <button
+              onClick={handleAdd}
+              className="px-4 py-2 bg-black text-white rounded"
+            >
+              Add Source
+            </button>
+          </div>
+
+          <SourceList
+            sources={sources}
+            userId={userId || ""}
+            onEdit={handleEdit}
+            refreshAll={refreshAll}
+          />
+        </>
       )}
 
-      {activeTab === "sources" && (
-        <SourceList
-          sources={sources}
-          userId={userId || ""}
-          onEdit={handleEdit}
-          refreshAll={refreshAll}
-        />
-      )}
-
+      {/* ARCHIVED TAB */}
       {activeTab === "archived" && (
         <ArchivedList
           archived={archived}
@@ -160,33 +214,100 @@ export default function DashboardPage() {
         />
       )}
 
+      {/* PAYOUTS TAB */}
       {activeTab === "payouts" && (
-        <div className="space-y-3">
-          <h2 className="text-lg font-semibold">Recent Payouts</h2>
+        <div className="space-y-6">
+          <h2 className="text-lg font-semibold">Payouts Overview</h2>
 
-          {payouts.length === 0 && (
-            <p className="text-gray-500 text-sm">No payouts found.</p>
-          )}
-
-          {payouts.map((p) => (
-            <div
-              key={p.id}
-              className="border rounded p-4 bg-white shadow-sm space-y-1"
-            >
-              <div className="font-medium">
-                ${p.amount.toLocaleString("en-US")}
+          {/* KPI ROW */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="p-4 border rounded bg-white shadow-sm">
+              <div className="text-sm text-gray-600">Total payouts</div>
+              <div className="text-xl font-semibold">
+                {payouts.length.toLocaleString()}
               </div>
-
-              <div className="text-sm text-gray-500">
-                {new Date(p.payout_date).toLocaleDateString()}
-              </div>
-
-              <div className="text-sm text-gray-500">{p.source_name}</div>
             </div>
-          ))}
+
+            <div className="p-4 border rounded bg-white shadow-sm">
+              <div className="text-sm text-gray-600">Total this month</div>
+              <div className="text-xl font-semibold">
+                ${totalThisMonth.toLocaleString()}
+              </div>
+            </div>
+
+            <div className="p-4 border rounded bg-white shadow-sm">
+              <div className="text-sm text-gray-600">Total earned</div>
+              <div className="text-xl font-semibold">
+                ${payouts.reduce((a, b) => a + b.amount, 0).toLocaleString()}
+              </div>
+            </div>
+          </div>
+
+          {/* FILTERS */}
+          <div className="flex flex-wrap gap-3 items-center">
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="border rounded px-3 py-2"
+            >
+              <option value="all">Status: All</option>
+              <option value="Paid">Paid</option>
+              <option value="Pending">Pending</option>
+              <option value="Failed">Failed</option>
+            </select>
+
+            <select
+              value={sourceFilter}
+              onChange={(e) => setSourceFilter(e.target.value)}
+              className="border rounded px-3 py-2"
+            >
+              <option value="all">Source: All</option>
+              {uniqueSources.map((s) => (
+                <option key={s} value={s}>
+                  {s}
+                </option>
+              ))}
+            </select>
+
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value)}
+              className="border rounded px-3 py-2"
+            >
+              <option value="date-desc">Sort: Date (Newest)</option>
+              <option value="date-asc">Sort: Date (Oldest)</option>
+              <option value="amount-desc">Sort: Amount (High)</option>
+              <option value="amount-asc">Sort: Amount (Low)</option>
+            </select>
+          </div>
+
+          {/* RESULTS */}
+          {filteredPayouts.length === 0 ? (
+            <p className="text-gray-500 text-sm">No payouts match filters.</p>
+          ) : (
+            filteredPayouts.map((p) => (
+              <div
+                key={p.id}
+                className="border rounded p-4 bg-white shadow-sm space-y-1"
+              >
+                <div className="font-medium">
+                  ${p.amount.toLocaleString("en-US")}
+                </div>
+
+                <div className="text-sm text-gray-500">
+                  {new Date(p.payout_date).toLocaleDateString()}
+                </div>
+
+                <div className="text-sm text-gray-500">{p.source_name}</div>
+
+                <div className="text-xs text-gray-500">Status: {p.status}</div>
+              </div>
+            ))
+          )}
         </div>
       )}
 
+      {/* ANALYTICS */}
       {activeTab === "analytics" && <KPI insights={insights} />}
 
       <SourceSlideOver
