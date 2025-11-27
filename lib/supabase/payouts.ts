@@ -8,7 +8,8 @@ export async function getPayouts(userId: string): Promise<Payout[]> {
 
   const { data, error } = await supabase
     .from("payouts")
-    .select(`
+    .select(
+      `
       id,
       user_id,
       source_id,
@@ -20,7 +21,8 @@ export async function getPayouts(userId: string): Promise<Payout[]> {
       income_sources (
         source_name
       )
-    `)
+    `
+    )
     .eq("user_id", userId)
     .order("payment_date", { ascending: false });
 
@@ -38,9 +40,7 @@ export async function getPayouts(userId: string): Promise<Payout[]> {
     status: p.status,
     notes: p.notes ?? null,
     created_at: p.created_at,
-    source_name:
-      Array.isArray(p.income_sources)
-        ? p.income_sources[0]?.source_name
-        : null
+    // FIXED: Supabase returns an object, not an array
+    source_name: p.income_sources?.source_name ?? null
   }));
 }
