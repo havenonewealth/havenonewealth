@@ -1,15 +1,16 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState, useEffect } from "react";
+import { createClient } from "@/lib/supabaseClient";
 import type { IncomeSource } from "@/lib/types";
 
 interface Props {
     archived: IncomeSource[];
-    userId: string;
     refreshAll: () => void;
 }
 
-export default function ArchivedList({ archived, userId, refreshAll }: Props) {
+export default function ArchivedList({ archived, refreshAll }: Props) {
+    const supabase = createClient();
     const [items, setItems] = useState<IncomeSource[]>([]);
 
     useEffect(() => {
@@ -17,22 +18,26 @@ export default function ArchivedList({ archived, userId, refreshAll }: Props) {
     }, [archived]);
 
     const handleUnarchive = async (id: string) => {
-        await fetch("/api/sources/unarchive", {
-            method: "POST",
-            body: JSON.stringify({ id }),
-        });
-
+        await supabase
+            .from("income_sources")
+            .update({ archived: false, archived_at: null })
+            .eq("id", id);
         refreshAll();
     };
 
-    const handleTrash = async (id: string) => {
-        const ok = window.confirm("Move this source to Trash?");
+    const handleMoveToTrash = async (id: string) => {
+        const ok = window.confirm("Move this item to Trash?");
         if (!ok) return;
 
-        await fetch("/api/sources/trash", {
-            method: "POST",
-            body: JSON.stringify({ id }),
-        });
+        await supabase
+            .from("income_sources")
+            .update({
+                deleted: true,
+                deleted_at: new Date().toISOString(),
+                archived: false,
+                archived_at: null
+            })
+            .eq("id", id);
 
         refreshAll();
     };
@@ -54,10 +59,7 @@ export default function ArchivedList({ archived, userId, refreshAll }: Props) {
                         <div className="font-medium">{row.source_name}</div>
                         <div className="text-sm text-gray-500">{row.source_type}</div>
                         <div className="text-sm text-gray-500">
-                            Archived:{" "}
-                            {row.archived_at
-                                ? new Date(row.archived_at).toLocaleDateString()
-                                : ""}
+                            ${row.expected_amount?.toLocaleString()}
                         </div>
                     </div>
 
@@ -70,7 +72,7 @@ export default function ArchivedList({ archived, userId, refreshAll }: Props) {
                         </button>
 
                         <button
-                            onClick={() => handleTrash(row.id!)}
+                            onClick={() => handleMoveToTrash(row.id!)}
                             className="text-red-600 hover:underline"
                         >
                             Move to Trash

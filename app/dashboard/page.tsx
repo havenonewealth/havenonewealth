@@ -27,13 +27,14 @@ export default function DashboardPage() {
   const [slideOpen, setSlideOpen] = useState(false);
   const [role, setRole] = useState<string | null>(null);
 
-  // --------------------------
-  // Load session → role → data
-  // --------------------------
+  // --------------------------------------------------------
+  // LOAD SESSION + ROLE
+  // --------------------------------------------------------
   useEffect(() => {
     async function init() {
       const { data: sessionData } = await supabase.auth.getSession();
       const uid = sessionData?.session?.user?.id || null;
+
       if (!uid) return;
 
       setUserId(uid);
@@ -56,17 +57,18 @@ export default function DashboardPage() {
     if (userId) loadAll(userId);
   }, [userId]);
 
-  // --------------------------
-  // Load everything
-  // --------------------------
+  // --------------------------------------------------------
+  // LOAD SOURCES + ARCHIVED + TRASH + INSIGHTS + PAYOUTS
+  // --------------------------------------------------------
   const loadAll = async (uid: string) => {
     const [
       { data: src },
       { data: arc },
       { data: del },
       { data: ins },
-      { data: pays },
+      { data: pays }
     ] = await Promise.all([
+      // Active sources
       supabase
         .from("income_sources")
         .select("*")
@@ -75,6 +77,7 @@ export default function DashboardPage() {
         .eq("deleted", false)
         .order("created_at", { ascending: false }),
 
+      // Archived sources
       supabase
         .from("income_sources")
         .select("*")
@@ -83,6 +86,7 @@ export default function DashboardPage() {
         .eq("deleted", false)
         .order("archived_at", { ascending: false }),
 
+      // Trash
       supabase
         .from("income_sources")
         .select("*")
@@ -90,22 +94,22 @@ export default function DashboardPage() {
         .eq("deleted", true)
         .order("deleted_at", { ascending: false }),
 
+      // Analytics
       supabase.from("v_user_insights").select("*").eq("user_id", uid),
 
+      // Payouts
       supabase
         .from("payouts")
-        .select(
-          `
-            id,
-            amount,
-            status,
-            payment_date,
-            source_id,
-            income_sources ( source_name )
-          `
-        )
+        .select(`
+          id,
+          amount,
+          status,
+          payment_date,
+          source_id,
+          income_sources ( source_name )
+        `)
         .eq("user_id", uid)
-        .order("payment_date", { ascending: false }),
+        .order("payment_date", { ascending: false })
     ]);
 
     const payoutsClean: RecentPayout[] =
@@ -114,7 +118,7 @@ export default function DashboardPage() {
         amount: Number(p.amount),
         status: p.status,
         payout_date: p.payment_date,
-        source_name: p.income_sources?.[0]?.source_name ?? "",
+        source_name: p.income_sources?.[0]?.source_name ?? ""
       })) || [];
 
     setSources(src || []);
@@ -126,6 +130,9 @@ export default function DashboardPage() {
 
   const refreshAll = () => userId && loadAll(userId);
 
+  // --------------------------------------------------------
+  // SLIDEOVER FUNCTIONS
+  // --------------------------------------------------------
   const handleAdd = () => {
     setEditing(null);
     setSlideOpen(true);
@@ -136,13 +143,12 @@ export default function DashboardPage() {
     setSlideOpen(true);
   };
 
-  // ============================================================
-  // Payouts Filters + Sorting
-  // ============================================================
-
-  const [statusFilter, setStatusFilter] = useState<string>("all");
-  const [sourceFilter, setSourceFilter] = useState<string>("all");
-  const [sortBy, setSortBy] = useState<string>("date-desc");
+  // --------------------------------------------------------
+  // PAYOUT FILTERS & SORTING
+  // --------------------------------------------------------
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [sourceFilter, setSourceFilter] = useState("all");
+  const [sortBy, setSortBy] = useState("date-desc");
 
   const uniqueSources = useMemo(() => {
     const names = payouts.map((p) => p.source_name).filter(Boolean);
@@ -152,26 +158,13 @@ export default function DashboardPage() {
   const filteredPayouts = useMemo(() => {
     let temp = [...payouts];
 
-    if (statusFilter !== "all") {
-      temp = temp.filter((p) => p.status === statusFilter);
-    }
-
-    if (sourceFilter !== "all") {
-      temp = temp.filter((p) => p.source_name === sourceFilter);
-    }
+    if (statusFilter !== "all") temp = temp.filter((p) => p.status === statusFilter);
+    if (sourceFilter !== "all") temp = temp.filter((p) => p.source_name === sourceFilter);
 
     if (sortBy === "date-desc") {
-      temp.sort(
-        (a, b) =>
-          new Date(b.payout_date).getTime() -
-          new Date(a.payout_date).getTime()
-      );
+      temp.sort((a, b) => new Date(b.payout_date).getTime() - new Date(a.payout_date).getTime());
     } else if (sortBy === "date-asc") {
-      temp.sort(
-        (a, b) =>
-          new Date(a.payout_date).getTime() -
-          new Date(b.payout_date).getTime()
-      );
+      temp.sort((a, b) => new Date(a.payout_date).getTime() - new Date(b.payout_date).getTime());
     } else if (sortBy === "amount-desc") {
       temp.sort((a, b) => b.amount - a.amount);
     } else if (sortBy === "amount-asc") {
@@ -186,18 +179,14 @@ export default function DashboardPage() {
     return payouts
       .filter((p) => {
         const d = new Date(p.payout_date);
-        return (
-          d.getMonth() === now.getMonth() &&
-          d.getFullYear() === now.getFullYear()
-        );
+        return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
       })
       .reduce((sum, p) => sum + p.amount, 0);
   }, [payouts]);
 
-  // ============================================================
-  // Render
-  // ============================================================
-
+  // --------------------------------------------------------
+  // RENDER
+  // --------------------------------------------------------
   if (!role) return <div>Loading...</div>;
 
   return (
@@ -228,7 +217,6 @@ export default function DashboardPage() {
       {activeTab === "archived" && (
         <ArchivedList
           archived={archived}
-          userId={userId || ""}
           refreshAll={refreshAll}
         />
       )}
@@ -237,7 +225,6 @@ export default function DashboardPage() {
       {activeTab === "trash" && (
         <TrashList
           trashed={trashed}
-          userId={userId || ""}
           refreshAll={refreshAll}
         />
       )}
@@ -266,10 +253,7 @@ export default function DashboardPage() {
             <div className="p-4 border rounded bg-white shadow-sm">
               <div className="text-sm text-gray-600">Total earned</div>
               <div className="text-xl font-semibold">
-                $
-                {payouts
-                  .reduce((a, b) => a + b.amount, 0)
-                  .toLocaleString()}
+                ${payouts.reduce((a, b) => a + b.amount, 0).toLocaleString()}
               </div>
             </div>
           </div>
@@ -321,16 +305,11 @@ export default function DashboardPage() {
                 key={p.id}
                 className="border rounded p-4 bg-white shadow-sm space-y-1"
               >
-                <div className="font-medium">
-                  ${p.amount.toLocaleString("en-US")}
-                </div>
-
+                <div className="font-medium">${p.amount.toLocaleString("en-US")}</div>
                 <div className="text-sm text-gray-500">
                   {new Date(p.payout_date).toLocaleDateString()}
                 </div>
-
                 <div className="text-sm text-gray-500">{p.source_name}</div>
-
                 <div className="text-xs text-gray-500">Status: {p.status}</div>
               </div>
             ))
@@ -338,7 +317,7 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* ANALYTICS */}
+      {/* ANALYTICS TAB */}
       {activeTab === "analytics" && <KPI insights={insights} />}
 
       <SourceSlideOver

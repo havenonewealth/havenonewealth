@@ -1,15 +1,16 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { createClient } from "@/lib/supabaseClient";
 import type { IncomeSource } from "@/lib/types";
 
 interface Props {
     trashed: IncomeSource[];
-    userId: string;
     refreshAll: () => void;
 }
 
-export default function TrashList({ trashed, userId, refreshAll }: Props) {
+export default function TrashList({ trashed, refreshAll }: Props) {
+    const supabase = createClient();
     const [items, setItems] = useState<IncomeSource[]>([]);
 
     useEffect(() => {
@@ -17,24 +18,25 @@ export default function TrashList({ trashed, userId, refreshAll }: Props) {
     }, [trashed]);
 
     const handleRestore = async (id: string) => {
-        await fetch("/api/sources/restore", {
-            method: "POST",
-            body: JSON.stringify({ id }),
-        });
+        await supabase
+            .from("income_sources")
+            .update({
+                deleted: false,
+                deleted_at: null
+            })
+            .eq("id", id);
 
         refreshAll();
     };
 
     const handlePermanentDelete = async (id: string) => {
         const ok = window.confirm(
-            "This will permanently remove the source and all related payouts. Continue?"
+            "This will permanently delete this source. Continue?"
         );
+
         if (!ok) return;
 
-        await fetch("/api/sources/delete", {
-            method: "POST",
-            body: JSON.stringify({ id }),
-        });
+        await supabase.from("income_sources").delete().eq("id", id);
 
         refreshAll();
     };
@@ -54,15 +56,7 @@ export default function TrashList({ trashed, userId, refreshAll }: Props) {
                 >
                     <div>
                         <div className="font-medium">{row.source_name}</div>
-                        <div className="text-sm text-gray-500">
-                            {row.source_type || ""}
-                        </div>
-                        <div className="text-sm text-gray-500">
-                            Archived At:{" "}
-                            {row.archived_at
-                                ? new Date(row.archived_at).toLocaleDateString()
-                                : ""}
-                        </div>
+                        <div className="text-sm text-gray-500">{row.source_type}</div>
                     </div>
 
                     <div className="flex space-x-4">

@@ -54,6 +54,13 @@ function Header({ isAdmin }: { isAdmin: boolean }) {
         </button>
 
         <button
+          onClick={() => setActiveTab("trash")}
+          className={tabClass("trash")}
+        >
+          Trash
+        </button>
+
+        <button
           onClick={() => setActiveTab('payouts')}
           className={tabClass('payouts')}
         >
