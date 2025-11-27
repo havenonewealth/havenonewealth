@@ -106,15 +106,9 @@ export default function DashboardPage() {
 
       supabase
         .from("payouts")
-        .select(`
-          id,
-          amount,
-          status,
-          payment_date,
-          source_id,
-          notes,
-          income_sources ( source_name )
-        `)
+        .select(
+          "id, amount, status, payment_date, source_id, notes, income_sources(source_name)"
+        )
         .eq("user_id", uid)
         .order("payment_date", { ascending: false }),
     ]);
