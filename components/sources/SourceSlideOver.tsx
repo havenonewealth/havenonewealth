@@ -2,7 +2,7 @@
 
 import { Fragment, useEffect, useState } from "react";
 import { Dialog, Transition } from "@headlessui/react";
-import { supabase } from "@/lib/supabaseClient";
+import { createClient } from "@/lib/supabaseClient";
 import SourceForm from "./SourceForm";
 import type { IncomeSource } from "@/lib/types";
 
@@ -44,6 +44,8 @@ export default function SourceSlideOver({
     refresh,
     userId
 }: SlideProps) {
+    const supabase = createClient();
+
     const [form, setForm] = useState<Partial<IncomeSource>>({
         source_name: "",
         source_type: "",

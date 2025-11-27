@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { supabase } from "@/lib/supabaseClient";
+import { createClient } from "@/lib/supabaseClient";
 import type { IncomeSource } from "@/lib/types";
 
 interface Props {
@@ -11,9 +11,10 @@ interface Props {
 }
 
 export default function ArchivedList({ archived, userId, refreshAll }: Props) {
+    const supabase = createClient();
     const [items, setItems] = useState<IncomeSource[]>([]);
 
-    // Keep internal list in sync with parent
+    // Sync with parent props
     useEffect(() => {
         setItems(archived);
     }, [archived]);

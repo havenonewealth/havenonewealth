@@ -1,11 +1,11 @@
-"use server"
+"use server";
 
-import { supabase } from "@/lib/supabaseClient"
-import type { Payout } from "@/lib/types"
-
-// payouts.ts FIXED
+import { createClient } from "@/lib/supabase/server";
+import type { Payout } from "@/lib/types";
 
 export async function getPayouts(userId: string): Promise<Payout[]> {
+  const supabase = await createClient();
+
   const { data, error } = await supabase
     .from("payouts")
     .select(`
@@ -22,11 +22,11 @@ export async function getPayouts(userId: string): Promise<Payout[]> {
       )
     `)
     .eq("user_id", userId)
-    .order("payment_date", { ascending: false })
+    .order("payment_date", { ascending: false });
 
   if (error) {
-    console.error("getPayouts error:", error)
-    return []
+    console.error("getPayouts error:", error);
+    return [];
   }
 
   return (data || []).map((p: any) => ({
@@ -38,8 +38,9 @@ export async function getPayouts(userId: string): Promise<Payout[]> {
     status: p.status,
     notes: p.notes ?? null,
     created_at: p.created_at,
-    income_sources: Array.isArray(p.income_sources)
-      ? { source_name: p.income_sources[0]?.source_name ?? undefined }
-      : null
-  }))
+    source_name:
+      Array.isArray(p.income_sources)
+        ? p.income_sources[0]?.source_name
+        : null
+  }));
 }

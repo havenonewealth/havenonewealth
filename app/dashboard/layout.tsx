@@ -1,6 +1,6 @@
 'use client'
 
-import { supabase } from '@/lib/supabaseClient'
+import { createClient } from '@/lib/supabaseClient'
 import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import Image from 'next/image'
@@ -8,6 +8,7 @@ import { TabProvider, useTabs } from './TabContext'
 
 function Header({ isAdmin }: { isAdmin: boolean }) {
   const router = useRouter()
+  const supabase = createClient()
   const { activeTab, setActiveTab } = useTabs()
 
   const tabBase =
@@ -66,7 +67,6 @@ function Header({ isAdmin }: { isAdmin: boolean }) {
           Analytics
         </button>
 
-        {/* ADMIN DASHBOARD BUTTON */}
         {isAdmin && (
           <button
             onClick={() => router.push('/admin-dashboard')}
@@ -89,6 +89,7 @@ function Header({ isAdmin }: { isAdmin: boolean }) {
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter()
+  const supabase = createClient()
   const [loading, setLoading] = useState(true)
   const [isAdmin, setIsAdmin] = useState(false)
 
@@ -101,7 +102,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         return
       }
 
-      // Load role from public.users
       const { data: profile } = await supabase
         .from('users')
         .select('role')
@@ -116,7 +116,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     }
 
     validate()
-  }, [router])
+  }, [router, supabase])
 
   if (loading) {
     return (

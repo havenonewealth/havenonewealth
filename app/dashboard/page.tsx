@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { supabase } from "@/lib/supabaseClient";
+import { createClient } from "@/lib/supabaseClient";
 import { useTabs } from "./TabContext";
 
 import SourceList from "@/components/sources/SourceList";
@@ -12,7 +12,8 @@ import KPI from "@/components/analytics/KPI";
 import type { IncomeSource, RecentPayout } from "@/lib/types";
 
 export default function DashboardPage() {
-  const { activeTab } = useTabs(); // GLOBAL TAB
+  const supabase = createClient();
+  const { activeTab } = useTabs();
 
   const [sources, setSources] = useState<IncomeSource[]>([]);
   const [archived, setArchived] = useState<IncomeSource[]>([]);
@@ -20,19 +21,15 @@ export default function DashboardPage() {
   const [payouts, setPayouts] = useState<RecentPayout[]>([]);
 
   const [userId, setUserId] = useState<string | null>(null);
-
   const [editing, setEditing] = useState<IncomeSource | null>(null);
   const [slideOpen, setSlideOpen] = useState(false);
-
   const [role, setRole] = useState<string | null>(null);
 
-  // -----------------------------------------
-  // Load session → user → role → user data
-  // -----------------------------------------
+  // Load session → role → dashboard data
   useEffect(() => {
     async function init() {
-      const session = await supabase.auth.getSession();
-      const uid = session.data.session?.user?.id || null;
+      const { data: sessionData } = await supabase.auth.getSession();
+      const uid = sessionData?.session?.user?.id || null;
       if (!uid) return;
 
       setUserId(uid);
@@ -49,18 +46,14 @@ export default function DashboardPage() {
     }
 
     init();
-  }, []);
+  }, [supabase]);
 
-  // -----------------------------------------
-  // Reload whenever userId becomes available
-  // -----------------------------------------
+  // Reload when userId arrives
   useEffect(() => {
     if (userId) loadAll(userId);
   }, [userId]);
 
-  // -----------------------------------------
   // Load all dashboard data
-  // -----------------------------------------
   const loadAll = async (uid: string) => {
     const [{ data: src }, { data: arc }, { data: ins }, { data: pays }] =
       await Promise.all([
@@ -78,10 +71,7 @@ export default function DashboardPage() {
           .eq("archived", true)
           .order("created_at", { ascending: false }),
 
-        supabase
-          .from("v_user_insights")
-          .select("*")
-          .eq("user_id", uid),
+        supabase.from("v_user_insights").select("*").eq("user_id", uid),
 
         supabase
           .from("payouts")
@@ -96,7 +86,7 @@ export default function DashboardPage() {
             `
           )
           .eq("user_id", uid)
-          .order("payment_date", { ascending: false })
+          .order("payment_date", { ascending: false }),
       ]);
 
     const payoutsClean: RecentPayout[] =
@@ -105,7 +95,7 @@ export default function DashboardPage() {
         amount: Number(p.amount),
         status: p.status,
         payout_date: p.payment_date,
-        source_name: p.income_sources?.[0]?.source_name ?? ""
+        source_name: p.income_sources?.[0]?.source_name ?? "",
       })) || [];
 
     setSources(src || []);
@@ -128,12 +118,9 @@ export default function DashboardPage() {
     setSlideOpen(true);
   };
 
-  // ==================================================
-  // RENDER
-  // ==================================================
+  // Render
   if (!role) return <div>Loading...</div>;
 
-  // ADMIN TAB → go to admin dashboard
   if (activeTab === "admin") {
     return (
       <div>
@@ -145,7 +132,6 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-6">
-
       {activeTab === "sources" && (
         <div className="flex justify-end">
           <button
@@ -195,9 +181,7 @@ export default function DashboardPage() {
                 {new Date(p.payout_date).toLocaleDateString()}
               </div>
 
-              <div className="text-sm text-gray-500">
-                {p.source_name}
-              </div>
+              <div className="text-sm text-gray-500">{p.source_name}</div>
             </div>
           ))}
         </div>

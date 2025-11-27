@@ -17,7 +17,7 @@ import {
   type AppUser
 } from '@/lib/supabase/admin'
 
-import { supabase } from '@/lib/supabaseClient'
+import { createClient } from '@/lib/supabaseClient'
 
 import KPI from '@/components/admin-dashboard/KPI'
 import GlobalPayoutChart from '@/components/admin-dashboard/GlobalPayoutChart'
@@ -27,6 +27,7 @@ import UserManagementTable from '@/components/admin-dashboard/UserManagementTabl
 
 export default function AdminDashboardPage() {
   const router = useRouter()
+  const supabase = createClient()
 
   const [summary, setSummary] = useState<AdminSummary | null>(null)
   const [aggregates, setAggregates] = useState<PortfolioAggregate[]>([])
@@ -35,7 +36,6 @@ export default function AdminDashboardPage() {
   const [users, setUsers] = useState<AppUser[]>([])
   const [loading, setLoading] = useState(true)
 
-  // Validate session and admin role
   useEffect(() => {
     async function validate() {
       const { data: sessionData } = await supabase.auth.getSession()
@@ -79,9 +79,8 @@ export default function AdminDashboardPage() {
     }
 
     validate()
-  }, [router])
+  }, [router, supabase])
 
-  // Loading state
   if (loading || !summary) {
     return (
       <div className="p-10 text-gray-500">
@@ -90,11 +89,9 @@ export default function AdminDashboardPage() {
     )
   }
 
-  // Render admin dashboard
   return (
     <div className="p-10 max-w-7xl mx-auto">
 
-      {/* Header */}
       <div className="flex justify-between items-center mb-10">
         <Image
           src="/HOW2Logo.png"
@@ -104,8 +101,6 @@ export default function AdminDashboardPage() {
         />
 
         <div className="flex gap-4">
-
-          {/* Switch back to User Dashboard */}
           <button
             onClick={() => router.push('/dashboard')}
             className="px-4 py-2 bg-gray-200 text-[#0A1E2D] font-semibold rounded-md hover:bg-gray-300 transition"
@@ -113,7 +108,6 @@ export default function AdminDashboardPage() {
             User Dashboard
           </button>
 
-          {/* Logout */}
           <button
             onClick={async () => {
               await supabase.auth.signOut()
@@ -128,7 +122,6 @@ export default function AdminDashboardPage() {
 
       <h1 className="text-3xl font-semibold mb-8">Admin Dashboard</h1>
 
-      {/* KPI Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-12">
         <KPI
           title="Total Portfolio Value"
@@ -147,7 +140,6 @@ export default function AdminDashboardPage() {
         />
       </div>
 
-      {/* Global Payout Distribution */}
       <div className="mb-14">
         <h2 className="text-xl font-semibold mb-4">Payout Distribution by Source</h2>
         <div className="bg-white rounded-xl shadow-sm p-6 border">
@@ -155,7 +147,6 @@ export default function AdminDashboardPage() {
         </div>
       </div>
 
-      {/* Monthly Trends */}
       <div className="mb-14">
         <h2 className="text-xl font-semibold mb-4">Monthly Portfolio Trends</h2>
         <div className="bg-white rounded-xl shadow-sm p-6 border">
@@ -163,7 +154,6 @@ export default function AdminDashboardPage() {
         </div>
       </div>
 
-      {/* Recent Payouts */}
       <div className="mb-14">
         <h2 className="text-xl font-semibold mb-4">Recent Payout Activity</h2>
         <div className="bg-white rounded-xl shadow-sm p-6 border">
@@ -171,7 +161,6 @@ export default function AdminDashboardPage() {
         </div>
       </div>
 
-      {/* User Management */}
       <div className="mb-20">
         <h2 className="text-xl font-semibold mb-4">User Management</h2>
         <div className="bg-white rounded-xl shadow-sm p-6 border">

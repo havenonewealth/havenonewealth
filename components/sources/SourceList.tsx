@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { supabase } from "@/lib/supabaseClient";
+import { createClient } from "@/lib/supabaseClient";
 import type { IncomeSource } from "@/lib/types";
 
 interface Props {
@@ -12,6 +12,7 @@ interface Props {
 }
 
 export default function SourceList({ sources, userId, onEdit, refreshAll }: Props) {
+  const supabase = createClient();
   const [items, setItems] = useState<IncomeSource[]>([]);
 
   // Keep internal list synced with props

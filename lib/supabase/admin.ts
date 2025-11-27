@@ -1,4 +1,4 @@
-import { supabase } from '@/lib/supabaseClient'
+import { createClient } from '@/lib/supabaseClient'
 
 /* ================================
    TYPE DEFINITIONS (EXPORTED)
@@ -12,7 +12,6 @@ export interface AdminSummary {
   total_payout_amount: number
   avg_payout_amount: number
 
-  // Additional fields needed by dashboard pages
   total_expected_monthly: number
   total_expected_annual: number
   payouts_this_month: number
@@ -52,10 +51,12 @@ export interface AppUser {
 }
 
 /* ================================
-   QUERIES (ALL EXPORTED)
+   ADMIN QUERY FUNCTIONS
 ================================ */
 
 export async function getAdminGlobalSummary(): Promise<AdminSummary | null> {
+  const supabase = createClient()
+
   const { data, error } = await supabase
     .from('v_admin_global_summary')
     .select('*')
@@ -66,28 +67,42 @@ export async function getAdminGlobalSummary(): Promise<AdminSummary | null> {
 }
 
 export async function getAdminPortfolioAggregates(): Promise<PortfolioAggregate[]> {
+  const supabase = createClient()
+
   const { data, error } = await supabase
     .from('v_admin_portfolio_aggregates')
     .select('*')
+
   return error ? [] : (data as PortfolioAggregate[])
 }
 
 export async function getAdminMonthlyTrends(): Promise<MonthlyTrend[]> {
+  const supabase = createClient()
+
   const { data, error } = await supabase
     .from('v_admin_monthly_trends')
     .select('*')
+
   return error ? [] : (data as MonthlyTrend[])
 }
 
 export async function getAdminRecentPayouts(): Promise<RecentPayout[]> {
+  const supabase = createClient()
+
   const { data, error } = await supabase
     .from('v_admin_recent_payouts')
     .select('*')
     .order('payout_date', { ascending: false })
+
   return error ? [] : (data as RecentPayout[])
 }
 
 export async function getAllUsers(): Promise<AppUser[]> {
-  const { data, error } = await supabase.from('users').select('*')
+  const supabase = createClient()
+
+  const { data, error } = await supabase
+    .from('users')
+    .select('*')
+
   return error ? [] : (data as AppUser[])
 }
