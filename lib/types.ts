@@ -2,7 +2,10 @@
    GLOBAL TYPE DEFINITIONS — HAVEN ONE WEALTH
    ============================================================ */
 
-/* Admin Summary */
+/* ------------------------------------------------------------
+   ADMIN — DASHBOARD TYPES
+   ------------------------------------------------------------ */
+
 export interface AdminSummary {
    total_sources: number
    total_payouts: number
@@ -10,13 +13,11 @@ export interface AdminSummary {
    avg_payout_amount: number
 }
 
-/* Portfolio Aggregates */
 export interface PortfolioAggregate {
    source_name: string
    total_expected: number
 }
 
-/* Monthly Trends */
 export interface MonthlyTrend {
    month: string
    total_payments: number
@@ -24,46 +25,71 @@ export interface MonthlyTrend {
    user_id: string
 }
 
-/* Recent Payouts */
+
+/* ------------------------------------------------------------
+   PAYOUT TYPES (USED IN USER DASHBOARD)
+   ------------------------------------------------------------ */
+
+/* WITH FIXES:
+   - Added source_id (required for editing payouts)
+   - Added notes
+   - payout_date normalized for client use
+*/
 export interface RecentPayout {
-   id?: string
-   source_id?: string
+   id: string
+   source_id: string
    user_id?: string
+
    source_name: string
    amount: number
    status: string
-   payout_date: string  // normalized from payment_date
+
+   payout_date: string   // normalized from payment_date
+   notes?: string | null
 }
 
-/* Income Sources */
+
+/* ------------------------------------------------------------
+   INCOME SOURCE TYPES
+   ------------------------------------------------------------ */
+
 export interface IncomeSource {
    id?: string
    user_id: string
+
    source_name: string
    source_type: string | null
+
    frequency: string | null
    expected_amount: number | null
    expected_monthly: number | null
 
-   // IMPORTANT FIX:
-   notes: string | null | undefined
+   notes?: string | null
 
    archived: boolean
    archived_at: string | null
+
    deleted: boolean
    deleted_at: string | null
+
    created_at: string
    ready_for_delete: boolean
 }
 
-/* Payouts */
+
+/* ------------------------------------------------------------
+   FULL PAYOUT OBJECT (RAW FROM SUPABASE)
+   ------------------------------------------------------------ */
+
 export interface Payout {
    id: string
    user_id: string
    source_id: string
+
    amount: number
    payment_date: string
    status: string
+
    notes?: string | null
    created_at: string
 
@@ -72,7 +98,11 @@ export interface Payout {
    } | null
 }
 
-/* Users */
+
+/* ------------------------------------------------------------
+   USER (FOR ADMIN PANEL)
+   ------------------------------------------------------------ */
+
 export interface AppUser {
    id: string
    email: string

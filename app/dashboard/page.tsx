@@ -12,9 +12,9 @@ import KPI from "@/components/analytics/KPI";
 
 import type { IncomeSource, RecentPayout } from "@/lib/types";
 
-import PayoutDetailsSlideOver from "@/components/payouts/PayoutDetailsSlideOver";
+import PayoutEditSlideOver from "@/components/payouts/PayoutEditSlideOver";
 
-// Sparkline setup
+// Sparkline
 import { Line } from "react-chartjs-2";
 import {
   Chart as ChartJS,
@@ -41,10 +41,11 @@ export default function DashboardPage() {
   const [slideOpen, setSlideOpen] = useState(false);
   const [role, setRole] = useState<string | null>(null);
 
-  const [detailOpen, setDetailOpen] = useState(false);
+  // EDIT PAYOUT MODAL STATE
+  const [editOpen, setEditOpen] = useState(false);
   const [selectedPayout, setSelectedPayout] = useState<RecentPayout | null>(null);
 
-  // Load session + user role
+  // Load session & data
   useEffect(() => {
     async function init() {
       const { data: sessionData } = await supabase.auth.getSession();
@@ -63,7 +64,6 @@ export default function DashboardPage() {
 
       await loadAll(uid);
     }
-
     init();
   }, []);
 
@@ -71,7 +71,6 @@ export default function DashboardPage() {
     if (userId) loadAll(userId);
   }, [userId]);
 
-  // FULL data loader
   const loadAll = async (uid: string) => {
     const [
       { data: src },
@@ -113,6 +112,7 @@ export default function DashboardPage() {
           status,
           payment_date,
           source_id,
+          notes,
           income_sources ( source_name )
         `)
         .eq("user_id", uid)
@@ -126,6 +126,9 @@ export default function DashboardPage() {
         status: p.status,
         payout_date: p.payment_date,
         source_name: p.income_sources?.source_name ?? "",
+        source_id: p.source_id,
+        user_id: uid,
+        notes: p.notes ?? null,
       })) || [];
 
     setSources(src || []);
@@ -147,10 +150,10 @@ export default function DashboardPage() {
     setSlideOpen(true);
   };
 
-  // PAYOUT filters
-  const [statusFilter, setStatusFilter] = useState<string>("all");
-  const [sourceFilter, setSourceFilter] = useState<string>("all");
-  const [sortBy, setSortBy] = useState<string>("date-desc");
+  // Filters
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [sourceFilter, setSourceFilter] = useState("all");
+  const [sortBy, setSortBy] = useState("date-desc");
   const [search, setSearch] = useState("");
 
   const uniqueSources = useMemo(() => {
@@ -174,23 +177,31 @@ export default function DashboardPage() {
     }
 
     if (search.trim()) {
-      const term = search.toLowerCase();
+      const t = search.toLowerCase();
       temp = temp.filter(
         (p) =>
-          p.source_name.toLowerCase().includes(term) ||
-          String(p.amount).includes(term)
+          p.source_name.toLowerCase().includes(t) ||
+          p.amount.toString().includes(t)
       );
     }
 
-    if (sortBy === "date-desc") {
-      temp.sort((a, b) => new Date(b.payout_date).getTime() - new Date(a.payout_date).getTime());
-    } else if (sortBy === "date-asc") {
-      temp.sort((a, b) => new Date(a.payout_date).getTime() - new Date(b.payout_date).getTime());
-    } else if (sortBy === "amount-desc") {
-      temp.sort((a, b) => b.amount - a.amount);
-    } else if (sortBy === "amount-asc") {
-      temp.sort((a, b) => a.amount - b.amount);
-    }
+    if (sortBy === "date-desc")
+      temp.sort(
+        (a, b) =>
+          new Date(b.payout_date).getTime() -
+          new Date(a.payout_date).getTime()
+      );
+
+    if (sortBy === "date-asc")
+      temp.sort(
+        (a, b) =>
+          new Date(a.payout_date).getTime() -
+          new Date(b.payout_date).getTime()
+      );
+
+    if (sortBy === "amount-desc") temp.sort((a, b) => b.amount - a.amount);
+
+    if (sortBy === "amount-asc") temp.sort((a, b) => a.amount - b.amount);
 
     return temp;
   }, [payouts, statusFilter, sourceFilter, sortBy, search]);
@@ -214,15 +225,12 @@ export default function DashboardPage() {
 
   const monthlySpark = useMemo(() => {
     const map = new Map<string, number>();
-
     payouts.forEach((p) => {
       const d = new Date(p.payout_date);
       const key = `${d.getFullYear()}-${d.getMonth() + 1}`;
       map.set(key, (map.get(key) || 0) + p.amount);
     });
-
     const sorted = [...map.entries()].sort();
-
     return {
       labels: sorted.map((x) => x[0]),
       datasets: [
@@ -238,12 +246,8 @@ export default function DashboardPage() {
 
   if (!role) return <div>Loading...</div>;
 
-  // ====================================================================
-  // RENDER
-  // ====================================================================
   return (
     <div className="space-y-6">
-
       {/* SOURCES */}
       {activeTab === "sources" && (
         <>
@@ -278,12 +282,13 @@ export default function DashboardPage() {
       {/* PAYOUTS */}
       {activeTab === "payouts" && (
         <div className="space-y-8">
-
-          {/* KPI row */}
+          {/* KPIs */}
           <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
             <div className="shadow-sm border p-4 rounded bg-white">
               <div className="text-sm text-gray-600">Total payouts</div>
-              <div className="text-xl font-semibold">{payouts.length}</div>
+              <div className="text-xl font-semibold">
+                {payouts.length.toLocaleString()}
+              </div>
             </div>
 
             <div className="shadow-sm border p-4 rounded bg-white">
@@ -318,19 +323,13 @@ export default function DashboardPage() {
               type="text"
               placeholder="Search payouts..."
               value={search}
-              onChange={(e) => {
-                setPage(1);
-                setSearch(e.target.value);
-              }}
+              onChange={(e) => setSearch(e.target.value)}
               className="border rounded px-3 py-2 w-48"
             />
 
             <select
               value={statusFilter}
-              onChange={(e) => {
-                setPage(1);
-                setStatusFilter(e.target.value);
-              }}
+              onChange={(e) => setStatusFilter(e.target.value)}
               className="border rounded px-3 py-2"
             >
               <option value="all">Status: All</option>
@@ -342,10 +341,7 @@ export default function DashboardPage() {
 
             <select
               value={sourceFilter}
-              onChange={(e) => {
-                setPage(1);
-                setSourceFilter(e.target.value);
-              }}
+              onChange={(e) => setSourceFilter(e.target.value)}
               className="border rounded px-3 py-2"
             >
               <option value="all">Source: All</option>
@@ -358,10 +354,7 @@ export default function DashboardPage() {
 
             <select
               value={sortBy}
-              onChange={(e) => {
-                setPage(1);
-                setSortBy(e.target.value);
-              }}
+              onChange={(e) => setSortBy(e.target.value)}
               className="border rounded px-3 py-2"
             >
               <option value="date-desc">Sort: Date (Newest)</option>
@@ -380,6 +373,7 @@ export default function DashboardPage() {
                   <th className="text-left p-3 font-medium text-gray-600">Date</th>
                   <th className="text-left p-3 font-medium text-gray-600">Source</th>
                   <th className="text-left p-3 font-medium text-gray-600">Status</th>
+                  <th className="text-left p-3 font-medium text-gray-600">Actions</th>
                 </tr>
               </thead>
 
@@ -387,14 +381,17 @@ export default function DashboardPage() {
                 {paginated.map((p, idx) => (
                   <tr
                     key={p.id}
-                    className={`border-b hover:bg-gray-50 cursor-pointer ${idx % 2 === 0 ? "bg-white" : "bg-gray-50/30"
+                    className={`border-b ${idx % 2 === 0 ? "bg-white" : "bg-gray-50/30"
                       }`}
-                    onClick={() => {
-                      setSelectedPayout(p);
-                      setDetailOpen(true);
-                    }}
                   >
-                    <td className="p-3 font-medium">
+                    {/* Clicking amount now opens EDIT instead of DETAILS */}
+                    <td
+                      className="p-3 font-medium cursor-pointer hover:text-blue-600"
+                      onClick={() => {
+                        setSelectedPayout(p);
+                        setEditOpen(true);
+                      }}
+                    >
                       ${p.amount.toLocaleString("en-US")}
                     </td>
 
@@ -417,6 +414,18 @@ export default function DashboardPage() {
                       >
                         {p.status}
                       </span>
+                    </td>
+
+                    <td className="p-3">
+                      <button
+                        onClick={() => {
+                          setSelectedPayout(p);
+                          setEditOpen(true);
+                        }}
+                        className="text-blue-600 hover:underline"
+                      >
+                        Edit
+                      </button>
                     </td>
                   </tr>
                 ))}
@@ -460,6 +469,7 @@ export default function DashboardPage() {
       {/* ANALYTICS */}
       {activeTab === "analytics" && <KPI insights={insights} />}
 
+      {/* SOURCE SLIDE-OVER */}
       <SourceSlideOver
         open={slideOpen}
         setOpen={setSlideOpen}
@@ -468,10 +478,15 @@ export default function DashboardPage() {
         userId={userId}
       />
 
-      <PayoutDetailsSlideOver
-        open={detailOpen}
-        setOpen={setDetailOpen}
+      {/* EDIT PAYOUT */}
+      <PayoutEditSlideOver
+        open={editOpen}
+        setOpen={setEditOpen}
         payout={selectedPayout}
+        sources={sources
+          .filter((s) => !!s.id)
+          .map((s) => ({ id: s.id!, source_name: s.source_name }))}
+        refreshAll={refreshAll}
       />
     </div>
   );
