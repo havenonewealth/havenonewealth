@@ -11,6 +11,7 @@ interface Props {
 export default function ArchivedList({ archived, refreshAll }: Props) {
     const supabase = createClient();
 
+    // Restore (moves back to Active)
     const handleRestore = async (id: string) => {
         await supabase
             .from("income_sources")
@@ -23,7 +24,13 @@ export default function ArchivedList({ archived, refreshAll }: Props) {
         refreshAll();
     };
 
+    // Move to Trash (soft delete)
     const handleMoveToTrash = async (id: string) => {
+        const confirmed = window.confirm(
+            "This will move the source to Trash. Continue?"
+        );
+        if (!confirmed) return;
+
         await supabase
             .from("income_sources")
             .update({
@@ -62,7 +69,7 @@ export default function ArchivedList({ archived, refreshAll }: Props) {
                         <div className="text-sm text-gray-500">
                             Expected: $
                             {row.expected_amount != null
-                                ? Number(row.expected_amount).toLocaleString("en-US")
+                                ? Number(row.expected_amount).toLocaleString()
                                 : "0"}
                         </div>
 
@@ -77,7 +84,7 @@ export default function ArchivedList({ archived, refreshAll }: Props) {
                     <div className="flex gap-4">
                         <button
                             onClick={() => handleRestore(row.id!)}
-                            className="text-green-600 hover:underline"
+                            className="text-blue-600 hover:underline"
                         >
                             Restore
                         </button>
