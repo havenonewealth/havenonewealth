@@ -14,7 +14,7 @@ import type { IncomeSource, RecentPayout } from "@/lib/types";
 
 import PayoutEditSlideOver from "@/components/payouts/PayoutEditSlideOver";
 
-// Sparkline
+// Charts
 import { Line } from "react-chartjs-2";
 import {
   Chart as ChartJS,
@@ -30,22 +30,32 @@ export default function DashboardPage() {
   const supabase = createClient();
   const { activeTab } = useTabs();
 
+  // Sources
   const [sources, setSources] = useState<IncomeSource[]>([]);
   const [archived, setArchived] = useState<IncomeSource[]>([]);
   const [trashed, setTrashed] = useState<IncomeSource[]>([]);
+
+  // Analytics
   const [insights, setInsights] = useState<any[]>([]);
+
+  // Payouts
   const [payouts, setPayouts] = useState<RecentPayout[]>([]);
 
+  // Auth + UI state
   const [userId, setUserId] = useState<string | null>(null);
-  const [editing, setEditing] = useState<IncomeSource | null>(null);
-  const [slideOpen, setSlideOpen] = useState(false);
   const [role, setRole] = useState<string | null>(null);
 
-  // EDIT PAYOUT MODAL STATE
-  const [editOpen, setEditOpen] = useState(false);
-  const [selectedPayout, setSelectedPayout] = useState<RecentPayout | null>(null);
+  // Source editing
+  const [editing, setEditing] = useState<IncomeSource | null>(null);
+  const [slideOpen, setSlideOpen] = useState(false);
 
-  // Load session & data
+  // Payout editing
+  const [selectedPayout, setSelectedPayout] = useState<RecentPayout | null>(null);
+  const [editOpen, setEditOpen] = useState(false);
+
+  // -------------------------------------------------------------
+  // INITIAL LOAD (session)
+  // -------------------------------------------------------------
   useEffect(() => {
     async function init() {
       const { data: sessionData } = await supabase.auth.getSession();
@@ -64,13 +74,18 @@ export default function DashboardPage() {
 
       await loadAll(uid);
     }
+
     init();
   }, []);
 
+  // Reload if userId is injected later
   useEffect(() => {
     if (userId) loadAll(userId);
   }, [userId]);
 
+  // -------------------------------------------------------------
+  // LOAD ALL SOURCES + PAYOUTS
+  // -------------------------------------------------------------
   const loadAll = async (uid: string) => {
     const [
       { data: src },
@@ -104,10 +119,20 @@ export default function DashboardPage() {
 
       supabase.from("v_user_insights").select("*").eq("user_id", uid),
 
+      // FIXED: No encoding, no broken query
       supabase
         .from("payouts")
         .select(
-          "id, amount, status, payment_date, source_id, notes, income_sources(source_name)"
+          `
+          id,
+          user_id,
+          source_id,
+          amount,
+          status,
+          payment_date,
+          notes,
+          income_sources ( source_name )
+        `
         )
         .eq("user_id", uid)
         .order("payment_date", { ascending: false }),
@@ -116,16 +141,13 @@ export default function DashboardPage() {
     const payoutsClean: RecentPayout[] =
       pays?.map((p: any) => ({
         id: p.id,
+        user_id: p.user_id,
+        source_id: p.source_id,
         amount: Number(p.amount),
         status: p.status,
-
-        // Always use payment_date because DB uses payment_date
         payout_date: p.payment_date,
-
         source_name: p.income_sources?.source_name ?? "",
-        source_id: p.source_id,
-        user_id: uid,
-        notes: p.notes ?? null
+        notes: p.notes ?? null,
       })) || [];
 
     setSources(src || []);
@@ -142,12 +164,14 @@ export default function DashboardPage() {
     setSlideOpen(true);
   };
 
-  const handleEdit = (row: IncomeSource) => {
+  const handleEditSource = (row: IncomeSource) => {
     setEditing(row);
     setSlideOpen(true);
   };
 
-  // Filters
+  // -------------------------------------------------------------
+  // PAYOUT FILTERING + SORTING
+  // -------------------------------------------------------------
   const [statusFilter, setStatusFilter] = useState("all");
   const [sourceFilter, setSourceFilter] = useState("all");
   const [sortBy, setSortBy] = useState("date-desc");
@@ -173,32 +197,33 @@ export default function DashboardPage() {
       temp = temp.filter((p) => p.source_name === sourceFilter);
     }
 
-    if (search.trim()) {
-      const t = search.toLowerCase();
+    if (search.trim().length > 0) {
+      const term = search.toLowerCase();
       temp = temp.filter(
         (p) =>
-          p.source_name.toLowerCase().includes(t) ||
-          p.amount.toString().includes(t)
+          p.source_name.toLowerCase().includes(term) ||
+          p.amount.toString().includes(term)
       );
     }
 
-    if (sortBy === "date-desc")
+    // Sort
+    if (sortBy === "date-desc") {
       temp.sort(
         (a, b) =>
           new Date(b.payout_date).getTime() -
           new Date(a.payout_date).getTime()
       );
-
-    if (sortBy === "date-asc")
+    } else if (sortBy === "date-asc") {
       temp.sort(
         (a, b) =>
           new Date(a.payout_date).getTime() -
           new Date(b.payout_date).getTime()
       );
-
-    if (sortBy === "amount-desc") temp.sort((a, b) => b.amount - a.amount);
-
-    if (sortBy === "amount-asc") temp.sort((a, b) => a.amount - b.amount);
+    } else if (sortBy === "amount-desc") {
+      temp.sort((a, b) => b.amount - a.amount);
+    } else if (sortBy === "amount-asc") {
+      temp.sort((a, b) => a.amount - b.amount);
+    }
 
     return temp;
   }, [payouts, statusFilter, sourceFilter, sortBy, search]);
@@ -215,7 +240,10 @@ export default function DashboardPage() {
     return payouts
       .filter((p) => {
         const d = new Date(p.payout_date);
-        return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+        return (
+          d.getMonth() === now.getMonth() &&
+          d.getFullYear() === now.getFullYear()
+        );
       })
       .reduce((sum, p) => sum + p.amount, 0);
   }, [payouts]);
@@ -227,7 +255,9 @@ export default function DashboardPage() {
       const key = `${d.getFullYear()}-${d.getMonth() + 1}`;
       map.set(key, (map.get(key) || 0) + p.amount);
     });
+
     const sorted = [...map.entries()].sort();
+
     return {
       labels: sorted.map((x) => x[0]),
       datasets: [
@@ -243,9 +273,12 @@ export default function DashboardPage() {
 
   if (!role) return <div>Loading...</div>;
 
+  // -------------------------------------------------------------
+  // UI RENDER
+  // -------------------------------------------------------------
   return (
     <div className="space-y-6">
-      {/* SOURCES */}
+      {/* SOURCES TAB */}
       {activeTab === "sources" && (
         <>
           <div className="flex justify-end">
@@ -260,23 +293,23 @@ export default function DashboardPage() {
           <SourceList
             sources={sources}
             userId={userId || ""}
-            onEdit={handleEdit}
+            onEdit={handleEditSource}
             refreshAll={refreshAll}
           />
         </>
       )}
 
-      {/* ARCHIVED */}
+      {/* ARCHIVED TAB */}
       {activeTab === "archived" && (
         <ArchivedList archived={archived} refreshAll={refreshAll} />
       )}
 
-      {/* TRASH */}
+      {/* TRASH TAB */}
       {activeTab === "trash" && (
         <TrashList trashed={trashed} refreshAll={refreshAll} />
       )}
 
-      {/* PAYOUTS */}
+      {/* PAYOUTS TAB */}
       {activeTab === "payouts" && (
         <div className="space-y-8">
           {/* KPIs */}
@@ -298,7 +331,10 @@ export default function DashboardPage() {
             <div className="shadow-sm border p-4 rounded bg-white">
               <div className="text-sm text-gray-600">Total earned</div>
               <div className="text-xl font-semibold">
-                ${payouts.reduce((a, b) => a + b.amount, 0).toLocaleString()}
+                $
+                {payouts
+                  .reduce((a, b) => a + b.amount, 0)
+                  .toLocaleString()}
               </div>
             </div>
 
@@ -314,7 +350,7 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          {/* Filters */}
+          {/* FILTERS */}
           <div className="flex flex-wrap gap-3 items-center">
             <input
               type="text"
@@ -361,16 +397,26 @@ export default function DashboardPage() {
             </select>
           </div>
 
-          {/* Table */}
+          {/* PAYOUTS TABLE */}
           <div className="bg-white border rounded-xl shadow-sm overflow-hidden">
             <table className="min-w-full text-sm">
               <thead className="bg-gray-50 border-b">
                 <tr>
-                  <th className="text-left p-3 font-medium text-gray-600">Amount</th>
-                  <th className="text-left p-3 font-medium text-gray-600">Date</th>
-                  <th className="text-left p-3 font-medium text-gray-600">Source</th>
-                  <th className="text-left p-3 font-medium text-gray-600">Status</th>
-                  <th className="text-left p-3 font-medium text-gray-600">Actions</th>
+                  <th className="text-left p-3 font-medium text-gray-600">
+                    Amount
+                  </th>
+                  <th className="text-left p-3 font-medium text-gray-600">
+                    Date
+                  </th>
+                  <th className="text-left p-3 font-medium text-gray-600">
+                    Source
+                  </th>
+                  <th className="text-left p-3 font-medium text-gray-600">
+                    Status
+                  </th>
+                  <th className="text-left p-3 font-medium text-gray-600">
+                    Actions
+                  </th>
                 </tr>
               </thead>
 
@@ -381,14 +427,7 @@ export default function DashboardPage() {
                     className={`border-b ${idx % 2 === 0 ? "bg-white" : "bg-gray-50/30"
                       }`}
                   >
-                    {/* Clicking amount now opens EDIT instead of DETAILS */}
-                    <td
-                      className="p-3 font-medium cursor-pointer hover:text-blue-600"
-                      onClick={() => {
-                        setSelectedPayout(p);
-                        setEditOpen(true);
-                      }}
-                    >
+                    <td className="p-3 font-medium">
                       ${p.amount.toLocaleString("en-US")}
                     </td>
 
@@ -401,12 +440,12 @@ export default function DashboardPage() {
                     <td className="p-3">
                       <span
                         className={`px-2 py-1 text-xs rounded font-semibold ${p.status === "Paid"
-                          ? "bg-green-100 text-green-700"
-                          : p.status === "Pending"
-                            ? "bg-yellow-100 text-yellow-700"
-                            : p.status === "Scheduled"
-                              ? "bg-blue-100 text-blue-700"
-                              : "bg-red-100 text-red-700"
+                            ? "bg-green-100 text-green-700"
+                            : p.status === "Pending"
+                              ? "bg-yellow-100 text-yellow-700"
+                              : p.status === "Scheduled"
+                                ? "bg-blue-100 text-blue-700"
+                                : "bg-red-100 text-red-700"
                           }`}
                       >
                         {p.status}
@@ -463,10 +502,10 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* ANALYTICS */}
+      {/* ANALYTICS TAB */}
       {activeTab === "analytics" && <KPI insights={insights} />}
 
-      {/* SOURCE SLIDE-OVER */}
+      {/* SOURCE SLIDEOVER */}
       <SourceSlideOver
         open={slideOpen}
         setOpen={setSlideOpen}
@@ -475,14 +514,17 @@ export default function DashboardPage() {
         userId={userId}
       />
 
-      {/* EDIT PAYOUT */}
+      {/* PAYOUT EDIT SLIDEOVER */}
       <PayoutEditSlideOver
         open={editOpen}
         setOpen={setEditOpen}
         payout={selectedPayout}
         sources={sources
-          .filter((s) => !!s.id)
-          .map((s) => ({ id: s.id!, source_name: s.source_name }))}
+          .filter((s) => s.id)
+          .map((s) => ({
+            id: s.id as string,
+            source_name: s.source_name,
+          }))}
         refreshAll={refreshAll}
       />
     </div>
