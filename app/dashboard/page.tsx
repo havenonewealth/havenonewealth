@@ -114,7 +114,7 @@ export default function DashboardPage() {
         amount: Number(p.amount),
         status: p.status,
         payout_date: p.payment_date,
-        source_name: p.income_sources?.[0]?.source_name ?? "",
+        source_name: p.income_sources?.source_name ?? "",
       })) || [];
 
     setSources(src || []);
@@ -323,10 +323,10 @@ export default function DashboardPage() {
                     <td className="px-4 py-2">
                       <span
                         className={`px-2 py-1 text-xs rounded ${p.status === "Paid"
-                            ? "bg-green-100 text-green-700"
-                            : p.status === "Pending"
-                              ? "bg-yellow-100 text-yellow-700"
-                              : "bg-red-100 text-red-700"
+                          ? "bg-green-100 text-green-700"
+                          : p.status === "Pending"
+                            ? "bg-yellow-100 text-yellow-700"
+                            : "bg-red-100 text-red-700"
                           }`}
                       >
                         {p.status}
