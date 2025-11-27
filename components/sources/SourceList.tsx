@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { createClient } from "@/lib/supabaseClient";
 import type { IncomeSource } from "@/lib/types";
 
 interface Props {
@@ -11,24 +10,23 @@ interface Props {
   refreshAll: () => void;
 }
 
-export default function SourceList({ sources, userId, onEdit, refreshAll }: Props) {
-  const supabase = createClient();
+export default function SourceList({
+  sources,
+  userId,
+  onEdit,
+  refreshAll,
+}: Props) {
   const [items, setItems] = useState<IncomeSource[]>([]);
 
-  // Keep internal list synced with props
   useEffect(() => {
     setItems(sources);
   }, [sources]);
 
-  // Archive a record
   const handleArchive = async (id: string) => {
-    await supabase
-      .from("income_sources")
-      .update({
-        archived: true,
-        archived_at: new Date().toISOString()
-      })
-      .eq("id", id);
+    await fetch("/api/sources/archive", {
+      method: "POST",
+      body: JSON.stringify({ id }),
+    });
 
     refreshAll();
   };
@@ -38,7 +36,7 @@ export default function SourceList({ sources, userId, onEdit, refreshAll }: Prop
       <h2 className="text-lg font-semibold">Active Sources</h2>
 
       {items.length === 0 && (
-        <p className="text-gray-500 text-sm">No active sources found.</p>
+        <p className="text-gray-500 text-sm">No active sources.</p>
       )}
 
       {items.map((row) => (
@@ -50,12 +48,9 @@ export default function SourceList({ sources, userId, onEdit, refreshAll }: Prop
             <div className="font-medium">{row.source_name}</div>
             <div className="text-sm text-gray-500">{row.source_type}</div>
             <div className="text-sm text-gray-500">
-              Frequency: {row.frequency}
-            </div>
-            <div className="text-sm text-gray-500">
               Expected: $
-              {row.expected_amount != null
-                ? Number(row.expected_amount).toLocaleString("en-US")
+              {row.expected_amount
+                ? row.expected_amount.toLocaleString()
                 : "0"}
             </div>
           </div>

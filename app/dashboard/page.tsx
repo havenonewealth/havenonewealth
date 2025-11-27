@@ -6,6 +6,7 @@ import { useTabs } from "./TabContext";
 
 import SourceList from "@/components/sources/SourceList";
 import ArchivedList from "@/components/sources/ArchivedList";
+import TrashList from "@/components/sources/TrashList";
 import SourceSlideOver from "@/components/sources/SourceSlideOver";
 import KPI from "@/components/analytics/KPI";
 
@@ -17,6 +18,7 @@ export default function DashboardPage() {
 
   const [sources, setSources] = useState<IncomeSource[]>([]);
   const [archived, setArchived] = useState<IncomeSource[]>([]);
+  const [trashed, setTrashed] = useState<IncomeSource[]>([]);
   const [insights, setInsights] = useState<any[]>([]);
   const [payouts, setPayouts] = useState<RecentPayout[]>([]);
 
@@ -48,7 +50,7 @@ export default function DashboardPage() {
     }
 
     init();
-  }, [supabase]);
+  }, []);
 
   useEffect(() => {
     if (userId) loadAll(userId);
@@ -58,39 +60,53 @@ export default function DashboardPage() {
   // Load everything
   // --------------------------
   const loadAll = async (uid: string) => {
-    const [{ data: src }, { data: arc }, { data: ins }, { data: pays }] =
-      await Promise.all([
-        supabase
-          .from("income_sources")
-          .select("*")
-          .eq("user_id", uid)
-          .eq("archived", false)
-          .order("created_at", { ascending: false }),
+    const [
+      { data: src },
+      { data: arc },
+      { data: del },
+      { data: ins },
+      { data: pays },
+    ] = await Promise.all([
+      supabase
+        .from("income_sources")
+        .select("*")
+        .eq("user_id", uid)
+        .eq("archived", false)
+        .eq("deleted", false)
+        .order("created_at", { ascending: false }),
 
-        supabase
-          .from("income_sources")
-          .select("*")
-          .eq("user_id", uid)
-          .eq("archived", true)
-          .order("created_at", { ascending: false }),
+      supabase
+        .from("income_sources")
+        .select("*")
+        .eq("user_id", uid)
+        .eq("archived", true)
+        .eq("deleted", false)
+        .order("archived_at", { ascending: false }),
 
-        supabase.from("v_user_insights").select("*").eq("user_id", uid),
+      supabase
+        .from("income_sources")
+        .select("*")
+        .eq("user_id", uid)
+        .eq("deleted", true)
+        .order("deleted_at", { ascending: false }),
 
-        supabase
-          .from("payouts")
-          .select(
-            `
-              id,
-              amount,
-              status,
-              payment_date,
-              source_id,
-              income_sources ( source_name )
-            `
-          )
-          .eq("user_id", uid)
-          .order("payment_date", { ascending: false }),
-      ]);
+      supabase.from("v_user_insights").select("*").eq("user_id", uid),
+
+      supabase
+        .from("payouts")
+        .select(
+          `
+            id,
+            amount,
+            status,
+            payment_date,
+            source_id,
+            income_sources ( source_name )
+          `
+        )
+        .eq("user_id", uid)
+        .order("payment_date", { ascending: false }),
+    ]);
 
     const payoutsClean: RecentPayout[] =
       pays?.map((p: any) => ({
@@ -103,6 +119,7 @@ export default function DashboardPage() {
 
     setSources(src || []);
     setArchived(arc || []);
+    setTrashed(del || []);
     setInsights(ins || []);
     setPayouts(payoutsClean);
   };
@@ -120,7 +137,7 @@ export default function DashboardPage() {
   };
 
   // ============================================================
-  // Payouts — Filters + Sorting
+  // Payouts Filters + Sorting
   // ============================================================
 
   const [statusFilter, setStatusFilter] = useState<string>("all");
@@ -144,9 +161,17 @@ export default function DashboardPage() {
     }
 
     if (sortBy === "date-desc") {
-      temp.sort((a, b) => new Date(b.payout_date).getTime() - new Date(a.payout_date).getTime());
+      temp.sort(
+        (a, b) =>
+          new Date(b.payout_date).getTime() -
+          new Date(a.payout_date).getTime()
+      );
     } else if (sortBy === "date-asc") {
-      temp.sort((a, b) => new Date(a.payout_date).getTime() - new Date(b.payout_date).getTime());
+      temp.sort(
+        (a, b) =>
+          new Date(a.payout_date).getTime() -
+          new Date(b.payout_date).getTime()
+      );
     } else if (sortBy === "amount-desc") {
       temp.sort((a, b) => b.amount - a.amount);
     } else if (sortBy === "amount-asc") {
@@ -161,7 +186,10 @@ export default function DashboardPage() {
     return payouts
       .filter((p) => {
         const d = new Date(p.payout_date);
-        return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+        return (
+          d.getMonth() === now.getMonth() &&
+          d.getFullYear() === now.getFullYear()
+        );
       })
       .reduce((sum, p) => sum + p.amount, 0);
   }, [payouts]);
@@ -171,15 +199,6 @@ export default function DashboardPage() {
   // ============================================================
 
   if (!role) return <div>Loading...</div>;
-
-  if (activeTab === "admin") {
-    return (
-      <div>
-        <h1 className="text-xl font-semibold mb-4">Admin Dashboard</h1>
-        <p>Loading admin view...</p>
-      </div>
-    );
-  }
 
   return (
     <div className="space-y-6">
@@ -214,6 +233,15 @@ export default function DashboardPage() {
         />
       )}
 
+      {/* TRASH TAB */}
+      {activeTab === "trash" && (
+        <TrashList
+          trashed={trashed}
+          userId={userId || ""}
+          refreshAll={refreshAll}
+        />
+      )}
+
       {/* PAYOUTS TAB */}
       {activeTab === "payouts" && (
         <div className="space-y-6">
@@ -238,7 +266,10 @@ export default function DashboardPage() {
             <div className="p-4 border rounded bg-white shadow-sm">
               <div className="text-sm text-gray-600">Total earned</div>
               <div className="text-xl font-semibold">
-                ${payouts.reduce((a, b) => a + b.amount, 0).toLocaleString()}
+                $
+                {payouts
+                  .reduce((a, b) => a + b.amount, 0)
+                  .toLocaleString()}
               </div>
             </div>
           </div>

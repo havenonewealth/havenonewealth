@@ -5,10 +5,11 @@ import { createContext, useContext, useState, ReactNode } from "react"
 type Tab =
   | "sources"
   | "archived"
+  | "trash"        // ADDED
   | "payouts"
   | "analytics"
-  | "admin"        // NEW
-  | "user";        // NEW (admin dashboard only)
+  | "admin"
+  | "user"
 
 interface TabContextType {
   activeTab: Tab

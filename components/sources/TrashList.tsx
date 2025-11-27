@@ -4,20 +4,20 @@ import { useEffect, useState } from "react";
 import type { IncomeSource } from "@/lib/types";
 
 interface Props {
-    archived: IncomeSource[];
+    trashed: IncomeSource[];
     userId: string;
     refreshAll: () => void;
 }
 
-export default function ArchivedList({ archived, userId, refreshAll }: Props) {
+export default function TrashList({ trashed, userId, refreshAll }: Props) {
     const [items, setItems] = useState<IncomeSource[]>([]);
 
     useEffect(() => {
-        setItems(archived);
-    }, [archived]);
+        setItems(trashed);
+    }, [trashed]);
 
-    const handleUnarchive = async (id: string) => {
-        await fetch("/api/sources/unarchive", {
+    const handleRestore = async (id: string) => {
+        await fetch("/api/sources/restore", {
             method: "POST",
             body: JSON.stringify({ id }),
         });
@@ -25,11 +25,13 @@ export default function ArchivedList({ archived, userId, refreshAll }: Props) {
         refreshAll();
     };
 
-    const handleTrash = async (id: string) => {
-        const ok = window.confirm("Move this source to Trash?");
+    const handlePermanentDelete = async (id: string) => {
+        const ok = window.confirm(
+            "This will permanently remove the source and all related payouts. Continue?"
+        );
         if (!ok) return;
 
-        await fetch("/api/sources/trash", {
+        await fetch("/api/sources/delete", {
             method: "POST",
             body: JSON.stringify({ id }),
         });
@@ -39,10 +41,10 @@ export default function ArchivedList({ archived, userId, refreshAll }: Props) {
 
     return (
         <div className="space-y-4">
-            <h2 className="text-lg font-semibold">Archived Sources</h2>
+            <h2 className="text-lg font-semibold">Trash</h2>
 
             {items.length === 0 && (
-                <p className="text-gray-500 text-sm">No archived sources.</p>
+                <p className="text-gray-500 text-sm">Trash is empty.</p>
             )}
 
             {items.map((row) => (
@@ -52,9 +54,11 @@ export default function ArchivedList({ archived, userId, refreshAll }: Props) {
                 >
                     <div>
                         <div className="font-medium">{row.source_name}</div>
-                        <div className="text-sm text-gray-500">{row.source_type}</div>
                         <div className="text-sm text-gray-500">
-                            Archived:{" "}
+                            {row.source_type || ""}
+                        </div>
+                        <div className="text-sm text-gray-500">
+                            Archived At:{" "}
                             {row.archived_at
                                 ? new Date(row.archived_at).toLocaleDateString()
                                 : ""}
@@ -63,17 +67,17 @@ export default function ArchivedList({ archived, userId, refreshAll }: Props) {
 
                     <div className="flex space-x-4">
                         <button
-                            onClick={() => handleUnarchive(row.id!)}
-                            className="text-green-600 hover:underline"
+                            onClick={() => handleRestore(row.id!)}
+                            className="text-blue-600 hover:underline"
                         >
-                            Unarchive
+                            Restore
                         </button>
 
                         <button
-                            onClick={() => handleTrash(row.id!)}
+                            onClick={() => handlePermanentDelete(row.id!)}
                             className="text-red-600 hover:underline"
                         >
-                            Move to Trash
+                            Delete Forever
                         </button>
                     </div>
                 </div>
