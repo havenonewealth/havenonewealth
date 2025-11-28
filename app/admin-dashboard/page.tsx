@@ -11,12 +11,15 @@ import {
   getAdminRecentPayouts,
   getAllUsers,
   getAdminEarningsBySource,
+  getAdminUserOverview,
+
   type AdminSummary,
   type PortfolioAggregate,
   type MonthlyTrend,
   type RecentPayout,
   type AppUser,
-  type EarningsBySource
+  type EarningsBySource,
+  type AdminUserOverview
 } from '@/lib/supabase/admin'
 
 import { createClient } from '@/lib/supabaseClient'
@@ -32,22 +35,24 @@ import EarningsBySourceChart from '@/components/analytics/EarningsBySourceChart'
 import SourceContributionPie from '@/components/analytics/SourceContributionPie'
 import SourceInsightsTable from '@/components/analytics/SourceInsightsTable'
 
-// ---------------------------------------------------------------------------
-// TABS
-// ---------------------------------------------------------------------------
+/* ---------------------------------------------------------------------------
+   TABS
+--------------------------------------------------------------------------- */
 
 function OverviewTab({
   summary,
   aggregates,
   monthlyTrends,
   recentPayouts,
-  users
+  users,
+  userOverview
 }: {
   summary: AdminSummary
   aggregates: PortfolioAggregate[]
   monthlyTrends: MonthlyTrend[]
   recentPayouts: RecentPayout[]
   users: AppUser[]
+  userOverview: AdminUserOverview[]
 }) {
   return (
     <div className="space-y-14">
@@ -89,7 +94,7 @@ function OverviewTab({
         </div>
       </div>
 
-      {/* Recent Payouts */}
+      {/* Recent payouts */}
       <div>
         <h2 className="text-xl font-semibold mb-4">Recent Payout Activity</h2>
         <div className="bg-white rounded-xl shadow-sm p-6 border">
@@ -101,7 +106,7 @@ function OverviewTab({
       <div className="mb-20">
         <h2 className="text-xl font-semibold mb-4">User Management</h2>
         <div className="bg-white rounded-xl shadow-sm p-6 border">
-          <UserManagementTable users={users} />
+          <UserManagementTable users={userOverview} />
         </div>
       </div>
     </div>
@@ -165,9 +170,9 @@ function InsightsTab() {
   )
 }
 
-// ---------------------------------------------------------------------------
-// MAIN PAGE
-// ---------------------------------------------------------------------------
+/* ---------------------------------------------------------------------------
+   MAIN PAGE
+--------------------------------------------------------------------------- */
 
 export default function AdminDashboardPage() {
   const router = useRouter()
@@ -179,8 +184,9 @@ export default function AdminDashboardPage() {
   const [recentPayouts, setRecentPayouts] = useState<RecentPayout[]>([])
   const [users, setUsers] = useState<AppUser[]>([])
   const [sourcesData, setSourcesData] = useState<EarningsBySource[]>([])
-  const [loading, setLoading] = useState(true)
+  const [userOverview, setUserOverview] = useState<AdminUserOverview[]>([])
 
+  const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState('overview')
 
   useEffect(() => {
@@ -212,6 +218,7 @@ export default function AdminDashboardPage() {
       setRecentPayouts(await getAdminRecentPayouts())
       setUsers(await getAllUsers())
       setSourcesData(await getAdminEarningsBySource())
+      setUserOverview(await getAdminUserOverview())
 
       setLoading(false)
     }
@@ -265,8 +272,8 @@ export default function AdminDashboardPage() {
             key={tab.key}
             onClick={() => setActiveTab(tab.key)}
             className={`px-5 py-2 rounded-lg text-sm border font-medium ${activeTab === tab.key
-                ? 'bg-[#0A1E2D] text-white border-[#0A1E2D]'
-                : 'bg-white text-black border-gray-300 hover:bg-gray-100'
+              ? 'bg-[#0A1E2D] text-white border-[#0A1E2D]'
+              : 'bg-white text-black border-gray-300 hover:bg-gray-100'
               }`}
           >
             {tab.label}
@@ -282,15 +289,13 @@ export default function AdminDashboardPage() {
           monthlyTrends={monthlyTrends}
           recentPayouts={recentPayouts}
           users={users}
+          userOverview={userOverview}
         />
       )}
 
       {activeTab === 'trends' && <TrendsTab monthlyTrends={monthlyTrends} />}
-
       {activeTab === 'sources' && <SourcesTab data={sourcesData} />}
-
       {activeTab === 'timeline' && <TimelineTab />}
-
       {activeTab === 'insights' && <InsightsTab />}
     </div>
   )

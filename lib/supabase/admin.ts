@@ -26,7 +26,7 @@ export interface AdminSummary {
 }
 
 /* ============================================
-   UPDATED: PortfolioAggregate MUST match the view
+   PortfolioAggregate - MUST match the view
    v_admin_earnings_by_source
 ============================================ */
 
@@ -66,10 +66,25 @@ export interface AppUser {
   created_at: string
 }
 
-/* =======================================
-   NEW: Earnings By Source (Admin)
-   (same as PortfolioAggregate but kept for clarity)
-======================================= */
+/* ============================================
+   ADMIN USER OVERVIEW (FINAL + CORRECT)
+   matches v_admin_user_overview SQL View
+============================================ */
+
+export interface AdminUserOverview {
+  user_id: string
+  email: string
+  role: string | null
+  joined_date: string
+  lifetime_earned: number
+  total_sources: number
+  total_payouts: number
+  last_payout_date: string | null
+}
+
+/* ============================================
+   Earnings By Source (Admin analytics)
+============================================ */
 
 export interface EarningsBySource {
   source_id: string
@@ -119,7 +134,7 @@ export async function getAdminMonthlyTrends(): Promise<MonthlyTrend[]> {
 }
 
 /* ============================================================
-   FIXED: Converts admin payouts to match global RecentPayout
+   FIXED: return recent payouts in correct unified structure
 ============================================================ */
 
 export async function getAdminRecentPayouts(): Promise<RecentPayout[]> {
@@ -131,9 +146,12 @@ export async function getAdminRecentPayouts(): Promise<RecentPayout[]> {
     .order('payout_date', { ascending: false })
 
   if (error || !data) return []
-
   return data as RecentPayout[]
 }
+
+/* ================================
+   USER LIST
+================================ */
 
 export async function getAllUsers(): Promise<AppUser[]> {
   const supabase = createClient()
@@ -146,7 +164,7 @@ export async function getAllUsers(): Promise<AppUser[]> {
 }
 
 /* =======================================
-   NEW: getAdminEarningsBySource()
+   Earnings By Source
 ======================================= */
 
 export async function getAdminEarningsBySource(): Promise<EarningsBySource[]> {
@@ -157,6 +175,21 @@ export async function getAdminEarningsBySource(): Promise<EarningsBySource[]> {
     .select('*')
 
   if (error || !data) return []
-
   return data as EarningsBySource[]
+}
+
+/* =======================================
+   Admin User Overview
+======================================= */
+
+export async function getAdminUserOverview(): Promise<AdminUserOverview[]> {
+  const supabase = createClient()
+
+  const { data, error } = await supabase
+    .from('v_admin_user_overview')
+    .select('*')
+    .order('lifetime_earned', { ascending: false })
+
+  if (error || !data) return []
+  return data as AdminUserOverview[]
 }
