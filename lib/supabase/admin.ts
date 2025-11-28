@@ -209,30 +209,61 @@ export async function getUserOverview(userId: string) {
   return data
 }
 
+// -------------------------------------------------------
+// USER-SPECIFIC: Get Portfolio for a Single User
+// -------------------------------------------------------
 export async function getUserPortfolio(userId: string) {
   const supabase = createClient()
 
   const { data, error } = await supabase
-    .rpc('admin_get_user_portfolio', { userid: userId })
+    .from('income_sources')
+    .select(`
+      id,
+      source_name,
+      payouts (
+        amount,
+        payment_date,
+        status
+      )
+    `)
+    .eq('user_id', userId)
 
   if (error) {
     console.error('getUserPortfolio error', error)
     return []
   }
 
-  return data
+  return data || []
 }
 
+// -------------------------------------------------------
+// USER-SPECIFIC: Get Payout Ledger for a Single User
+// -------------------------------------------------------
 export async function getUserPayoutLedger(userId: string) {
   const supabase = createClient()
 
   const { data, error } = await supabase
-    .rpc('admin_get_user_payout_ledger', { userid: userId })
+    .from('payouts')
+    .select(`
+      id,
+      amount,
+      payment_date,
+      status,
+      notes,
+      source_id,
+      income_sources (
+        source_name
+      )
+    `)
+    .eq('user_id', userId)
+    .order('payment_date', { ascending: false })
 
   if (error) {
     console.error('getUserPayoutLedger error', error)
     return []
   }
 
-  return data
+  return data || []
 }
+
+
