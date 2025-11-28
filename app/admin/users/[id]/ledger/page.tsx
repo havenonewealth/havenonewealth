@@ -2,24 +2,20 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter, useParams } from 'next/navigation'
-import { createClient } from '@/lib/supabaseClient'
 import AdminUserHeader from '@/components/admin-dashboard/AdminUserHeader'
-
 import {
     getAdminUserOverview,
     type AdminUserOverview,
-    getUserPortfolio
+    getUserPayoutLedger
 } from '@/lib/supabase/admin'
 
-export default function UserPortfolioPage() {
+export default function UserLedgerPage() {
     const router = useRouter()
     const params = useParams()
     const id = params.id as string
 
-    const supabase = createClient()
-
     const [user, setUser] = useState<AdminUserOverview | null>(null)
-    const [sources, setSources] = useState<any[]>([])
+    const [ledger, setLedger] = useState<any[]>([])
     const [loading, setLoading] = useState(true)
 
     useEffect(() => {
@@ -28,22 +24,20 @@ export default function UserPortfolioPage() {
             const found = allUsers.find(u => u.user_id === id)
             setUser(found || null)
 
-            const src = await getUserPortfolio(id)
-            setSources(src)
+            const payouts = await getUserPayoutLedger(id)
+            setLedger(payouts || [])
 
             setLoading(false)
         }
         load()
     }, [id])
 
-    if (loading) return <div className="p-10">Loading portfolio...</div>
+    if (loading) return <div className="p-10">Loading ledger...</div>
 
     if (!user) {
         return (
             <div className="p-10">
-                <p className="text-red-600 font-semibold mb-4">
-                    User not found
-                </p>
+                <p className="text-red-600 font-semibold mb-4">User not found</p>
                 <button
                     onClick={() => router.push('/admin')}
                     className="px-4 py-2 bg-gray-200 rounded"
@@ -66,34 +60,39 @@ export default function UserPortfolioPage() {
             <AdminUserHeader user={user} />
 
             <h2 className="text-xl font-semibold mt-10 mb-4">
-                Income Sources
+                Payout Ledger
             </h2>
 
             <div className="border rounded-xl bg-white shadow p-6">
-                {sources.length === 0 && (
-                    <p className="text-gray-600">No sources assigned.</p>
+                {ledger.length === 0 && (
+                    <p className="text-gray-600">No payouts recorded.</p>
                 )}
 
-                {sources.length > 0 && (
-                    <div className="grid grid-cols-2 gap-6">
-                        {sources.map(src => (
-                            <div
-                                key={src.id}
-                                className="p-4 border rounded bg-gray-50"
-                            >
-                                <p className="font-semibold text-lg">
-                                    {src.source_name}
+                {ledger.map(p => {
+                    const amount = Number(p.amount) || 0
+                    const date = p.payment_date ? String(p.payment_date) : 'N/A'
+                    const status = p.status || 'Unknown'
+                    const source = p.income_sources?.source_name || 'Unknown Source'
+
+                    return (
+                        <div
+                            key={p.id}
+                            className="p-4 mb-4 border rounded bg-gray-50"
+                        >
+                            <p className="font-semibold">
+                                ${amount.toLocaleString()}
+                            </p>
+                            <p className="text-gray-700">Date: {date}</p>
+                            <p className="text-gray-700">Status: {status}</p>
+                            <p className="text-gray-700">Source: {source}</p>
+                            {p.notes && (
+                                <p className="text-gray-600 mt-1 italic">
+                                    Notes: {p.notes}
                                 </p>
-                                <p className="text-gray-700">
-                                    Total Earned: ${src.total_earned.toLocaleString()}
-                                </p>
-                                <p className="text-gray-700">
-                                    Payout Count: {src.payout_count}
-                                </p>
-                            </div>
-                        ))}
-                    </div>
-                )}
+                            )}
+                        </div>
+                    )
+                })}
             </div>
         </div>
     )
