@@ -31,9 +31,16 @@ import SourceContributionPie from '@/components/analytics/SourceContributionPie'
 import SourceInsightsTable from '@/components/analytics/SourceInsightsTable'
 import CreateUserModal from '@/components/admin-dashboard/CreateUserModal'
 
-// ---------------------------------------------------------------------------
-// TABS
-// ---------------------------------------------------------------------------
+/* ============================================================
+   UNIVERSAL SAFE NUMBER CONVERSION
+============================================================ */
+function safeNumber(n: any, fallback = 0) {
+  return typeof n === 'number' && !isNaN(n) && n !== null ? n : fallback
+}
+
+/* ============================================================
+   TABS
+============================================================ */
 
 function OverviewTab({
   summary,
@@ -53,18 +60,17 @@ function OverviewTab({
   return (
     <div className="space-y-14">
 
-      {/* KPI ROW */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
         <KPI
           title="Total Portfolio Value"
-          value={summary.total_payout_amount}
+          value={safeNumber(summary.total_payout_amount)}
           sub={`${summary.total_sources} Sources • ${summary.total_payouts} Payouts`}
           isMoney
         />
 
         <KPI
           title="Average Payout"
-          value={summary.avg_payout_amount}
+          value={safeNumber(summary.avg_payout_amount)}
           sub="Across all income sources"
           isMoney
         />
@@ -76,38 +82,46 @@ function OverviewTab({
         />
       </div>
 
-      {/* Distribution */}
       <div>
         <h2 className="text-xl font-semibold mb-4">Payout Distribution by Source</h2>
-        <div className="bg-white rounded-xl shadow-sm p-6 border">
-          <GlobalPayoutChart aggregates={aggregates} />
+        <div className="bg-white rounded-xl shadow-sm p-6 border min-h-[320px]">
+          <GlobalPayoutChart
+            aggregates={aggregates.map(a => ({
+              ...a,
+              total_earned: safeNumber(a.total_earned),
+              payout_count: safeNumber(a.payout_count),
+              percent_of_total: safeNumber(a.percent_of_total),
+            }))}
+          />
         </div>
       </div>
 
-      {/* Monthly Trends */}
       <div>
         <h2 className="text-xl font-semibold mb-4">Monthly Portfolio Trends</h2>
-        <div className="bg-white rounded-xl shadow-sm p-6 border">
-          <MonthlyTrendsChart trends={monthlyTrends} />
+        <div className="bg-white rounded-xl shadow-sm p-6 border min-h-[320px]">
+          <MonthlyTrendsChart
+            trends={monthlyTrends.map(t => ({
+              ...t,
+              total_payments: safeNumber(t.total_payments),
+              total_payout: safeNumber(t.total_payout)
+            }))}
+          />
         </div>
       </div>
 
-      {/* Recent Payouts */}
       <div>
         <h2 className="text-xl font-semibold mb-4">Recent Payout Activity</h2>
-        <div className="bg-white rounded-xl shadow-sm p-6 border">
+        <div className="bg-white rounded-xl shadow-sm p-6 border min-h-[320px]">
           <RecentPayoutsTable payouts={recentPayouts} />
         </div>
       </div>
 
-      {/* User Management */}
       <div className="mb-20">
         <h2 className="text-xl font-semibold mb-4">User Management</h2>
         <div className="bg-white rounded-xl shadow-sm p-6 border">
           <UserManagementTable users={users} onUpdated={refresh} />
         </div>
       </div>
-
     </div>
   )
 }
@@ -116,121 +130,79 @@ function TrendsTab({ monthlyTrends }: { monthlyTrends: MonthlyTrend[] }) {
   return (
     <div className="space-y-10">
       <h2 className="text-xl font-semibold">Monthly Trend Analysis</h2>
-      <div className="bg-white rounded-xl shadow-sm p-6 border">
-        <MonthlyTrendsChart trends={monthlyTrends} />
+      <div className="bg-white rounded-xl shadow-sm p-6 border min-h-[320px]">
+        <MonthlyTrendsChart
+          trends={monthlyTrends.map(t => ({
+            ...t,
+            total_payments: safeNumber(t.total_payments),
+            total_payout: safeNumber(t.total_payout),
+          }))}
+        />
       </div>
     </div>
   )
 }
 
 function SourcesTab({ data }: { data: EarningsBySource[] }) {
-  // Build a fully typed, fully safe dataset for table
-  const insights = data.map(s => ({
-    source_name: s.name || 'Unknown Source',
-    total_earned: typeof s.total_earned === 'number' ? s.total_earned : 0,
-    payout_count: typeof s.payout_count === 'number' ? s.payout_count : 0,
-    avg_payment:
-      s.payout_count && s.payout_count > 0 && typeof s.total_earned === 'number'
-        ? s.total_earned / s.payout_count
-        : 0,
-    first_payment: s.last_payment_date || 'No payments',
-    last_payment: s.last_payment_date || 'No payments'
+  const cleaned = data.map(s => ({
+    ...s,
+    total_earned: safeNumber(s.total_earned),
+    payout_count: safeNumber(s.payout_count),
+    percent_of_total: safeNumber(s.percent_of_total),
+  }))
+
+  const insights = cleaned.map(s => ({
+    source_name: s.name,
+    total_earned: s.total_earned,
+    avg_payment: s.payout_count ? s.total_earned / s.payout_count : 0,
+    payout_count: s.payout_count,
+    first_payment: null,
+    last_payment: s.last_payment_date
   }))
 
   return (
     <div className="space-y-12">
-      {/* Earnings by Source */}
       <div>
         <h2 className="text-xl font-semibold mb-4">Earnings by Source</h2>
-
-        <EarningsBySourceChart
-          data={data.map(s => ({
-            source_id: s.source_id,
-            name: s.name,
-            total_earned: typeof s.total_earned === 'number' ? s.total_earned : 0,
-            payout_count: typeof s.payout_count === 'number' ? s.payout_count : 0,
-            percent_of_total:
-              typeof s.percent_of_total === 'number' ? s.percent_of_total : 0,
-            last_payment_date: s.last_payment_date
-          }))}
-        />
+        <div className="bg-white rounded-xl shadow-sm p-6 border min-h-[320px]">
+          <EarningsBySourceChart data={cleaned} />
+        </div>
       </div>
 
-      {/* Contribution Mix */}
       <div>
         <h2 className="text-xl font-semibold mb-4">Contribution Mix</h2>
-
-        <SourceContributionPie
-          data={data.map(s => ({
-            source_id: s.source_id,
-            name: s.name,
-            total_earned: typeof s.total_earned === 'number' ? s.total_earned : 0,
-            payout_count: typeof s.payout_count === 'number' ? s.payout_count : 0,
-            percent_of_total:
-              typeof s.percent_of_total === 'number' ? s.percent_of_total : 0,
-            last_payment_date: s.last_payment_date
-          }))}
-        />
+        <div className="bg-white rounded-xl shadow-sm p-6 border min-h-[320px]">
+          <SourceContributionPie data={cleaned} />
+        </div>
       </div>
 
-      {/* Insights Table */}
       <div>
         <h2 className="text-xl font-semibold mb-4">Source Insights</h2>
-
         <SourceInsightsTable insights={insights} />
       </div>
     </div>
   )
 }
 
-/* --- NEW TIMELINE TAB (REAL DATA) --- */
-function TimelineTab({ payouts }: { payouts: RecentPayout[] }) {
-  if (payouts.length === 0) {
-    return <div className="p-8 text-gray-600">No timeline data available yet.</div>
-  }
-
+function TimelineTab() {
   return (
-    <div className="space-y-6 p-6">
-      <h2 className="text-xl font-semibold">Payout Timeline</h2>
-
-      <div className="space-y-4">
-        {payouts.map(p => (
-          <div key={p.id} className="p-4 border rounded bg-white shadow-sm">
-            <p className="font-semibold">
-              {p.source_name} • ${p.amount.toLocaleString()}
-            </p>
-            <p className="text-gray-600 text-sm">{p.payout_date}</p>
-            <p className="text-gray-600 text-sm">{p.user_email}</p>
-          </div>
-        ))}
-      </div>
+    <div className="p-8 text-gray-600">
+      Timeline visualizations will be added soon.
     </div>
   )
 }
 
-/* --- NEW INSIGHTS TAB --- */
-function InsightsTab({ summary }: { summary: AdminSummary }) {
+function InsightsTab() {
   return (
-    <div className="space-y-6 p-6 bg-white border rounded-xl shadow">
-      <h2 className="text-xl font-semibold">Insights</h2>
-
-      <p className="text-gray-700">
-        Automated insights will appear here once full analytics are integrated.
-      </p>
-
-      <div className="mt-6 space-y-3">
-        <p className="font-semibold">Quick Highlights</p>
-        <p>Total Earnings: ${summary.total_payout_amount.toLocaleString()}</p>
-        <p>Active Users: {summary.active_users}</p>
-        <p>Top Source: {summary.top_source_name}</p>
-      </div>
+    <div className="p-8 text-gray-600 text-lg">
+      AI-generated insights coming soon.
     </div>
   )
 }
 
-// ---------------------------------------------------------------------------
-// MAIN PAGE
-// ---------------------------------------------------------------------------
+/* ============================================================
+   MAIN PAGE
+============================================================ */
 
 export default function AdminDashboardPage() {
   const router = useRouter()
@@ -288,12 +260,10 @@ export default function AdminDashboardPage() {
   return (
     <div className="p-10 max-w-7xl mx-auto">
 
-      {/* Header */}
       <div className="flex justify-between items-center mb-10">
         <Image src="/HOW2Logo.png" alt="HOW" width={150} height={50} />
 
         <div className="flex gap-4">
-
           <button
             onClick={() => setShowCreateUser(true)}
             className="px-4 py-2 bg-[#0A1E2D] text-white font-semibold rounded-md hover:opacity-90"
@@ -322,7 +292,6 @@ export default function AdminDashboardPage() {
 
       <h1 className="text-3xl font-semibold mb-8">Admin Analytics</h1>
 
-      {/* Tabs */}
       <div className="flex gap-3 mb-10">
         {[
           { key: 'overview', label: 'Overview' },
@@ -335,8 +304,8 @@ export default function AdminDashboardPage() {
             key={tab.key}
             onClick={() => setActiveTab(tab.key)}
             className={`px-5 py-2 rounded-lg text-sm border font-medium ${activeTab === tab.key
-              ? 'bg-[#0A1E2D] text-white border-[#0A1E2D]'
-              : 'bg-white text-black border-gray-300 hover:bg-gray-100'
+                ? 'bg-[#0A1E2D] text-white border-[#0A1E2D]'
+                : 'bg-white text-black border-gray-300 hover:bg-gray-100'
               }`}
           >
             {tab.label}
@@ -344,7 +313,6 @@ export default function AdminDashboardPage() {
         ))}
       </div>
 
-      {/* CONTENT */}
       {activeTab === 'overview' && (
         <OverviewTab
           summary={summary}
@@ -358,10 +326,9 @@ export default function AdminDashboardPage() {
 
       {activeTab === 'trends' && <TrendsTab monthlyTrends={monthlyTrends} />}
       {activeTab === 'sources' && <SourcesTab data={sourcesData} />}
-      {activeTab === 'timeline' && <TimelineTab payouts={recentPayouts} />}
-      {activeTab === 'insights' && <InsightsTab summary={summary} />}
+      {activeTab === 'timeline' && <TimelineTab />}
+      {activeTab === 'insights' && <InsightsTab />}
 
-      {/* Create User Modal */}
       <CreateUserModal
         open={showCreateUser}
         setOpen={setShowCreateUser}
