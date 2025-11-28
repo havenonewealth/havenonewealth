@@ -124,29 +124,59 @@ function TrendsTab({ monthlyTrends }: { monthlyTrends: MonthlyTrend[] }) {
 }
 
 function SourcesTab({ data }: { data: EarningsBySource[] }) {
+  // Build a fully typed, fully safe dataset for table
   const insights = data.map(s => ({
-    source_name: s.name,
-    total_earned: s.total_earned,
-    avg_payment: s.payout_count ? s.total_earned / s.payout_count : 0,
-    payout_count: s.payout_count,
-    first_payment: null,
-    last_payment: s.last_payment_date
+    source_name: s.name || 'Unknown Source',
+    total_earned: typeof s.total_earned === 'number' ? s.total_earned : 0,
+    payout_count: typeof s.payout_count === 'number' ? s.payout_count : 0,
+    avg_payment:
+      s.payout_count && s.payout_count > 0 && typeof s.total_earned === 'number'
+        ? s.total_earned / s.payout_count
+        : 0,
+    first_payment: s.last_payment_date || 'No payments',
+    last_payment: s.last_payment_date || 'No payments'
   }))
 
   return (
     <div className="space-y-12">
+      {/* Earnings by Source */}
       <div>
         <h2 className="text-xl font-semibold mb-4">Earnings by Source</h2>
-        <EarningsBySourceChart data={data} />
+
+        <EarningsBySourceChart
+          data={data.map(s => ({
+            source_id: s.source_id,
+            name: s.name,
+            total_earned: typeof s.total_earned === 'number' ? s.total_earned : 0,
+            payout_count: typeof s.payout_count === 'number' ? s.payout_count : 0,
+            percent_of_total:
+              typeof s.percent_of_total === 'number' ? s.percent_of_total : 0,
+            last_payment_date: s.last_payment_date
+          }))}
+        />
       </div>
 
+      {/* Contribution Mix */}
       <div>
         <h2 className="text-xl font-semibold mb-4">Contribution Mix</h2>
-        <SourceContributionPie data={data} />
+
+        <SourceContributionPie
+          data={data.map(s => ({
+            source_id: s.source_id,
+            name: s.name,
+            total_earned: typeof s.total_earned === 'number' ? s.total_earned : 0,
+            payout_count: typeof s.payout_count === 'number' ? s.payout_count : 0,
+            percent_of_total:
+              typeof s.percent_of_total === 'number' ? s.percent_of_total : 0,
+            last_payment_date: s.last_payment_date
+          }))}
+        />
       </div>
 
+      {/* Insights Table */}
       <div>
         <h2 className="text-xl font-semibold mb-4">Source Insights</h2>
+
         <SourceInsightsTable insights={insights} />
       </div>
     </div>
