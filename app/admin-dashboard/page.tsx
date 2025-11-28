@@ -104,10 +104,7 @@ function OverviewTab({
       <div className="mb-20">
         <h2 className="text-xl font-semibold mb-4">User Management</h2>
         <div className="bg-white rounded-xl shadow-sm p-6 border">
-          <UserManagementTable
-            users={users}
-            onUpdated={refresh}
-          />
+          <UserManagementTable users={users} onUpdated={refresh} />
         </div>
       </div>
 
@@ -156,18 +153,47 @@ function SourcesTab({ data }: { data: EarningsBySource[] }) {
   )
 }
 
-function TimelineTab() {
+/* --- NEW TIMELINE TAB (REAL DATA) --- */
+function TimelineTab({ payouts }: { payouts: RecentPayout[] }) {
+  if (payouts.length === 0) {
+    return <div className="p-8 text-gray-600">No timeline data available yet.</div>
+  }
+
   return (
-    <div className="p-8 text-gray-600">
-      Timeline visualizations will be here
+    <div className="space-y-6 p-6">
+      <h2 className="text-xl font-semibold">Payout Timeline</h2>
+
+      <div className="space-y-4">
+        {payouts.map(p => (
+          <div key={p.id} className="p-4 border rounded bg-white shadow-sm">
+            <p className="font-semibold">
+              {p.source_name} • ${p.amount.toLocaleString()}
+            </p>
+            <p className="text-gray-600 text-sm">{p.payout_date}</p>
+            <p className="text-gray-600 text-sm">{p.user_email}</p>
+          </div>
+        ))}
+      </div>
     </div>
   )
 }
 
-function InsightsTab() {
+/* --- NEW INSIGHTS TAB --- */
+function InsightsTab({ summary }: { summary: AdminSummary }) {
   return (
-    <div className="p-8 text-gray-600 text-lg">
-      AI-generated insights will be displayed here.
+    <div className="space-y-6 p-6 bg-white border rounded-xl shadow">
+      <h2 className="text-xl font-semibold">Insights</h2>
+
+      <p className="text-gray-700">
+        Automated insights will appear here once full analytics are integrated.
+      </p>
+
+      <div className="mt-6 space-y-3">
+        <p className="font-semibold">Quick Highlights</p>
+        <p>Total Earnings: ${summary.total_payout_amount.toLocaleString()}</p>
+        <p>Active Users: {summary.active_users}</p>
+        <p>Top Source: {summary.top_source_name}</p>
+      </div>
     </div>
   )
 }
@@ -302,8 +328,8 @@ export default function AdminDashboardPage() {
 
       {activeTab === 'trends' && <TrendsTab monthlyTrends={monthlyTrends} />}
       {activeTab === 'sources' && <SourcesTab data={sourcesData} />}
-      {activeTab === 'timeline' && <TimelineTab />}
-      {activeTab === 'insights' && <InsightsTab />}
+      {activeTab === 'timeline' && <TimelineTab payouts={recentPayouts} />}
+      {activeTab === 'insights' && <InsightsTab summary={summary} />}
 
       {/* Create User Modal */}
       <CreateUserModal
