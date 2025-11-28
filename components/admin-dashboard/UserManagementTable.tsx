@@ -1,22 +1,32 @@
 'use client'
 
 import { useState, useMemo } from 'react'
+import { useRouter } from 'next/navigation'
 import { AdminUserOverview } from '@/lib/supabase/admin'
 import { MoreVertical } from 'lucide-react'
+import EditUserModal from './EditUserModal'
+import { createClient } from '@/lib/supabaseClient'
 
 interface Props {
   users: AdminUserOverview[]
-  onCreateUser: () => void
+  onUpdated: () => void         // FIX: add callback prop properly
 }
 
-export default function UserManagementTable({ users, onCreateUser }: Props) {
+export default function UserManagementTable({ users, onUpdated }: Props) {
+  const router = useRouter()
+  const supabase = createClient()
+
   const [search, setSearch] = useState('')
   const [sortKey, setSortKey] = useState<'earned' | 'joined' | 'payouts'>('earned')
   const [expanded, setExpanded] = useState<string | null>(null)
+  const [editingUser, setEditingUser] = useState<AdminUserOverview | null>(null)
+  const [editOpen, setEditOpen] = useState(false)
 
   const filtered = useMemo(() => {
     return users
-      .filter(u => u.email.toLowerCase().includes(search.toLowerCase()))
+      .filter(u =>
+        u.email.toLowerCase().includes(search.toLowerCase())
+      )
       .sort((a, b) => {
         switch (sortKey) {
           case 'earned':
@@ -30,6 +40,15 @@ export default function UserManagementTable({ users, onCreateUser }: Props) {
         }
       })
   }, [users, search, sortKey])
+
+  async function disableUser(user_id: string) {
+    await supabase
+      .from('users')
+      .update({ role: 'disabled' })
+      .eq('id', user_id)
+
+    onUpdated()
+  }
 
   return (
     <div className="space-y-6">
@@ -45,26 +64,16 @@ export default function UserManagementTable({ users, onCreateUser }: Props) {
           onChange={e => setSearch(e.target.value)}
         />
 
-        <div className="flex gap-3">
+        <select
+          className="border rounded-md px-3 py-2"
+          value={sortKey}
+          onChange={e => setSortKey(e.target.value as any)}
+        >
+          <option value="earned">Sort by Earnings</option>
+          <option value="joined">Sort by Joined Date</option>
+          <option value="payouts">Sort by Payout Count</option>
+        </select>
 
-          <select
-            className="border rounded-md px-3 py-2"
-            value={sortKey}
-            onChange={e => setSortKey(e.target.value as any)}
-          >
-            <option value="earned">Sort by Earnings</option>
-            <option value="joined">Sort by Joined Date</option>
-            <option value="payouts">Sort by Payout Count</option>
-          </select>
-
-          <button
-            onClick={onCreateUser}
-            className="px-4 py-2 bg-[#0A1E2D] text-white rounded-md font-semibold"
-          >
-            Create User
-          </button>
-
-        </div>
       </div>
 
       {/* Table */}
@@ -111,17 +120,17 @@ export default function UserManagementTable({ users, onCreateUser }: Props) {
                     <td className="p-3">{u.total_sources}</td>
                     <td className="p-3">{u.total_payouts}</td>
                     <td className="p-3">{u.joined_date}</td>
-                    <td className="p-3">{u.last_payout_date || 'None'}</td>
+                    <td className="p-3">{u.last_payout_date || '—'}</td>
 
                     <td className="p-3 text-right">
                       <MoreVertical size={18} className="text-gray-500" />
                     </td>
                   </tr>
 
+                  {/* Expanded Row */}
                   {isExpanded && (
                     <tr className="bg-gray-50">
                       <td colSpan={8} className="p-6 text-sm text-gray-700">
-
                         <div className="grid grid-cols-3 gap-6">
 
                           <div>
@@ -139,14 +148,51 @@ export default function UserManagementTable({ users, onCreateUser }: Props) {
 
                           <div>
                             <p className="font-semibold mb-2">Actions</p>
-                            <button className="text-blue-600 hover:underline block">View Portfolio</button>
-                            <button className="text-blue-600 hover:underline block">View Payout Ledger</button>
-                            <button className="text-blue-600 hover:underline block">Edit User</button>
-                            <button className="text-red-600 hover:underline block">Disable User</button>
+
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                router.push(`/admin/users/${u.user_id}/portfolio`)
+                              }}
+                              className="text-blue-600 hover:underline block"
+                            >
+                              View Portfolio
+                            </button>
+
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                router.push(`/admin/users/${u.user_id}/ledger`)
+                              }}
+                              className="text-blue-600 hover:underline block"
+                            >
+                              View Payout Ledger
+                            </button>
+
+                            <button
+                              className="text-blue-600 hover:underline block"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                setEditingUser(u)
+                                setEditOpen(true)
+                              }}
+                            >
+                              Edit User
+                            </button>
+
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                disableUser(u.user_id)
+                              }}
+                              className="text-red-600 hover:underline block"
+                            >
+                              Disable User
+                            </button>
+
                           </div>
 
                         </div>
-
                       </td>
                     </tr>
                   )}
@@ -157,6 +203,15 @@ export default function UserManagementTable({ users, onCreateUser }: Props) {
         </table>
       </div>
 
+      {/* Edit Modal */}
+      {editingUser && (
+        <EditUserModal
+          open={editOpen}
+          setOpen={setEditOpen}
+          user={editingUser}
+          onUpdated={onUpdated}    // FIX
+        />
+      )}
     </div>
   )
 }

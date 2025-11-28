@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabaseClient'
 
 interface Props {
@@ -18,11 +18,28 @@ export default function CreateUserModal({ open, setOpen, onCreated }: Props) {
     const [error, setError] = useState('')
     const [success, setSuccess] = useState(false)
 
+    // Reset form every time the modal opens
+    useEffect(() => {
+        if (open) {
+            setEmail('')
+            setRole('earner')
+            setLoading(false)
+            setError('')
+            setSuccess(false)
+        }
+    }, [open])
+
     if (!open) return null
 
     async function handleCreate() {
         setError('')
         setSuccess(false)
+
+        if (!email.trim()) {
+            setError('Email is required.')
+            return
+        }
+
         setLoading(true)
 
         const { error: signUpError } = await supabase.auth.admin.createUser({
@@ -41,22 +58,21 @@ export default function CreateUserModal({ open, setOpen, onCreated }: Props) {
         setSuccess(true)
         onCreated()
 
+        // Close gracefully after success
         setTimeout(() => {
             setOpen(false)
-            setEmail('')
-            setRole('earner')
-            setSuccess(false)
         }, 1200)
     }
 
     return (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-            <div className="bg-white rounded-xl shadow-lg w-[420px] p-6">
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50">
+            <div className="bg-white rounded-xl shadow-2xl w-[420px] p-6">
 
                 <h2 className="text-xl font-semibold mb-4">Create New User</h2>
 
                 <div className="space-y-4">
 
+                    {/* Email */}
                     <div>
                         <label className="text-sm font-medium">Email</label>
                         <input
@@ -65,9 +81,11 @@ export default function CreateUserModal({ open, setOpen, onCreated }: Props) {
                             value={email}
                             onChange={e => setEmail(e.target.value)}
                             placeholder="user@domain.com"
+                            autoFocus
                         />
                     </div>
 
+                    {/* Role */}
                     <div>
                         <label className="text-sm font-medium">Role</label>
                         <select
@@ -80,13 +98,16 @@ export default function CreateUserModal({ open, setOpen, onCreated }: Props) {
                         </select>
                     </div>
 
+                    {/* Error / Success */}
                     {error && <p className="text-red-600 text-sm">{error}</p>}
-                    {success && <p className="text-green-600 text-sm">User created</p>}
+                    {success && <p className="text-green-600 text-sm">User created successfully</p>}
 
-                    <div className="flex justify-end gap-3 mt-4">
+                    {/* Buttons */}
+                    <div className="flex justify-end gap-3 pt-4">
                         <button
                             onClick={() => setOpen(false)}
                             className="px-4 py-2 rounded-md bg-gray-200 text-gray-800 hover:bg-gray-300"
+                            disabled={loading}
                         >
                             Cancel
                         </button>

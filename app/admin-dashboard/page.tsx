@@ -104,7 +104,7 @@ function OverviewTab({
         <div className="bg-white rounded-xl shadow-sm p-6 border">
           <UserManagementTable
             users={users}
-            onCreateUser={() => { }}
+            onUpdated={() => { }}
           />
         </div>
       </div>
@@ -189,17 +189,14 @@ export default function AdminDashboardPage() {
 
   const [showCreateUser, setShowCreateUser] = useState(false)
 
-  // Shared data loader
   async function loadAll() {
     setLoading(true)
-
     setSummary(await getAdminGlobalSummary())
     setAggregates(await getAdminPortfolioAggregates())
     setMonthlyTrends(await getAdminMonthlyTrends())
     setRecentPayouts(await getAdminRecentPayouts())
     setSourcesData(await getAdminEarningsBySource())
     setUserOverview(await getAdminUserOverview())
-
     setLoading(false)
   }
 
@@ -272,8 +269,8 @@ export default function AdminDashboardPage() {
             key={tab.key}
             onClick={() => setActiveTab(tab.key)}
             className={`px-5 py-2 rounded-lg text-sm border font-medium ${activeTab === tab.key
-                ? 'bg-[#0A1E2D] text-white border-[#0A1E2D]'
-                : 'bg-white text-black border-gray-300 hover:bg-gray-100'
+              ? 'bg-[#0A1E2D] text-white border-[#0A1E2D]'
+              : 'bg-white text-black border-gray-300 hover:bg-gray-100'
               }`}
           >
             {tab.label}
@@ -300,11 +297,11 @@ export default function AdminDashboardPage() {
 
       {activeTab === 'insights' && <InsightsTab />}
 
-      {/* User Modal */}
+      {/* Create User Modal */}
       <CreateUserModal
         open={showCreateUser}
         setOpen={setShowCreateUser}
-        onCreated={() => loadAll()}
+        onCreated={loadAll}
       />
     </div>
   )
