@@ -31,16 +31,16 @@ import SourceContributionPie from '@/components/analytics/SourceContributionPie'
 import SourceInsightsTable from '@/components/analytics/SourceInsightsTable'
 import CreateUserModal from '@/components/admin-dashboard/CreateUserModal'
 
-/* ============================================================
-   UNIVERSAL SAFE NUMBER CONVERSION
-============================================================ */
+/* --------------------------------------------------
+   Safe number conversion
+-------------------------------------------------- */
 function safeNumber(n: any, fallback = 0) {
   return typeof n === 'number' && !isNaN(n) && n !== null ? n : fallback
 }
 
-/* ============================================================
-   TABS
-============================================================ */
+/* --------------------------------------------------
+   OVERVIEW TAB
+-------------------------------------------------- */
 
 function OverviewTab({
   summary,
@@ -90,7 +90,7 @@ function OverviewTab({
               ...a,
               total_earned: safeNumber(a.total_earned),
               payout_count: safeNumber(a.payout_count),
-              percent_of_total: safeNumber(a.percent_of_total),
+              percent_of_total: safeNumber(a.percent_of_total)
             }))}
           />
         </div>
@@ -126,6 +126,10 @@ function OverviewTab({
   )
 }
 
+/* --------------------------------------------------
+   TRENDS TAB
+-------------------------------------------------- */
+
 function TrendsTab({ monthlyTrends }: { monthlyTrends: MonthlyTrend[] }) {
   return (
     <div className="space-y-10">
@@ -143,35 +147,41 @@ function TrendsTab({ monthlyTrends }: { monthlyTrends: MonthlyTrend[] }) {
   )
 }
 
+/* --------------------------------------------------
+   SOURCES TAB
+-------------------------------------------------- */
+
 function SourcesTab({ data }: { data: EarningsBySource[] }) {
   const cleaned = data.map(s => ({
-    ...s,
+    source_id: s.source_id,
+    name: s.name,
     total_earned: safeNumber(s.total_earned),
     payout_count: safeNumber(s.payout_count),
     percent_of_total: safeNumber(s.percent_of_total),
+    last_payment_date: s.last_payment_date
   }))
 
   const insights = cleaned.map(s => ({
     source_name: s.name,
     total_earned: s.total_earned,
-    avg_payment: s.payout_count ? s.total_earned / s.payout_count : 0,
     payout_count: s.payout_count,
-    first_payment: null,
-    last_payment: s.last_payment_date
+    avg_payment: s.payout_count > 0 ? s.total_earned / s.payout_count : 0,
+    first_payment: s.last_payment_date || 'No payments',
+    last_payment: s.last_payment_date || 'No payments'
   }))
 
   return (
     <div className="space-y-12">
       <div>
         <h2 className="text-xl font-semibold mb-4">Earnings by Source</h2>
-        <div className="bg-white rounded-xl shadow-sm p-6 border min-h-[320px]">
+        <div className="bg-white p-6 rounded-xl border min-h-[320px]">
           <EarningsBySourceChart data={cleaned} />
         </div>
       </div>
 
       <div>
         <h2 className="text-xl font-semibold mb-4">Contribution Mix</h2>
-        <div className="bg-white rounded-xl shadow-sm p-6 border min-h-[320px]">
+        <div className="bg-white p-6 rounded-xl border min-h-[320px]">
           <SourceContributionPie data={cleaned} />
         </div>
       </div>
@@ -184,25 +194,60 @@ function SourcesTab({ data }: { data: EarningsBySource[] }) {
   )
 }
 
-function TimelineTab() {
+/* --------------------------------------------------
+   TIMELINE TAB
+-------------------------------------------------- */
+
+function TimelineTab({ payouts }: { payouts: RecentPayout[] }) {
+  if (payouts.length === 0) {
+    return <div className="p-8 text-gray-600">No timeline data available yet.</div>
+  }
+
   return (
-    <div className="p-8 text-gray-600">
-      Timeline visualizations will be added soon.
+    <div className="space-y-6 p-6">
+      <h2 className="text-xl font-semibold">Payout Timeline</h2>
+
+      <div className="space-y-4">
+        {payouts.map(p => (
+          <div key={p.id} className="p-4 border rounded bg-white shadow-sm">
+            <p className="font-semibold">
+              {p.source_name} • ${safeNumber(p.amount).toLocaleString()}
+            </p>
+            <p className="text-gray-600 text-sm">{p.payout_date}</p>
+            <p className="text-gray-600 text-sm">{p.user_email}</p>
+          </div>
+        ))}
+      </div>
     </div>
   )
 }
 
-function InsightsTab() {
+/* --------------------------------------------------
+   INSIGHTS TAB
+-------------------------------------------------- */
+
+function InsightsTab({ summary }: { summary: AdminSummary }) {
   return (
-    <div className="p-8 text-gray-600 text-lg">
-      AI-generated insights coming soon.
+    <div className="space-y-6 p-6 bg-white border rounded-xl shadow">
+      <h2 className="text-xl font-semibold">Insights</h2>
+
+      <p className="text-gray-700">
+        Automated insights will appear here soon.
+      </p>
+
+      <div className="mt-6 space-y-3">
+        <p className="font-semibold">Quick Highlights</p>
+        <p>Total Earnings: ${safeNumber(summary.total_payout_amount).toLocaleString()}</p>
+        <p>Total Sources: {summary.total_sources}</p>
+        <p>Total Payout Count: {summary.total_payouts}</p>
+      </div>
     </div>
   )
 }
 
-/* ============================================================
+/* --------------------------------------------------
    MAIN PAGE
-============================================================ */
+-------------------------------------------------- */
 
 export default function AdminDashboardPage() {
   const router = useRouter()
@@ -216,7 +261,6 @@ export default function AdminDashboardPage() {
   const [userOverview, setUserOverview] = useState<AdminUserOverview[]>([])
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState('overview')
-
   const [showCreateUser, setShowCreateUser] = useState(false)
 
   async function loadAll() {
@@ -264,6 +308,7 @@ export default function AdminDashboardPage() {
         <Image src="/HOW2Logo.png" alt="HOW" width={150} height={50} />
 
         <div className="flex gap-4">
+
           <button
             onClick={() => setShowCreateUser(true)}
             className="px-4 py-2 bg-[#0A1E2D] text-white font-semibold rounded-md hover:opacity-90"
@@ -304,8 +349,8 @@ export default function AdminDashboardPage() {
             key={tab.key}
             onClick={() => setActiveTab(tab.key)}
             className={`px-5 py-2 rounded-lg text-sm border font-medium ${activeTab === tab.key
-                ? 'bg-[#0A1E2D] text-white border-[#0A1E2D]'
-                : 'bg-white text-black border-gray-300 hover:bg-gray-100'
+              ? 'bg-[#0A1E2D] text-white border-[#0A1E2D]'
+              : 'bg-white text-black border-gray-300 hover:bg-gray-100'
               }`}
           >
             {tab.label}
@@ -326,8 +371,8 @@ export default function AdminDashboardPage() {
 
       {activeTab === 'trends' && <TrendsTab monthlyTrends={monthlyTrends} />}
       {activeTab === 'sources' && <SourcesTab data={sourcesData} />}
-      {activeTab === 'timeline' && <TimelineTab />}
-      {activeTab === 'insights' && <InsightsTab />}
+      {activeTab === 'timeline' && <TimelineTab payouts={recentPayouts} />}
+      {activeTab === 'insights' && <InsightsTab summary={summary} />}
 
       <CreateUserModal
         open={showCreateUser}
