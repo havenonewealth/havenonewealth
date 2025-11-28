@@ -226,21 +226,140 @@ function TimelineTab({ payouts }: { payouts: RecentPayout[] }) {
    INSIGHTS TAB
 -------------------------------------------------- */
 
-function InsightsTab({ summary }: { summary: AdminSummary }) {
+function InsightsTab({
+  summary,
+  recentPayouts,
+  monthlyTrends,
+  sources
+}: {
+  summary: AdminSummary
+  recentPayouts: RecentPayout[]
+  monthlyTrends: MonthlyTrend[]
+  sources: EarningsBySource[]
+}) {
+  const total = summary.total_payout_amount || 0
+  const growth = summary.month_over_month_growth || 0
+  const topSource = summary.top_source_name || 'N/A'
+  const topSourceAmount = summary.top_source_amount || 0
+
+  const last10 = recentPayouts.slice(0, 10)
+
+  const concentration = total > 0
+    ? ((topSourceAmount / total) * 100).toFixed(1)
+    : '0'
+
+  const monthTrendLabel =
+    growth > 0
+      ? `Portfolio is growing (${growth.toFixed(1)} percent MoM increase).`
+      : growth < 0
+        ? `Portfolio is contracting (${growth.toFixed(1)} percent MoM decline).`
+        : `No change from last month.`
+
+  const riskIndicators = []
+  if (Number(concentration) > 45) {
+    riskIndicators.push(
+      `High revenue concentration: ${concentration} percent of total earnings are driven by ${topSource}.`
+    )
+  }
+  if (summary.payouts_this_month === 0) {
+    riskIndicators.push(`No payouts recorded so far this month.`)
+  }
+  if (monthlyTrends.length >= 2) {
+    const last = monthlyTrends[0].total_payout
+    const prev = monthlyTrends[1].total_payout
+    if (last < prev) {
+      riskIndicators.push(
+        `Month-over-month payout total decreased from ${prev.toLocaleString()} to ${last.toLocaleString()}.`
+      )
+    }
+  }
+
   return (
-    <div className="space-y-6 p-6 bg-white border rounded-xl shadow">
-      <h2 className="text-xl font-semibold">Insights</h2>
+    <div className="space-y-8 bg-white p-8 rounded-xl border shadow-sm">
 
-      <p className="text-gray-700">
-        Automated insights will appear here soon.
-      </p>
+      {/* Title */}
+      <h2 className="text-2xl font-semibold">Executive Insights</h2>
 
-      <div className="mt-6 space-y-3">
-        <p className="font-semibold">Quick Highlights</p>
-        <p>Total Earnings: ${safeNumber(summary.total_payout_amount).toLocaleString()}</p>
-        <p>Total Sources: {summary.total_sources}</p>
-        <p>Total Payout Count: {summary.total_payouts}</p>
+      {/* Section: Summary */}
+      <div className="space-y-3">
+        <p className="text-gray-700 text-lg">
+          These insights summarize the current performance, trends, and risks across
+          the Haven One Wealth portfolio.
+        </p>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="p-4 border rounded-lg bg-gray-50">
+            <p className="font-medium">Total Earnings</p>
+            <p className="text-xl font-semibold">
+              ${total.toLocaleString()}
+            </p>
+          </div>
+          <div className="p-4 border rounded-lg bg-gray-50">
+            <p className="font-medium">Top Source</p>
+            <p className="text-xl font-semibold">{topSource}</p>
+            <p className="text-gray-700">
+              ${topSourceAmount.toLocaleString()}
+            </p>
+          </div>
+          <div className="p-4 border rounded-lg bg-gray-50">
+            <p className="font-medium">MoM Growth</p>
+            <p className={`text-xl font-semibold ${growth >= 0 ? 'text-green-700' : 'text-red-700'}`}>
+              {growth.toFixed(1)}%
+            </p>
+          </div>
+        </div>
       </div>
+
+      {/* Section: Narrative Insight */}
+      <div className="p-6 bg-gray-50 rounded-lg border">
+        <h3 className="text-lg font-semibold mb-3">Performance Narrative</h3>
+
+        <p className="text-gray-800 leading-relaxed">
+          {monthTrendLabel} The current top-performing source is <strong>{topSource}</strong>,
+          contributing <strong>{concentration} percent</strong> of all historical earnings. Earnings
+          activity across the system shows {recentPayouts.length > 0
+            ? 'consistent payout volume with recent activity logged.'
+            : 'no recent payout activity.'}
+        </p>
+      </div>
+
+      {/* Section: Recent Payouts */}
+      <div>
+        <h3 className="text-lg font-semibold mb-3">Latest Payout Activity</h3>
+
+        {last10.length === 0 ? (
+          <p className="text-gray-600">No payout activity found.</p>
+        ) : (
+          <div className="space-y-4">
+            {last10.map(p => (
+              <div
+                key={p.id}
+                className="p-4 border rounded-md bg-white shadow-sm"
+              >
+                <p className="font-semibold">{p.source_name}</p>
+                <p>${p.amount.toLocaleString()}</p>
+                <p className="text-sm text-gray-600">{p.payout_date}</p>
+                <p className="text-sm text-gray-600">{p.user_email}</p>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Section: Risk Indicators */}
+      <div>
+        <h3 className="text-lg font-semibold mb-3">Risk Indicators</h3>
+        {riskIndicators.length === 0 ? (
+          <p className="text-gray-600">No significant risks identified.</p>
+        ) : (
+          <ul className="list-disc ml-6 text-gray-700 space-y-2">
+            {riskIndicators.map((r, i) => (
+              <li key={i}>{r}</li>
+            ))}
+          </ul>
+        )}
+      </div>
+
     </div>
   )
 }
@@ -372,7 +491,14 @@ export default function AdminDashboardPage() {
       {activeTab === 'trends' && <TrendsTab monthlyTrends={monthlyTrends} />}
       {activeTab === 'sources' && <SourcesTab data={sourcesData} />}
       {activeTab === 'timeline' && <TimelineTab payouts={recentPayouts} />}
-      {activeTab === 'insights' && <InsightsTab summary={summary} />}
+      {activeTab === 'insights' && (
+        <InsightsTab
+          summary={summary}
+          recentPayouts={recentPayouts}
+          monthlyTrends={monthlyTrends}
+          sources={sourcesData}
+        />
+      )}
 
       <CreateUserModal
         open={showCreateUser}
