@@ -2,22 +2,21 @@
 
 import { useState, useMemo } from 'react'
 import { AdminUserOverview } from '@/lib/supabase/admin'
-import { ChevronDown, MoreVertical } from 'lucide-react'
+import { MoreVertical } from 'lucide-react'
 
 interface Props {
   users: AdminUserOverview[]
+  onCreateUser: () => void
 }
 
-export default function UserManagementTable({ users }: Props) {
+export default function UserManagementTable({ users, onCreateUser }: Props) {
   const [search, setSearch] = useState('')
   const [sortKey, setSortKey] = useState<'earned' | 'joined' | 'payouts'>('earned')
   const [expanded, setExpanded] = useState<string | null>(null)
 
   const filtered = useMemo(() => {
     return users
-      .filter(u =>
-        u.email.toLowerCase().includes(search.toLowerCase())
-      )
+      .filter(u => u.email.toLowerCase().includes(search.toLowerCase()))
       .sort((a, b) => {
         switch (sortKey) {
           case 'earned':
@@ -37,6 +36,7 @@ export default function UserManagementTable({ users }: Props) {
 
       {/* Header Controls */}
       <div className="flex justify-between items-center">
+
         <input
           type="text"
           placeholder="Search by email"
@@ -45,15 +45,26 @@ export default function UserManagementTable({ users }: Props) {
           onChange={e => setSearch(e.target.value)}
         />
 
-        <select
-          className="border rounded-md px-3 py-2"
-          value={sortKey}
-          onChange={e => setSortKey(e.target.value as any)}
-        >
-          <option value="earned">Sort by Earnings</option>
-          <option value="joined">Sort by Joined Date</option>
-          <option value="payouts">Sort by Payout Count</option>
-        </select>
+        <div className="flex gap-3">
+
+          <select
+            className="border rounded-md px-3 py-2"
+            value={sortKey}
+            onChange={e => setSortKey(e.target.value as any)}
+          >
+            <option value="earned">Sort by Earnings</option>
+            <option value="joined">Sort by Joined Date</option>
+            <option value="payouts">Sort by Payout Count</option>
+          </select>
+
+          <button
+            onClick={onCreateUser}
+            className="px-4 py-2 bg-[#0A1E2D] text-white rounded-md font-semibold"
+          >
+            Create User
+          </button>
+
+        </div>
       </div>
 
       {/* Table */}
@@ -100,17 +111,17 @@ export default function UserManagementTable({ users }: Props) {
                     <td className="p-3">{u.total_sources}</td>
                     <td className="p-3">{u.total_payouts}</td>
                     <td className="p-3">{u.joined_date}</td>
-                    <td className="p-3">{u.last_payout_date || '—'}</td>
+                    <td className="p-3">{u.last_payout_date || 'None'}</td>
 
                     <td className="p-3 text-right">
                       <MoreVertical size={18} className="text-gray-500" />
                     </td>
                   </tr>
 
-                  {/* Expanded Row */}
                   {isExpanded && (
                     <tr className="bg-gray-50">
                       <td colSpan={8} className="p-6 text-sm text-gray-700">
+
                         <div className="grid grid-cols-3 gap-6">
 
                           <div>
@@ -135,6 +146,7 @@ export default function UserManagementTable({ users }: Props) {
                           </div>
 
                         </div>
+
                       </td>
                     </tr>
                   )}
@@ -144,6 +156,7 @@ export default function UserManagementTable({ users }: Props) {
           </tbody>
         </table>
       </div>
+
     </div>
   )
 }

@@ -3,28 +3,23 @@
 import { useEffect, useState } from 'react'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
+import { createClient } from '@/lib/supabaseClient'
 
 import {
   getAdminGlobalSummary,
   getAdminPortfolioAggregates,
   getAdminMonthlyTrends,
   getAdminRecentPayouts,
-  getAllUsers,
   getAdminEarningsBySource,
   getAdminUserOverview,
-
   type AdminSummary,
   type PortfolioAggregate,
   type MonthlyTrend,
   type RecentPayout,
-  type AppUser,
   type EarningsBySource,
   type AdminUserOverview
 } from '@/lib/supabase/admin'
 
-import { createClient } from '@/lib/supabaseClient'
-
-// Components
 import KPI from '@/components/admin-dashboard/KPI'
 import GlobalPayoutChart from '@/components/admin-dashboard/GlobalPayoutChart'
 import MonthlyTrendsChart from '@/components/admin-dashboard/MonthlyTrendsChart'
@@ -34,30 +29,29 @@ import UserManagementTable from '@/components/admin-dashboard/UserManagementTabl
 import EarningsBySourceChart from '@/components/analytics/EarningsBySourceChart'
 import SourceContributionPie from '@/components/analytics/SourceContributionPie'
 import SourceInsightsTable from '@/components/analytics/SourceInsightsTable'
+import CreateUserModal from '@/components/admin-dashboard/CreateUserModal'
 
-/* ---------------------------------------------------------------------------
-   TABS
---------------------------------------------------------------------------- */
+// ---------------------------------------------------------------------------
+// TABS
+// ---------------------------------------------------------------------------
 
 function OverviewTab({
   summary,
   aggregates,
   monthlyTrends,
   recentPayouts,
-  users,
-  userOverview
+  users
 }: {
   summary: AdminSummary
   aggregates: PortfolioAggregate[]
   monthlyTrends: MonthlyTrend[]
   recentPayouts: RecentPayout[]
-  users: AppUser[]
-  userOverview: AdminUserOverview[]
+  users: AdminUserOverview[]
 }) {
   return (
     <div className="space-y-14">
 
-      {/* KPIs */}
+      {/* KPI ROW */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
         <KPI
           title="Total Portfolio Value"
@@ -65,12 +59,14 @@ function OverviewTab({
           sub={`${summary.total_sources} Sources • ${summary.total_payouts} Payouts`}
           isMoney
         />
+
         <KPI
           title="Average Payout"
           value={summary.avg_payout_amount}
           sub="Across all income sources"
           isMoney
         />
+
         <KPI
           title="Active Users"
           value={users.length}
@@ -78,7 +74,7 @@ function OverviewTab({
         />
       </div>
 
-      {/* Payout Distribution */}
+      {/* Distribution */}
       <div>
         <h2 className="text-xl font-semibold mb-4">Payout Distribution by Source</h2>
         <div className="bg-white rounded-xl shadow-sm p-6 border">
@@ -94,7 +90,7 @@ function OverviewTab({
         </div>
       </div>
 
-      {/* Recent payouts */}
+      {/* Recent Payouts */}
       <div>
         <h2 className="text-xl font-semibold mb-4">Recent Payout Activity</h2>
         <div className="bg-white rounded-xl shadow-sm p-6 border">
@@ -106,9 +102,13 @@ function OverviewTab({
       <div className="mb-20">
         <h2 className="text-xl font-semibold mb-4">User Management</h2>
         <div className="bg-white rounded-xl shadow-sm p-6 border">
-          <UserManagementTable users={userOverview} />
+          <UserManagementTable
+            users={users}
+            onCreateUser={() => { }}
+          />
         </div>
       </div>
+
     </div>
   )
 }
@@ -157,7 +157,7 @@ function SourcesTab({ data }: { data: EarningsBySource[] }) {
 function TimelineTab() {
   return (
     <div className="p-8 text-gray-600">
-      Timeline visualizations will be here (payout events, heatmap, etc)
+      Timeline visualizations will be here
     </div>
   )
 }
@@ -165,14 +165,14 @@ function TimelineTab() {
 function InsightsTab() {
   return (
     <div className="p-8 text-gray-600 text-lg">
-      AI-generated portfolio insights will be displayed here.
+      AI-generated insights will be displayed here.
     </div>
   )
 }
 
-/* ---------------------------------------------------------------------------
-   MAIN PAGE
---------------------------------------------------------------------------- */
+// ---------------------------------------------------------------------------
+// MAIN PAGE
+// ---------------------------------------------------------------------------
 
 export default function AdminDashboardPage() {
   const router = useRouter()
@@ -182,12 +182,26 @@ export default function AdminDashboardPage() {
   const [aggregates, setAggregates] = useState<PortfolioAggregate[]>([])
   const [monthlyTrends, setMonthlyTrends] = useState<MonthlyTrend[]>([])
   const [recentPayouts, setRecentPayouts] = useState<RecentPayout[]>([])
-  const [users, setUsers] = useState<AppUser[]>([])
   const [sourcesData, setSourcesData] = useState<EarningsBySource[]>([])
   const [userOverview, setUserOverview] = useState<AdminUserOverview[]>([])
-
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState('overview')
+
+  const [showCreateUser, setShowCreateUser] = useState(false)
+
+  // Shared data loader
+  async function loadAll() {
+    setLoading(true)
+
+    setSummary(await getAdminGlobalSummary())
+    setAggregates(await getAdminPortfolioAggregates())
+    setMonthlyTrends(await getAdminMonthlyTrends())
+    setRecentPayouts(await getAdminRecentPayouts())
+    setSourcesData(await getAdminEarningsBySource())
+    setUserOverview(await getAdminUserOverview())
+
+    setLoading(false)
+  }
 
   useEffect(() => {
     async function init() {
@@ -206,21 +220,7 @@ export default function AdminDashboardPage() {
         return router.push('/dashboard')
       }
 
-      await loadData()
-    }
-
-    async function loadData() {
-      setLoading(true)
-
-      setSummary(await getAdminGlobalSummary())
-      setAggregates(await getAdminPortfolioAggregates())
-      setMonthlyTrends(await getAdminMonthlyTrends())
-      setRecentPayouts(await getAdminRecentPayouts())
-      setUsers(await getAllUsers())
-      setSourcesData(await getAdminEarningsBySource())
-      setUserOverview(await getAdminUserOverview())
-
-      setLoading(false)
+      await loadAll()
     }
 
     init()
@@ -272,8 +272,8 @@ export default function AdminDashboardPage() {
             key={tab.key}
             onClick={() => setActiveTab(tab.key)}
             className={`px-5 py-2 rounded-lg text-sm border font-medium ${activeTab === tab.key
-              ? 'bg-[#0A1E2D] text-white border-[#0A1E2D]'
-              : 'bg-white text-black border-gray-300 hover:bg-gray-100'
+                ? 'bg-[#0A1E2D] text-white border-[#0A1E2D]'
+                : 'bg-white text-black border-gray-300 hover:bg-gray-100'
               }`}
           >
             {tab.label}
@@ -281,22 +281,31 @@ export default function AdminDashboardPage() {
         ))}
       </div>
 
-      {/* Tab Content */}
+      {/* CONTENT */}
       {activeTab === 'overview' && (
         <OverviewTab
           summary={summary}
           aggregates={aggregates}
           monthlyTrends={monthlyTrends}
           recentPayouts={recentPayouts}
-          users={users}
-          userOverview={userOverview}
+          users={userOverview}
         />
       )}
 
       {activeTab === 'trends' && <TrendsTab monthlyTrends={monthlyTrends} />}
+
       {activeTab === 'sources' && <SourcesTab data={sourcesData} />}
+
       {activeTab === 'timeline' && <TimelineTab />}
+
       {activeTab === 'insights' && <InsightsTab />}
+
+      {/* User Modal */}
+      <CreateUserModal
+        open={showCreateUser}
+        setOpen={setShowCreateUser}
+        onCreated={() => loadAll()}
+      />
     </div>
   )
 }
