@@ -40,13 +40,15 @@ function OverviewTab({
   aggregates,
   monthlyTrends,
   recentPayouts,
-  users
+  users,
+  refresh
 }: {
   summary: AdminSummary
   aggregates: PortfolioAggregate[]
   monthlyTrends: MonthlyTrend[]
   recentPayouts: RecentPayout[]
   users: AdminUserOverview[]
+  refresh: () => void
 }) {
   return (
     <div className="space-y-14">
@@ -104,7 +106,7 @@ function OverviewTab({
         <div className="bg-white rounded-xl shadow-sm p-6 border">
           <UserManagementTable
             users={users}
-            onUpdated={() => { }}
+            onUpdated={refresh}
           />
         </div>
       </div>
@@ -235,6 +237,14 @@ export default function AdminDashboardPage() {
         <Image src="/HOW2Logo.png" alt="HOW" width={150} height={50} />
 
         <div className="flex gap-4">
+
+          <button
+            onClick={() => setShowCreateUser(true)}
+            className="px-4 py-2 bg-[#0A1E2D] text-white font-semibold rounded-md hover:opacity-90"
+          >
+            Create User
+          </button>
+
           <button
             onClick={() => router.push('/dashboard')}
             className="px-4 py-2 bg-gray-200 text-[#0A1E2D] font-semibold rounded-md hover:bg-gray-300"
@@ -286,15 +296,13 @@ export default function AdminDashboardPage() {
           monthlyTrends={monthlyTrends}
           recentPayouts={recentPayouts}
           users={userOverview}
+          refresh={loadAll}
         />
       )}
 
       {activeTab === 'trends' && <TrendsTab monthlyTrends={monthlyTrends} />}
-
       {activeTab === 'sources' && <SourcesTab data={sourcesData} />}
-
       {activeTab === 'timeline' && <TimelineTab />}
-
       {activeTab === 'insights' && <InsightsTab />}
 
       {/* Create User Modal */}

@@ -193,3 +193,46 @@ export async function getAdminUserOverview(): Promise<AdminUserOverview[]> {
   if (error || !data) return []
   return data as AdminUserOverview[]
 }
+
+export async function getUserOverview(userId: string) {
+  const supabase = createClient()
+
+  const { data, error } = await supabase
+    .rpc('admin_get_user_overview', { userid: userId })
+    .single()
+
+  if (error) {
+    console.error('getUserOverview error', error)
+    return null
+  }
+
+  return data
+}
+
+export async function getUserPortfolio(userId: string) {
+  const supabase = createClient()
+
+  const { data, error } = await supabase
+    .rpc('admin_get_user_portfolio', { userid: userId })
+
+  if (error) {
+    console.error('getUserPortfolio error', error)
+    return []
+  }
+
+  return data
+}
+
+export async function getUserPayoutLedger(userId: string) {
+  const supabase = createClient()
+
+  const { data, error } = await supabase
+    .rpc('admin_get_user_payout_ledger', { userid: userId })
+
+  if (error) {
+    console.error('getUserPayoutLedger error', error)
+    return []
+  }
+
+  return data
+}
