@@ -1,47 +1,149 @@
 'use client'
 
-import React from 'react'
+import { useState, useMemo } from 'react'
 import { AdminUserOverview } from '@/lib/supabase/admin'
+import { ChevronDown, MoreVertical } from 'lucide-react'
 
 interface Props {
   users: AdminUserOverview[]
 }
 
 export default function UserManagementTable({ users }: Props) {
-  const money = (n: number) =>
-    `$${n.toLocaleString('en-US', { minimumFractionDigits: 2 })}`
+  const [search, setSearch] = useState('')
+  const [sortKey, setSortKey] = useState<'earned' | 'joined' | 'payouts'>('earned')
+  const [expanded, setExpanded] = useState<string | null>(null)
 
-  const formatDate = (d: string | null) =>
-    d ? new Date(d).toLocaleDateString() : '—'
+  const filtered = useMemo(() => {
+    return users
+      .filter(u =>
+        u.email.toLowerCase().includes(search.toLowerCase())
+      )
+      .sort((a, b) => {
+        switch (sortKey) {
+          case 'earned':
+            return b.lifetime_earned - a.lifetime_earned
+          case 'joined':
+            return new Date(b.joined_date).getTime() - new Date(a.joined_date).getTime()
+          case 'payouts':
+            return b.total_payouts - a.total_payouts
+          default:
+            return 0
+        }
+      })
+  }, [users, search, sortKey])
 
   return (
-    <div className="overflow-x-auto">
-      <table className="min-w-full border border-gray-200 rounded-lg">
-        <thead className="bg-[#f9f7f3] text-sm">
-          <tr>
-            <th className="p-3 text-left">Email</th>
-            <th className="p-3 text-left">Role</th>
-            <th className="p-3 text-left">Lifetime Earned</th>
-            <th className="p-3 text-left">Sources</th>
-            <th className="p-3 text-left">Payouts</th>
-            <th className="p-3 text-left">Joined</th>
-            <th className="p-3 text-left">Last Payout</th>
-          </tr>
-        </thead>
-        <tbody>
-          {users.map((u, idx) => (
-            <tr key={idx} className="border-t hover:bg-[#fdfbf7]">
-              <td className="p-3">{u.email}</td>
-              <td className="p-3 capitalize">{u.role ?? 'user'}</td>
-              <td className="p-3 font-medium">{money(u.lifetime_earned)}</td>
-              <td className="p-3">{u.total_sources}</td>
-              <td className="p-3">{u.total_payouts}</td>
-              <td className="p-3">{formatDate(u.joined_date)}</td>
-              <td className="p-3">{formatDate(u.last_payout_date)}</td>
+    <div className="space-y-6">
+
+      {/* Header Controls */}
+      <div className="flex justify-between items-center">
+        <input
+          type="text"
+          placeholder="Search by email"
+          className="border rounded-md px-3 py-2 w-64"
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+        />
+
+        <select
+          className="border rounded-md px-3 py-2"
+          value={sortKey}
+          onChange={e => setSortKey(e.target.value as any)}
+        >
+          <option value="earned">Sort by Earnings</option>
+          <option value="joined">Sort by Joined Date</option>
+          <option value="payouts">Sort by Payout Count</option>
+        </select>
+      </div>
+
+      {/* Table */}
+      <div className="overflow-x-auto">
+        <table className="min-w-full border rounded-lg">
+          <thead className="bg-gray-100 text-sm text-gray-600">
+            <tr>
+              <th className="p-3 text-left">Email</th>
+              <th className="p-3 text-left">Role</th>
+              <th className="p-3 text-left">Lifetime Earned</th>
+              <th className="p-3 text-left">Sources</th>
+              <th className="p-3 text-left">Payouts</th>
+              <th className="p-3 text-left">Joined</th>
+              <th className="p-3 text-left">Last Payout</th>
+              <th className="p-3"></th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+
+          <tbody>
+            {filtered.map(u => {
+              const isExpanded = expanded === u.user_id
+
+              return (
+                <>
+                  <tr
+                    key={u.user_id}
+                    className="border-b hover:bg-gray-50 cursor-pointer"
+                    onClick={() =>
+                      setExpanded(prev => (prev === u.user_id ? null : u.user_id))
+                    }
+                  >
+                    <td className="p-3 font-medium">{u.email}</td>
+
+                    <td className="p-3">
+                      <span className="px-2 py-1 rounded-md bg-blue-100 text-blue-700 text-xs">
+                        {u.role || 'Earner'}
+                      </span>
+                    </td>
+
+                    <td className="p-3 font-semibold">
+                      ${u.lifetime_earned.toLocaleString()}
+                    </td>
+
+                    <td className="p-3">{u.total_sources}</td>
+                    <td className="p-3">{u.total_payouts}</td>
+                    <td className="p-3">{u.joined_date}</td>
+                    <td className="p-3">{u.last_payout_date || '—'}</td>
+
+                    <td className="p-3 text-right">
+                      <MoreVertical size={18} className="text-gray-500" />
+                    </td>
+                  </tr>
+
+                  {/* Expanded Row */}
+                  {isExpanded && (
+                    <tr className="bg-gray-50">
+                      <td colSpan={8} className="p-6 text-sm text-gray-700">
+                        <div className="grid grid-cols-3 gap-6">
+
+                          <div>
+                            <p className="font-semibold mb-2">Top Metrics</p>
+                            <p>Total Earned: ${u.lifetime_earned.toLocaleString()}</p>
+                            <p>Total Payouts: {u.total_payouts}</p>
+                            <p>Total Sources: {u.total_sources}</p>
+                          </div>
+
+                          <div>
+                            <p className="font-semibold mb-2">Account</p>
+                            <p>Joined: {u.joined_date}</p>
+                            <p>Last Payout: {u.last_payout_date || 'None'}</p>
+                          </div>
+
+                          <div>
+                            <p className="font-semibold mb-2">Actions</p>
+                            <button className="text-blue-600 hover:underline block">View Portfolio</button>
+                            <button className="text-blue-600 hover:underline block">View Payout Ledger</button>
+                            <button className="text-blue-600 hover:underline block">Edit User</button>
+                            <button className="text-red-600 hover:underline block">Disable User</button>
+                          </div>
+
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                </>
+              )
+            })}
+          </tbody>
+        </table>
+      </div>
     </div>
   )
 }
