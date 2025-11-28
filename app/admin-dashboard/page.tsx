@@ -268,7 +268,11 @@ function InsightsTab({
   }
   function money(n: any) {
     const val = Number(n)
-    return isNaN(val) ? '0' : val.toLocaleString()
+    if (!val || isNaN(val)) return '$0.00'
+    return val.toLocaleString('en-US', {
+      style: 'currency',
+      currency: 'USD'
+    })
   }
 
   if (monthlyTrends.length >= 2) {
