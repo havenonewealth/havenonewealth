@@ -18,14 +18,14 @@ export default function CreateUserModal({ open, setOpen, onCreated }: Props) {
     const [error, setError] = useState('')
     const [success, setSuccess] = useState(false)
 
-    // Reset form every time the modal opens
+    // Reset modal state every time it opens
     useEffect(() => {
         if (open) {
             setEmail('')
             setRole('earner')
-            setLoading(false)
             setError('')
             setSuccess(false)
+            setLoading(false)
         }
     }, [open])
 
@@ -35,8 +35,9 @@ export default function CreateUserModal({ open, setOpen, onCreated }: Props) {
         setError('')
         setSuccess(false)
 
-        if (!email.trim()) {
-            setError('Email is required.')
+        // Basic email validation only (no domain restrictions)
+        if (!email.trim() || !email.includes('@')) {
+            setError('Please enter a valid email address.')
             return
         }
 
@@ -58,7 +59,7 @@ export default function CreateUserModal({ open, setOpen, onCreated }: Props) {
         setSuccess(true)
         onCreated()
 
-        // Close gracefully after success
+        // Close after short delay
         setTimeout(() => {
             setOpen(false)
         }, 1200)
@@ -72,7 +73,7 @@ export default function CreateUserModal({ open, setOpen, onCreated }: Props) {
 
                 <div className="space-y-4">
 
-                    {/* Email */}
+                    {/* Email Field */}
                     <div>
                         <label className="text-sm font-medium">Email</label>
                         <input
@@ -85,7 +86,7 @@ export default function CreateUserModal({ open, setOpen, onCreated }: Props) {
                         />
                     </div>
 
-                    {/* Role */}
+                    {/* Role Selector */}
                     <div>
                         <label className="text-sm font-medium">Role</label>
                         <select
@@ -98,11 +99,13 @@ export default function CreateUserModal({ open, setOpen, onCreated }: Props) {
                         </select>
                     </div>
 
-                    {/* Error / Success */}
+                    {/* Error */}
                     {error && <p className="text-red-600 text-sm">{error}</p>}
+
+                    {/* Success */}
                     {success && <p className="text-green-600 text-sm">User created successfully</p>}
 
-                    {/* Buttons */}
+                    {/* Footer Buttons */}
                     <div className="flex justify-end gap-3 pt-4">
                         <button
                             onClick={() => setOpen(false)}

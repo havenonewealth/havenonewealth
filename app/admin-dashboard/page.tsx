@@ -34,8 +34,10 @@ import CreateUserModal from '@/components/admin-dashboard/CreateUserModal'
 /* --------------------------------------------------
    Safe number conversion
 -------------------------------------------------- */
-function safeNumber(n: any, fallback = 0) {
-  return typeof n === 'number' && !isNaN(n) && n !== null ? n : fallback
+function safeNumber(n: any, fallback = 0): number {
+  if (n === null || n === undefined) return fallback
+  const num = Number(n)
+  return isNaN(num) ? fallback : num
 }
 
 /* --------------------------------------------------
@@ -264,12 +266,18 @@ function InsightsTab({
   if (summary.payouts_this_month === 0) {
     riskIndicators.push(`No payouts recorded so far this month.`)
   }
+  function money(n: any) {
+    const val = Number(n)
+    return isNaN(val) ? '0' : val.toLocaleString()
+  }
+
   if (monthlyTrends.length >= 2) {
     const last = monthlyTrends[0].total_payout
     const prev = monthlyTrends[1].total_payout
-    if (last < prev) {
+
+    if (Number(last) < Number(prev)) {
       riskIndicators.push(
-        `Month-over-month payout total decreased from ${prev.toLocaleString()} to ${last.toLocaleString()}.`
+        `Month-over-month payout total decreased from ${money(prev)} to ${money(last)}.`
       )
     }
   }
