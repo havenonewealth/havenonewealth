@@ -9,7 +9,7 @@ import { createClient } from '@/lib/supabaseClient'
 
 interface Props {
   users: AdminUserOverview[]
-  onUpdated: () => void         // FIX: add callback prop properly
+  onUpdated: () => void
 }
 
 export default function UserManagementTable({ users, onUpdated }: Props) {
@@ -24,9 +24,7 @@ export default function UserManagementTable({ users, onUpdated }: Props) {
 
   const filtered = useMemo(() => {
     return users
-      .filter(u =>
-        u.email.toLowerCase().includes(search.toLowerCase())
-      )
+      .filter(u => u.email.toLowerCase().includes(search.toLowerCase()))
       .sort((a, b) => {
         switch (sortKey) {
           case 'earned':
@@ -42,12 +40,43 @@ export default function UserManagementTable({ users, onUpdated }: Props) {
   }, [users, search, sortKey])
 
   async function disableUser(user_id: string) {
-    await supabase
-      .from('users')
-      .update({ role: 'disabled' })
-      .eq('id', user_id)
-
+    await supabase.from('users').update({ role: 'disabled' }).eq('id', user_id)
     onUpdated()
+  }
+
+  /* -------------------------
+     CSV DOWNLOAD HANDLER
+  --------------------------*/
+  function downloadCSV() {
+    const headers = [
+      'Email',
+      'Role',
+      'Lifetime Earned',
+      'Sources',
+      'Payouts',
+      'Joined',
+      'Last Payout'
+    ]
+
+    const rows = filtered.map(u => [
+      u.email,
+      u.role || 'Earner',
+      u.lifetime_earned,
+      u.total_sources,
+      u.total_payouts,
+      u.joined_date,
+      u.last_payout_date || ''
+    ])
+
+    const csvContent =
+      'data:text/csv;charset=utf-8,' +
+      [headers.join(','), ...rows.map(r => r.join(','))].join('\n')
+
+    const encoded = encodeURI(csvContent)
+    const link = document.createElement('a')
+    link.href = encoded
+    link.download = 'users.csv'
+    link.click()
   }
 
   return (
@@ -64,15 +93,25 @@ export default function UserManagementTable({ users, onUpdated }: Props) {
           onChange={e => setSearch(e.target.value)}
         />
 
-        <select
-          className="border rounded-md px-3 py-2"
-          value={sortKey}
-          onChange={e => setSortKey(e.target.value as any)}
-        >
-          <option value="earned">Sort by Earnings</option>
-          <option value="joined">Sort by Joined Date</option>
-          <option value="payouts">Sort by Payout Count</option>
-        </select>
+        <div className="flex items-center gap-3">
+          <select
+            className="border rounded-md px-3 py-2"
+            value={sortKey}
+            onChange={e => setSortKey(e.target.value as any)}
+          >
+            <option value="earned">Sort by Earnings</option>
+            <option value="joined">Sort by Joined Date</option>
+            <option value="payouts">Sort by Payout Count</option>
+          </select>
+
+          {/* CSV BUTTON */}
+          <button
+            onClick={downloadCSV}
+            className="px-4 py-2 bg-[#0A1E2D] text-white rounded-md font-semibold hover:opacity-90"
+          >
+            Download CSV
+          </button>
+        </div>
 
       </div>
 
@@ -106,17 +145,14 @@ export default function UserManagementTable({ users, onUpdated }: Props) {
                     }
                   >
                     <td className="p-3 font-medium">{u.email}</td>
-
                     <td className="p-3">
                       <span className="px-2 py-1 rounded-md bg-blue-100 text-blue-700 text-xs">
                         {u.role || 'Earner'}
                       </span>
                     </td>
-
                     <td className="p-3 font-semibold">
                       ${u.lifetime_earned.toLocaleString()}
                     </td>
-
                     <td className="p-3">{u.total_sources}</td>
                     <td className="p-3">{u.total_payouts}</td>
                     <td className="p-3">{u.joined_date}</td>
@@ -150,7 +186,7 @@ export default function UserManagementTable({ users, onUpdated }: Props) {
                             <p className="font-semibold mb-2">Actions</p>
 
                             <button
-                              onClick={(e) => {
+                              onClick={e => {
                                 e.stopPropagation()
                                 router.push(`/admin/users/${u.user_id}/portfolio`)
                               }}
@@ -160,7 +196,7 @@ export default function UserManagementTable({ users, onUpdated }: Props) {
                             </button>
 
                             <button
-                              onClick={(e) => {
+                              onClick={e => {
                                 e.stopPropagation()
                                 router.push(`/admin/users/${u.user_id}/ledger`)
                               }}
@@ -171,7 +207,7 @@ export default function UserManagementTable({ users, onUpdated }: Props) {
 
                             <button
                               className="text-blue-600 hover:underline block"
-                              onClick={(e) => {
+                              onClick={e => {
                                 e.stopPropagation()
                                 setEditingUser(u)
                                 setEditOpen(true)
@@ -181,7 +217,7 @@ export default function UserManagementTable({ users, onUpdated }: Props) {
                             </button>
 
                             <button
-                              onClick={(e) => {
+                              onClick={e => {
                                 e.stopPropagation()
                                 disableUser(u.user_id)
                               }}
@@ -209,7 +245,7 @@ export default function UserManagementTable({ users, onUpdated }: Props) {
           open={editOpen}
           setOpen={setEditOpen}
           user={editingUser}
-          onUpdated={onUpdated}    // FIX
+          onUpdated={onUpdated}
         />
       )}
     </div>
