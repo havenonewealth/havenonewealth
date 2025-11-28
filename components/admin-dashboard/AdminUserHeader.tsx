@@ -1,31 +1,59 @@
 'use client'
 
-import { AdminUserOverview } from '@/lib/supabase/admin'
+import type { AdminUserOverview } from '@/lib/supabase/admin'
 
-export default function AdminUserHeader({ user }: { user: AdminUserOverview }) {
+interface Props {
+    user: AdminUserOverview
+}
+
+export default function AdminUserHeader({ user }: Props) {
     return (
-        <div className="bg-white rounded-xl shadow-sm p-6 border mb-8">
-            <h1 className="text-2xl font-semibold">{user.email}</h1>
+        <div className="bg-white border rounded-xl shadow-sm p-6">
 
-            <div className="mt-4 grid grid-cols-4 gap-6 text-sm">
+            <div className="flex justify-between items-center flex-wrap gap-6">
+
+                {/* LEFT SIDE — USER SUMMARY */}
                 <div>
-                    <p className="text-gray-500">Role</p>
-                    <p className="font-medium">{user.role}</p>
+                    <h1 className="text-2xl font-semibold text-gray-900">
+                        {user.email}
+                    </h1>
+
+                    <p className="text-gray-600 text-sm mt-1">
+                        Role: <span className="font-medium">{user.role || 'Earner'}</span>
+                    </p>
+
+                    <p className="text-gray-600 text-sm">
+                        Joined: <span className="font-medium">{user.joined_date}</span>
+                    </p>
+
+                    <p className="text-gray-600 text-sm">
+                        Last Payout:{' '}
+                        <span className="font-medium">
+                            {user.last_payout_date || 'None'}
+                        </span>
+                    </p>
                 </div>
 
-                <div>
-                    <p className="text-gray-500">Lifetime Earned</p>
-                    <p className="font-medium">${user.lifetime_earned.toLocaleString()}</p>
-                </div>
+                {/* RIGHT SIDE — KEY METRICS */}
+                <div className="flex gap-12">
 
-                <div>
-                    <p className="text-gray-500">Total Payouts</p>
-                    <p className="font-medium">{user.total_payouts}</p>
-                </div>
+                    <div className="text-right">
+                        <p className="text-sm text-gray-600">Lifetime Earned</p>
+                        <p className="text-xl font-bold">
+                            ${user.lifetime_earned.toLocaleString()}
+                        </p>
+                    </div>
 
-                <div>
-                    <p className="text-gray-500">Sources</p>
-                    <p className="font-medium">{user.total_sources}</p>
+                    <div className="text-right">
+                        <p className="text-sm text-gray-600">Total Payouts</p>
+                        <p className="text-xl font-bold">{user.total_payouts}</p>
+                    </div>
+
+                    <div className="text-right">
+                        <p className="text-sm text-gray-600">Sources</p>
+                        <p className="text-xl font-bold">{user.total_sources}</p>
+                    </div>
+
                 </div>
             </div>
         </div>
