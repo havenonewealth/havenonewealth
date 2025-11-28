@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabaseClient'
 
 /* ================================
-   TYPE DEFINITIONS (EXPORTED)
+   TYPE DEFINITIONS
 ================================ */
 
 export interface AdminSummary {
@@ -25,11 +25,6 @@ export interface AdminSummary {
   active_users: number
 }
 
-/* ============================================
-   PortfolioAggregate - MUST match the view
-   v_admin_earnings_by_source
-============================================ */
-
 export interface PortfolioAggregate {
   source_id: string
   name: string
@@ -46,7 +41,6 @@ export interface MonthlyTrend {
   user_id: string
 }
 
-/* MUST MATCH /lib/types.ts EXACTLY */
 export interface RecentPayout {
   id: string
   user_id: string
@@ -66,11 +60,6 @@ export interface AppUser {
   created_at: string
 }
 
-/* ============================================
-   ADMIN USER OVERVIEW (FINAL + CORRECT)
-   matches v_admin_user_overview SQL View
-============================================ */
-
 export interface AdminUserOverview {
   user_id: string
   email: string
@@ -82,10 +71,6 @@ export interface AdminUserOverview {
   last_payout_date: string | null
 }
 
-/* ============================================
-   Earnings By Source (Admin analytics)
-============================================ */
-
 export interface EarningsBySource {
   source_id: string
   name: string
@@ -96,7 +81,7 @@ export interface EarningsBySource {
 }
 
 /* ================================
-   ADMIN QUERY FUNCTIONS
+   ADMIN SUMMARY
 ================================ */
 
 export async function getAdminGlobalSummary(): Promise<AdminSummary | null> {
@@ -111,6 +96,10 @@ export async function getAdminGlobalSummary(): Promise<AdminSummary | null> {
   return data as AdminSummary
 }
 
+/* ================================
+   GLOBAL PORTFOLIO AGGREGATES
+================================ */
+
 export async function getAdminPortfolioAggregates(): Promise<PortfolioAggregate[]> {
   const supabase = createClient()
 
@@ -123,6 +112,44 @@ export async function getAdminPortfolioAggregates(): Promise<PortfolioAggregate[
   return data ?? []
 }
 
+/* ================================
+   USER-SPECIFIC PORTFOLIO AGGREGATES
+================================ */
+
+export async function getAdminPortfolioAggregatesByUser(userId: string) {
+  const supabase = createClient()
+
+  const { data, error } = await supabase
+    .from('income_sources')
+    .select(`
+      id,
+      source_name,
+      payouts (
+        amount,
+        payment_date
+      )
+    `)
+    .eq('user_id', userId)
+
+  if (error) {
+    console.error('Portfolio error:', error)
+    return []
+  }
+
+  return data.map(src => ({
+    id: src.id,
+    source_name: src.source_name,
+    payout_count: src.payouts?.length ?? 0,
+    total_earned: src.payouts?.reduce((sum: number, p: any) => {
+      return sum + Number(p.amount || 0)
+    }, 0) ?? 0
+  }))
+}
+
+/* ================================
+   MONTHLY TRENDS
+================================ */
+
 export async function getAdminMonthlyTrends(): Promise<MonthlyTrend[]> {
   const supabase = createClient()
 
@@ -133,9 +160,9 @@ export async function getAdminMonthlyTrends(): Promise<MonthlyTrend[]> {
   return error ? [] : (data as MonthlyTrend[])
 }
 
-/* ============================================================
-   FIXED: return recent payouts in correct unified structure
-============================================================ */
+/* ================================
+   RECENT PAYOUTS
+================================ */
 
 export async function getAdminRecentPayouts(): Promise<RecentPayout[]> {
   const supabase = createClient()
@@ -150,7 +177,7 @@ export async function getAdminRecentPayouts(): Promise<RecentPayout[]> {
 }
 
 /* ================================
-   USER LIST
+   ALL USERS
 ================================ */
 
 export async function getAllUsers(): Promise<AppUser[]> {
@@ -163,9 +190,9 @@ export async function getAllUsers(): Promise<AppUser[]> {
   return error ? [] : (data as AppUser[])
 }
 
-/* =======================================
-   Earnings By Source
-======================================= */
+/* ================================
+   EARNINGS BY SOURCE
+================================ */
 
 export async function getAdminEarningsBySource(): Promise<EarningsBySource[]> {
   const supabase = createClient()
@@ -178,9 +205,9 @@ export async function getAdminEarningsBySource(): Promise<EarningsBySource[]> {
   return data as EarningsBySource[]
 }
 
-/* =======================================
-   Admin User Overview
-======================================= */
+/* ================================
+   ADMIN USER LIST VIEW
+================================ */
 
 export async function getAdminUserOverview(): Promise<AdminUserOverview[]> {
   const supabase = createClient()
@@ -194,24 +221,10 @@ export async function getAdminUserOverview(): Promise<AdminUserOverview[]> {
   return data as AdminUserOverview[]
 }
 
-export async function getUserOverview(userId: string) {
-  const supabase = createClient()
+/* ================================
+   USER PORTFOLIO
+================================ */
 
-  const { data, error } = await supabase
-    .rpc('admin_get_user_overview', { userid: userId })
-    .single()
-
-  if (error) {
-    console.error('getUserOverview error', error)
-    return null
-  }
-
-  return data
-}
-
-// -------------------------------------------------------
-// USER-SPECIFIC: Get Portfolio for a Single User
-// -------------------------------------------------------
 export async function getUserPortfolio(userId: string) {
   const supabase = createClient()
 
@@ -236,9 +249,10 @@ export async function getUserPortfolio(userId: string) {
   return data || []
 }
 
-// -------------------------------------------------------
-// USER-SPECIFIC: Get Payout Ledger for a Single User
-// -------------------------------------------------------
+/* ================================
+   USER PAYOUT LEDGER
+================================ */
+
 export async function getUserPayoutLedger(userId: string) {
   const supabase = createClient()
 
@@ -251,9 +265,7 @@ export async function getUserPayoutLedger(userId: string) {
       status,
       notes,
       source_id,
-      income_sources (
-        source_name
-      )
+      income_sources ( source_name )
     `)
     .eq('user_id', userId)
     .order('payment_date', { ascending: false })
@@ -265,5 +277,3 @@ export async function getUserPayoutLedger(userId: string) {
 
   return data || []
 }
-
-

@@ -4,10 +4,11 @@ import { useEffect, useState } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { createClient } from '@/lib/supabaseClient'
 import AdminUserHeader from '@/components/admin-dashboard/AdminUserHeader'
+
 import {
     getAdminUserOverview,
     type AdminUserOverview,
-    getAdminPortfolioAggregates
+    getAdminPortfolioAggregatesByUser
 } from '@/lib/supabase/admin'
 
 export default function UserPortfolioPage() {
@@ -27,7 +28,7 @@ export default function UserPortfolioPage() {
             const found = allUsers.find(u => u.user_id === id)
             setUser(found || null)
 
-            const src = await getAdminPortfolioAggregates(id)
+            const src = await getAdminPortfolioAggregatesByUser(id)
             setSources(src)
 
             setLoading(false)

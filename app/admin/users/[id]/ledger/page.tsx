@@ -2,20 +2,24 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter, useParams } from 'next/navigation'
+import { createClient } from '@/lib/supabaseClient'
 import AdminUserHeader from '@/components/admin-dashboard/AdminUserHeader'
+
 import {
     getAdminUserOverview,
     type AdminUserOverview,
-    getUserPayoutLedger
+    getUserPortfolio
 } from '@/lib/supabase/admin'
 
-export default function UserLedgerPage() {
+export default function UserPortfolioPage() {
     const router = useRouter()
     const params = useParams()
     const id = params.id as string
 
+    const supabase = createClient()
+
     const [user, setUser] = useState<AdminUserOverview | null>(null)
-    const [ledger, setLedger] = useState<any[]>([])
+    const [sources, setSources] = useState<any[]>([])
     const [loading, setLoading] = useState(true)
 
     useEffect(() => {
@@ -24,15 +28,15 @@ export default function UserLedgerPage() {
             const found = allUsers.find(u => u.user_id === id)
             setUser(found || null)
 
-            const payouts = await getUserPayoutLedger(id)
-            setLedger(payouts)
+            const src = await getUserPortfolio(id)
+            setSources(src)
 
             setLoading(false)
         }
         load()
     }, [id])
 
-    if (loading) return <div className="p-10">Loading ledger...</div>
+    if (loading) return <div className="p-10">Loading portfolio...</div>
 
     if (!user) {
         return (
@@ -62,26 +66,34 @@ export default function UserLedgerPage() {
             <AdminUserHeader user={user} />
 
             <h2 className="text-xl font-semibold mt-10 mb-4">
-                Payout Ledger
+                Income Sources
             </h2>
 
             <div className="border rounded-xl bg-white shadow p-6">
-                {ledger.length === 0 && (
-                    <p className="text-gray-600">No payouts recorded.</p>
+                {sources.length === 0 && (
+                    <p className="text-gray-600">No sources assigned.</p>
                 )}
 
-                {ledger.map(p => (
-                    <div
-                        key={p.id}
-                        className="p-4 mb-4 border rounded bg-gray-50"
-                    >
-                        <p className="font-semibold">
-                            ${p.amount.toLocaleString()}
-                        </p>
-                        <p className="text-gray-700">Date: {p.payment_date}</p>
-                        <p className="text-gray-700">Status: {p.status}</p>
+                {sources.length > 0 && (
+                    <div className="grid grid-cols-2 gap-6">
+                        {sources.map(src => (
+                            <div
+                                key={src.id}
+                                className="p-4 border rounded bg-gray-50"
+                            >
+                                <p className="font-semibold text-lg">
+                                    {src.source_name}
+                                </p>
+                                <p className="text-gray-700">
+                                    Total Earned: ${src.total_earned.toLocaleString()}
+                                </p>
+                                <p className="text-gray-700">
+                                    Payout Count: {src.payout_count}
+                                </p>
+                            </div>
+                        ))}
                     </div>
-                ))}
+                )}
             </div>
         </div>
     )
