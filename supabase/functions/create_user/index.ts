@@ -1,59 +1,47 @@
-import { serve } from "https://deno.land/std@0.224.0/http/server.ts"
+import { serve } from "https://deno.land/std@0.177.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 
 serve(async (req) => {
+  // CORS Preflight
+  if (req.method === "OPTIONS") {
+    return new Response("ok", {
+      headers: {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+        "Access-Control-Allow-Methods": "POST, OPTIONS"
+      }
+    })
+  }
+
   try {
     const { email, role } = await req.json()
 
-    if (!email) {
-      return new Response(
-        JSON.stringify({ error: "Email is required" }),
-        { status: 400 }
-      )
-    }
-
-    const supabase = createClient(
+    const supabaseAdmin = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     )
 
-    // 1. Create auth user
-    const { data: authUser, error: authError } =
-      await supabase.auth.admin.createUser({
-        email,
-        email_confirm: true
-      })
+    const { data, error } = await supabaseAdmin.auth.admin.createUser({
+      email,
+      email_confirm: true,
+      user_metadata: { role }
+    })
 
-    if (authError) {
-      return new Response(JSON.stringify({ error: authError.message }), {
-        status: 400
-      })
-    }
+    if (error) throw error
 
-    // 2. Insert into metadata table
-    const { error: profileError } = await supabase
-      .from("users")
-      .insert({
-        id: authUser.user.id,
-        email,
-        role: role || "earner"
-      })
-
-    if (profileError) {
-      return new Response(
-        JSON.stringify({ error: profileError.message }),
-        { status: 400 }
-      )
-    }
-
-    return new Response(JSON.stringify({ success: true }), { status: 200 })
-
-  } catch (err: unknown) {
-    return new Response(
-      JSON.stringify({
-        error: err instanceof Error ? err.message : String(err)
-      }),
-      { status: 500 }
-    )
+    return new Response(JSON.stringify({ success: true, data }), {
+      headers: {
+        "Content-Type": "application/json",
+        "Access-Control-Allow-Origin": "*"
+      }
+    })
+  } catch (e) {
+    return new Response(JSON.stringify({ error: e.message }), {
+      status: 400,
+      headers: {
+        "Content-Type": "application/json",
+        "Access-Control-Allow-Origin": "*"
+      }
+    })
   }
 })
