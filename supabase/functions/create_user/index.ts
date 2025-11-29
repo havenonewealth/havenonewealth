@@ -2,7 +2,7 @@ import { serve } from "https://deno.land/std@0.177.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 
 serve(async (req) => {
-  // CORS Preflight
+  // Handle CORS
   if (req.method === "OPTIONS") {
     return new Response("ok", {
       headers: {
@@ -21,20 +21,34 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     )
 
-    const { data, error } = await supabaseAdmin.auth.admin.createUser({
-      email,
-      email_confirm: true,
-      user_metadata: { role }
-    })
+    // Step 1: Create the user without confirming email
+    const { data: createdUser, error: createErr } =
+      await supabaseAdmin.auth.admin.createUser({
+        email,
+        user_metadata: { role }
+      })
 
-    if (error) throw error
+    if (createErr) throw createErr
 
-    return new Response(JSON.stringify({ success: true, data }), {
-      headers: {
-        "Content-Type": "application/json",
-        "Access-Control-Allow-Origin": "*"
+    // Step 2: Send Invite Email (password setup)
+    const { data: inviteData, error: inviteErr } =
+      await supabaseAdmin.auth.admin.inviteUserByEmail(email)
+
+    if (inviteErr) throw inviteErr
+
+    return new Response(
+      JSON.stringify({
+        success: true,
+        user: createdUser,
+        invite: inviteData
+      }),
+      {
+        headers: {
+          "Content-Type": "application/json",
+          "Access-Control-Allow-Origin": "*"
+        }
       }
-    })
+    )
   } catch (e) {
     return new Response(JSON.stringify({ error: e.message }), {
       status: 400,

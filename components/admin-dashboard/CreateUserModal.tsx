@@ -16,7 +16,7 @@ export default function CreateUserModal({ open, setOpen, onCreated }: Props) {
     const [error, setError] = useState('')
     const [success, setSuccess] = useState(false)
 
-    // Reset modal fields each time it opens
+    // Reset fields every time modal opens
     useEffect(() => {
         if (open) {
             setEmail('')
@@ -33,7 +33,6 @@ export default function CreateUserModal({ open, setOpen, onCreated }: Props) {
         setError('')
         setSuccess(false)
 
-        // Basic email validation
         if (!email.trim() || !email.includes('@')) {
             setError('Please enter a valid email address.')
             return
@@ -65,10 +64,8 @@ export default function CreateUserModal({ open, setOpen, onCreated }: Props) {
             setSuccess(true)
             onCreated()
 
-            // Close after success
-            setTimeout(() => {
-                setOpen(false)
-            }, 1200)
+            // Close shortly after success
+            setTimeout(() => setOpen(false), 1200)
 
         } catch (err: any) {
             setError(err.message || 'Unexpected error occurred.')
@@ -115,7 +112,11 @@ export default function CreateUserModal({ open, setOpen, onCreated }: Props) {
                     {error && <p className="text-red-600 text-sm">{error}</p>}
 
                     {/* Success */}
-                    {success && <p className="text-green-600 text-sm">User created successfully</p>}
+                    {success && (
+                        <p className="text-green-600 text-sm">
+                            User created. Invite email sent.
+                        </p>
+                    )}
 
                     {/* Footer Buttons */}
                     <div className="flex justify-end gap-3 pt-4">
