@@ -6,21 +6,17 @@ import { createClient } from '@/lib/supabaseClient'
 
 export interface AdminSummary {
   user_id: string
-
   total_sources: number
   total_payouts: number
   total_payout_amount: number
   avg_payout_amount: number
-
   total_expected_monthly: number
   total_expected_annual: number
   payouts_this_month: number
   payouts_last_month: number
   month_over_month_growth: number
-
   top_source_name: string
   top_source_amount: number
-
   new_users_this_month: number
   active_users: number
 }
@@ -90,9 +86,9 @@ export async function getAdminGlobalSummary(): Promise<AdminSummary | null> {
   const { data, error } = await supabase
     .from('v_admin_global_summary')
     .select('*')
-    .single()
+    .maybeSingle()
 
-  if (error) return null
+  if (error || !data) return null
   return data as AdminSummary
 }
 
@@ -108,8 +104,8 @@ export async function getAdminPortfolioAggregates(): Promise<PortfolioAggregate[
     .select('*')
     .order('total_earned', { ascending: false })
 
-  if (error) throw error
-  return data ?? []
+  if (error || !data) return []
+  return data
 }
 
 /* ================================
@@ -131,18 +127,17 @@ export async function getAdminPortfolioAggregatesByUser(userId: string) {
     `)
     .eq('user_id', userId)
 
-  if (error) {
-    console.error('Portfolio error:', error)
-    return []
-  }
+  if (error || !data) return []
 
   return data.map(src => ({
     id: src.id,
     source_name: src.source_name,
     payout_count: src.payouts?.length ?? 0,
-    total_earned: src.payouts?.reduce((sum: number, p: any) => {
-      return sum + Number(p.amount || 0)
-    }, 0) ?? 0
+    total_earned:
+      src.payouts?.reduce(
+        (sum: number, p: any) => sum + Number(p.amount || 0),
+        0
+      ) ?? 0
   }))
 }
 
@@ -157,7 +152,7 @@ export async function getAdminMonthlyTrends(): Promise<MonthlyTrend[]> {
     .from('v_admin_monthly_trends')
     .select('*')
 
-  return error ? [] : (data as MonthlyTrend[])
+  return error || !data ? [] : data
 }
 
 /* ================================
@@ -172,12 +167,11 @@ export async function getAdminRecentPayouts(): Promise<RecentPayout[]> {
     .select('*')
     .order('payout_date', { ascending: false })
 
-  if (error || !data) return []
-  return data as RecentPayout[]
+  return error || !data ? [] : data
 }
 
 /* ================================
-   ALL USERS
+   ALL USERS (base table)
 ================================ */
 
 export async function getAllUsers(): Promise<AppUser[]> {
@@ -186,8 +180,9 @@ export async function getAllUsers(): Promise<AppUser[]> {
   const { data, error } = await supabase
     .from('users')
     .select('*')
+    .order('created_at', { ascending: false })
 
-  return error ? [] : (data as AppUser[])
+  return error || !data ? [] : data
 }
 
 /* ================================
@@ -201,8 +196,7 @@ export async function getAdminEarningsBySource(): Promise<EarningsBySource[]> {
     .from('v_admin_earnings_by_source')
     .select('*')
 
-  if (error || !data) return []
-  return data as EarningsBySource[]
+  return error || !data ? [] : data
 }
 
 /* ================================
@@ -217,8 +211,7 @@ export async function getAdminUserOverview(): Promise<AdminUserOverview[]> {
     .select('*')
     .order('lifetime_earned', { ascending: false })
 
-  if (error || !data) return []
-  return data as AdminUserOverview[]
+  return error || !data ? [] : data
 }
 
 /* ================================
@@ -241,12 +234,7 @@ export async function getUserPortfolio(userId: string) {
     `)
     .eq('user_id', userId)
 
-  if (error) {
-    console.error('getUserPortfolio error', error)
-    return []
-  }
-
-  return data || []
+  return error || !data ? [] : data
 }
 
 /* ================================
@@ -270,10 +258,5 @@ export async function getUserPayoutLedger(userId: string) {
     .eq('user_id', userId)
     .order('payment_date', { ascending: false })
 
-  if (error) {
-    console.error('getUserPayoutLedger error', error)
-    return []
-  }
-
-  return data || []
+  return error || !data ? [] : data
 }
