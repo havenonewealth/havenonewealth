@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { createClient } from '@/lib/supabaseClient'
 
 interface Props {
     open: boolean
@@ -10,7 +9,6 @@ interface Props {
 }
 
 export default function CreateUserModal({ open, setOpen, onCreated }: Props) {
-    const supabase = createClient()
 
     const [email, setEmail] = useState('')
     const [role, setRole] = useState('earner')
@@ -18,7 +16,7 @@ export default function CreateUserModal({ open, setOpen, onCreated }: Props) {
     const [error, setError] = useState('')
     const [success, setSuccess] = useState(false)
 
-    // Reset modal state every time it opens
+    // Reset modal fields each time it opens
     useEffect(() => {
         if (open) {
             setEmail('')
@@ -35,7 +33,7 @@ export default function CreateUserModal({ open, setOpen, onCreated }: Props) {
         setError('')
         setSuccess(false)
 
-        // Basic email validation only (no domain restrictions)
+        // Basic email validation
         if (!email.trim() || !email.includes('@')) {
             setError('Please enter a valid email address.')
             return
@@ -43,26 +41,40 @@ export default function CreateUserModal({ open, setOpen, onCreated }: Props) {
 
         setLoading(true)
 
-        const { error: signUpError } = await supabase.auth.admin.createUser({
-            email,
-            email_confirm: true,
-            user_metadata: { role }
-        })
+        try {
+            const res = await fetch(
+                `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/create_user`,
+                {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        Authorization: `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY}`
+                    },
+                    body: JSON.stringify({ email, role })
+                }
+            )
 
-        setLoading(false)
+            const data = await res.json()
 
-        if (signUpError) {
-            setError(signUpError.message)
-            return
+            if (!res.ok) {
+                setError(data.error || 'Failed to create user.')
+                setLoading(false)
+                return
+            }
+
+            setSuccess(true)
+            onCreated()
+
+            // Close after success
+            setTimeout(() => {
+                setOpen(false)
+            }, 1200)
+
+        } catch (err: any) {
+            setError(err.message || 'Unexpected error occurred.')
         }
 
-        setSuccess(true)
-        onCreated()
-
-        // Close after short delay
-        setTimeout(() => {
-            setOpen(false)
-        }, 1200)
+        setLoading(false)
     }
 
     return (

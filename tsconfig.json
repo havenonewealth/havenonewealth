@@ -41,6 +41,7 @@
     "**/*.mts"
   ],
   "exclude": [
-    "node_modules"
+    "node_modules",
+    "supabase/functions"       // <-- ADDED: prevents Next.js from type-checking Deno functions
   ]
 }

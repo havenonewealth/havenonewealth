@@ -1,0 +1,6 @@
+{
+  "imports": {
+    "@std/": "jsr:@std/",
+    "@supabase/": "jsr:@supabase/"
+  }
+}
